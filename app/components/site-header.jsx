@@ -1,8 +1,20 @@
-"use client";
+"use client"
 
 import { Bell, LogOut } from "lucide-react";
 import { Button } from "./ui/button"; 
 import { cn } from "@/lib/utils"
+=======
+import { Bell, LogOut } from "lucide-react";
+
+function getInitials(name) {
+  if (!name) return "SS";
+  const parts = name.trim().split(" ");
+  const first = parts[0]?.[0] ?? "";
+  const last = parts[1]?.[0] ?? "";
+  return (first + last || first || "SS").toUpperCase();
+}
+
+
 export default function SiteHeader({
   isAuthenticated = false,
   userName = null,
@@ -35,6 +47,15 @@ export default function SiteHeader({
               >
                 <Bell className="h-5 w-5 text-orange-500" />
               </Button>
+
+
+
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-teal-100 text-teal-700 text-xs">
+                  {getInitials(userName)}
+                </AvatarFallback>
+              </Avatar>
+
 
               <Button
                 variant="ghost"
