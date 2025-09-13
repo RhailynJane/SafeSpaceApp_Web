@@ -11,9 +11,9 @@ export function DashboardOverview({ userRole }) {
 
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard for {userRole}</h1>
+     
       <p className="text-muted-foreground">
-        Welcome to the SafeSpace platform. Your dashboard content goes here.
+        
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -73,5 +73,5 @@ export function DashboardOverview({ userRole }) {
   )
 }
 
-// ✅ Default export so Next.js can import this as <Dashboard />
+//  Default export so Next.js can import this as <Dashboard />
 export default DashboardOverview
