@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import SiteHeader from "./components/site-header";
-
+import Dashboard from "./dashboard/page"; // ✅ import your dashboard
+import InteractivePage from "./interactive/page"; // ✅ import your interactive page
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -48,7 +49,7 @@ export default function SafespacePlatform() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Include SiteHeader on all pages */}
+      {/* Always show header */}
       <SiteHeader
         isAuthenticated={isAuthed}
         userName={currentUser?.name ?? null}
@@ -56,6 +57,7 @@ export default function SafespacePlatform() {
       />
 
       {!isAuthed ? (
+        // 🔹 Login Page
         <section className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-gradient-to-br from-teal-50 to-green-100 p-4">
           <div className="w-full max-w-md bg-white p-6 rounded shadow">
             <div className="text-center mb-6">
@@ -73,6 +75,7 @@ export default function SafespacePlatform() {
               <p className="text-gray-600">Mental Health Support Platform</p>
             </div>
 
+            {/* Login Form */}
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block mb-1 font-medium">
@@ -113,6 +116,7 @@ export default function SafespacePlatform() {
                 Sign In
               </button>
 
+              {/* Demo Account Info */}
               <div className="text-sm text-gray-600 mt-4">
                 <p>
                   <strong>Demo Accounts:</strong>
@@ -126,11 +130,13 @@ export default function SafespacePlatform() {
           </div>
         </section>
       ) : (
+        // 🔹 After Login → Show Different Pages
         <div className="p-4">
-          <h2 className="text-xl font-bold mb-4">
-            Dashboard for {currentUser.name.split(" ")[0]} ({currentUser.role})
-          </h2>
-          <p>Welcome to the SafeSpace platform. Your dashboard content goes here.</p>
+          {currentUser.role === "support-worker" ? (
+            <InteractivePage />
+          ) : (
+            <Dashboard />
+          )}
         </div>
       )}
     </div>
