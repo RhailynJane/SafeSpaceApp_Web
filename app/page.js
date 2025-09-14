@@ -1,10 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Shield } from "lucide-react";
+import InteractiveDashboard from "../app/interactive/page.jsx";
+import SiteHeader from "@/components/site-header.jsx";
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -32,13 +41,12 @@ export default function SafespacePlatform() {
     },
   };
 
-
   const handleLogin = () => {
     const user = mockUsers[loginForm.email];
     if (user && loginForm.password === "demo123") {
       setCurrentUser(user);
     } else {
-      alert("Invalid credentials. Use password: demo123");
+      alert("Invalid credentials. Use demo123 as password.");
     }
   };
 
@@ -47,52 +55,81 @@ export default function SafespacePlatform() {
     setLoginForm({ email: "", password: "" });
   };
 
+  const isAuthed = Boolean(currentUser);
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      {!currentUser ? (
-        <Card className="max-w-md w-full">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-center">SafeSpace Login</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              />
-            </div>
-            <Button onClick={handleLogin} className="w-full bg-teal-600 text-white">
-              Sign In
-            </Button>
-            <div className="text-sm text-gray-500">
-              Demo Emails: <br />
-              admin@safespace.com <br />
-              worker@safespace.com <br />
-              leader@safespace.com <br />
-              Password: <strong>demo123</strong>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="min-h-screen bg-gray-50">
+      <SiteHeader
+        isAuthenticated={isAuthed}
+        userName={currentUser?.name ?? null}
+        onSignOut={handleLogout}
+      />
+
+      {!isAuthed ? (
+        <section className="flex min-h-[calc(100vh-56px)] items-center justify-center bg-gradient-to-br from-teal-50 to-green-100 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-600">
+                <img
+                  src="/images/logo.png"
+                  alt="SafeSpace Logo"
+                  className="h-10 w-10"
+                />
+              </div>
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                <span className="text-teal-600">Safe</span>
+                <span className="text-gray-900">Space</span>
+              </CardTitle>
+              <CardDescription>Mental Health Support Platform</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={loginForm.email}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, email: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={loginForm.password}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, password: e.target.value })
+                  }
+                />
+              </div>
+              <Button
+                onClick={handleLogin}
+                className="w-full bg-teal-600 hover:bg-teal-700"
+              >
+                Sign In
+              </Button>
+              <div className="space-y-1 text-sm text-gray-600">
+                <p>
+                  <strong>Demo Accounts:</strong>
+                </p>
+                <p>Admin: admin@safespace.com</p>
+                <p>Team Leader: leader@safespace.com</p>
+                <p>Support Worker: worker@safespace.com</p>
+                <p>Password: demo123</p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
       ) : (
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold">Welcome, {currentUser.name}!</h1>
-          <p className="text-gray-600">Role: {currentUser.role}</p>
-          <Button onClick={handleLogout} className="bg-red-500 text-white">
-            Sign Out
-          </Button>
-        </div>
+        <InteractiveDashboard
+          userRole={currentUser.role}
+          userName={currentUser.name.split(" ")[0]}
+        />
       )}
     </div>
   );
