@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Clock, FileText, Phone, Mail, MapPin, User, BarChart3 } from "lucide-react"
-import { DashboardOverview } from "../dashboard/page.jsx"
+import DashboardOverview  from "../dashboard/page.jsx"
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [clients] = useState([
