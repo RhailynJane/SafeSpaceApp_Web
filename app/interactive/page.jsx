@@ -1,41 +1,28 @@
+"use client";
 
-
-export default function InteractiveDashboard({ userRole, userName }) {
-  return (
-    <div className="p-8 text-center">
-      <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
-      <p>Welcome, {userName}!</p>
-      <p className="text-gray-600 mt-2">You are logged in as: <strong>{userRole}</strong></p>
-    </div>
-  );
-"use client"
-
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Clock, FileText, Phone, Mail, MapPin, User, BarChart3 } from "lucide-react"
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Clock, FileText, Phone, User, BarChart3 } from "lucide-react";
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [clients] = useState([
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
     { id: 2, name: "Bob Johnson", status: "Active", lastSession: "2024-01-08", riskLevel: "Medium" },
     { id: 3, name: "Carol Davis", status: "On Hold", lastSession: "2024-01-05", riskLevel: "High" },
-  ])
+  ]);
 
   const [schedule] = useState([
     { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
     { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
     { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
-  ])
+  ]);
 
-  const tabs =
-    userRole === "team-leader"
-      ? ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
-      : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
+  const tabs = ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
 
   return (
     <main className="p-6 space-y-6">
@@ -65,7 +52,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <CardDescription>Quick summary of your dashboard</CardDescription>
             </CardHeader>
             <CardContent>
-              <p>Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.</p>
+              <p>
+                Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
@@ -97,7 +86,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       >
                         {client.riskLevel} Risk
                       </Badge>
-                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>{client.status}</Badge>
+                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
+                        {client.status}
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -147,14 +138,12 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <CardDescription>Document and review client session notes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Recent Session Notes</h3>
-                  <Button>
-                    <FileText className="h-4 w-4 mr-2" />
-                    New Note
-                  </Button>
-                </div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Recent Session Notes</h3>
+                <Button>
+                  <FileText className="h-4 w-4 mr-2" />
+                  New Note
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -165,7 +154,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           <Card className="border-red-200 bg-red-50">
             <CardHeader>
               <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
-              <CardDescription className="text-red-700">Quick access to crisis intervention resources</CardDescription>
+              <CardDescription className="text-red-700">
+                Quick access to crisis intervention resources
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -242,6 +233,5 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsContent>
       </Tabs>
     </main>
-  )
+  );
 }
-
