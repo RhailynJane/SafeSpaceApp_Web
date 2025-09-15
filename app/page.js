@@ -1,8 +1,23 @@
 "use client";
 
 import { useState } from "react";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Shield } from "lucide-react";
+import InteractiveDashboard from "../app/interactive/page.jsx";
+import SiteHeader from "@/components/site-header.jsx";
 import SiteHeader from "./components/site-header";
 import InteractivePage from "./interactive/page"; // ✅ keep only interactive page
+
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -48,12 +63,66 @@ export default function SafespacePlatform() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+
       {/* Always show header */}
+
       <SiteHeader
         isAuthenticated={isAuthed}
         userName={currentUser?.name ?? null}
         onSignOut={handleLogout}
       />
+
+
+      {!isAuthed ? (
+        <section className="flex min-h-[calc(100vh-56px)] items-center justify-center bg-gradient-to-br from-teal-50 to-green-100 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-600">
+                <img
+                  src="/images/logo.png"
+                  alt="SafeSpace Logo"
+                  className="h-10 w-10"
+                />
+              </div>
+              <CardTitle className="text-2xl font-bold text-gray-900">
+                <span className="text-teal-600">Safe</span>
+                <span className="text-gray-900">Space</span>
+              </CardTitle>
+              <CardDescription>Mental Health Support Platform</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={loginForm.email}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, email: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={loginForm.password}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, password: e.target.value })
+                  }
+                />
+              </div>
+              <Button
+                onClick={handleLogin}
+                className="w-full bg-teal-600 hover:bg-teal-700"
+              >
+                Sign In
+              </Button>
+              <div className="space-y-1 text-sm text-gray-600">
+
 
       {!isAuthed ? (
         // 🔹 Login Page
@@ -117,6 +186,7 @@ export default function SafespacePlatform() {
 
               {/* Demo Account Info */}
               <div className="text-sm text-gray-600 mt-4">
+
                 <p>
                   <strong>Demo Accounts:</strong>
                 </p>
@@ -125,6 +195,16 @@ export default function SafespacePlatform() {
                 <p>Support Worker: worker@safespace.com</p>
                 <p>Password: demo123</p>
               </div>
+
+            </CardContent>
+          </Card>
+        </section>
+      ) : (
+        <InteractiveDashboard
+          userRole={currentUser.role}
+          userName={currentUser.name.split(" ")[0]}
+        />
+
             </div>
           </div>
         </section>
@@ -133,6 +213,7 @@ export default function SafespacePlatform() {
         <div className="p-4">
           <InteractivePage />
         </div>
+
       )}
     </div>
   );
