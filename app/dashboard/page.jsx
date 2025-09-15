@@ -1,10 +1,36 @@
 "use client"
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Users, AlertTriangle, FileText, Calendar, UserCheck } from "lucide-react"
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye } from "lucide-react"
 
 export function DashboardOverview({ userRole }) {
   const metrics = getMetricsForRole(userRole)
+
+  const [notifications] = useState([
+    {
+      id: "1",
+      type: "referral",
+      title: "New client referral available",
+      time: "2 hours ago",
+      priority: "normal",
+    },
+    {
+      id: "2",
+      type: "appointment",
+      title: "Appointment reminder: John Doe at 10:30 AM",
+      time: "30 minutes ago",
+      priority: "normal",
+    },
+    {
+      id: "3",
+      type: "crisis",
+      title: "High-risk client flagged: Sarah Johnson",
+      time: "1 hour ago",
+      priority: "high",
+    },
+  ])
 
   return (
     <div className="space-y-6">
@@ -26,6 +52,44 @@ export function DashboardOverview({ userRole }) {
           </Card>
         ))}
       </div>
+
+      {/* Notifications Section */}
+      <Card className="bg-teal-50 border-teal-200">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-semibold">Recent Notifications</CardTitle>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`p-3 rounded-lg border ${
+                notification.priority === "high" ? "bg-red-50 border-red-200" : "bg-white border-gray-200"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`p-1 rounded ${
+                    notification.priority === "high" ? "bg-red-100 text-red-600" : "bg-teal-100 text-teal-600"
+                  }`}
+                >
+                  {getNotificationIcon(notification.type)}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                  <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -56,5 +120,19 @@ const getMetricsForRole = (userRole) => {
       ]
     default:
       return []
+  }
+}
+
+// Notification icon mapping
+const getNotificationIcon = (type) => {
+  switch (type) {
+    case "referral":
+      return <FileText className="h-4 w-4" />
+    case "appointment":
+      return <Clock className="h-4 w-4" />
+    case "crisis":
+      return <AlertTriangle className="h-4 w-4" />
+    default:
+      return <FileText className="h-4 w-4" />
   }
 }
