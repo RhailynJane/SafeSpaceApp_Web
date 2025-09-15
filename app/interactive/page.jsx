@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Clock, FileText, Phone, Mail, MapPin, User, BarChart3 } from "lucide-react"
-import DashboardOverview  from "../dashboard/page.jsx"
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [clients] = useState([
@@ -48,10 +47,20 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           ))}
         </TabsList>
 
+        {/* Overview Tab */}
         <TabsContent value="Overview" className="space-y-6">
-          <DashboardOverview userRole={userRole} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Overview</CardTitle>
+              <CardDescription>Quick summary of your dashboard</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.</p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
+        {/* Clients Tab */}
         <TabsContent value="Clients" className="space-y-6">
           <Card>
             <CardHeader>
@@ -87,6 +96,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </Card>
         </TabsContent>
 
+        {/* Schedule Tab */}
         <TabsContent value="Schedule" className="space-y-6">
           <Card>
             <CardHeader>
@@ -119,6 +129,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </Card>
         </TabsContent>
 
+        {/* Notes Tab */}
         <TabsContent value="Notes" className="space-y-6">
           <Card>
             <CardHeader>
@@ -139,6 +150,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </Card>
         </TabsContent>
 
+        {/* Crisis Tab */}
         <TabsContent value="Crisis" className="space-y-6">
           <Card className="border-red-200 bg-red-50">
             <CardHeader>
@@ -173,6 +185,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </Card>
         </TabsContent>
 
+        {/* Reports Tab */}
         <TabsContent value="Reports" className="space-y-6">
           <Card>
             <CardHeader>

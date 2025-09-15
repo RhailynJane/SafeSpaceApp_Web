@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import SiteHeader from "./components/site-header";
-import Dashboard from "./dashboard/page"; // ✅ import your dashboard
-import InteractivePage from "./interactive/page"; // ✅ import your interactive page
+import InteractivePage from "./interactive/page"; // ✅ keep only interactive page
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -130,13 +129,9 @@ export default function SafespacePlatform() {
           </div>
         </section>
       ) : (
-        // 🔹 After Login → Show Different Pages
+        // 🔹 After Login → Show Interactive Page for all roles
         <div className="p-4">
-          {currentUser.role === "support-worker" ? (
-            <InteractivePage />
-          ) : (
-            <Dashboard />
-          )}
+          <InteractivePage />
         </div>
       )}
     </div>
