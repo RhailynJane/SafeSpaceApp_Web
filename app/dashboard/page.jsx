@@ -3,7 +3,17 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import {
+  Users,
+  AlertTriangle,
+  FileText,
+  Calendar,
+  UserCheck,
+  Clock,
+  Eye,
+  Plus,
+} from "lucide-react"
 
 export function DashboardOverview({ userRole }) {
   const metrics = getMetricsForRole(userRole)
@@ -32,6 +42,30 @@ export function DashboardOverview({ userRole }) {
     },
   ])
 
+  const [todaySchedule] = useState([
+    {
+      id: "1",
+      clientName: "Emma Watson",
+      time: "10:00 AM",
+      type: "Initial Consultation",
+      status: "confirmed",
+    },
+    {
+      id: "2",
+      clientName: "David Chen",
+      time: "02:00 PM",
+      type: "Follow-up session",
+      status: "confirmed",
+    },
+    {
+      id: "3",
+      clientName: "Lisa Rodriguez",
+      time: "04:00 PM",
+      type: "Follow-up session",
+      status: "pending",
+    },
+  ])
+
   return (
     <div className="space-y-6">
       {/* Metrics Cards */}
@@ -53,48 +87,100 @@ export function DashboardOverview({ userRole }) {
         ))}
       </div>
 
-      {/* Notifications Section */}
-      <Card className="bg-teal-50 border-teal-200">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-lg font-semibold">Recent Notifications</CardTitle>
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`p-3 rounded-lg border ${
-                notification.priority === "high" ? "bg-red-50 border-red-200" : "bg-white border-gray-200"
-              }`}
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Notifications */}
+        <Card className="bg-teal-50 border-teal-200">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg font-semibold">Recent Notifications</CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
             >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`p-1 rounded ${
-                    notification.priority === "high" ? "bg-red-100 text-red-600" : "bg-teal-100 text-teal-600"
-                  }`}
-                >
-                  {getNotificationIcon(notification.type)}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                  <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+              <Eye className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`p-3 rounded-lg border ${
+                  notification.priority === "high"
+                    ? "bg-red-50 border-red-200"
+                    : "bg-white border-gray-200"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`p-1 rounded ${
+                      notification.priority === "high"
+                        ? "bg-red-100 text-red-600"
+                        : "bg-teal-100 text-teal-600"
+                    }`}
+                  >
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                    <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Today's Schedule */}
+        <Card className="bg-teal-50 border-teal-200">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {todaySchedule.map((appointment) => (
+              <div
+                key={appointment.id}
+                className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-teal-700">
+                      {appointment.clientName
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{appointment.clientName}</p>
+                    <p className="text-sm text-gray-600">{appointment.type}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">{appointment.time}</span>
+                  <Badge className={getStatusColor(appointment.status)}>
+                    {appointment.status}
+                  </Badge>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
 
-// Role-based metric definitions
+// Helpers
+
 const getMetricsForRole = (userRole) => {
   switch (userRole) {
     case "admin":
@@ -123,7 +209,6 @@ const getMetricsForRole = (userRole) => {
   }
 }
 
-// Notification icon mapping
 const getNotificationIcon = (type) => {
   switch (type) {
     case "referral":
@@ -134,5 +219,16 @@ const getNotificationIcon = (type) => {
       return <AlertTriangle className="h-4 w-4" />
     default:
       return <FileText className="h-4 w-4" />
+  }
+}
+
+const getStatusColor = (status) => {
+  switch (status) {
+    case "confirmed":
+      return "bg-teal-600 text-white"
+    case "pending":
+      return "bg-gray-400 text-white"
+    default:
+      return "bg-gray-400 text-white"
   }
 }
