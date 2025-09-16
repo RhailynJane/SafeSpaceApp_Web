@@ -133,7 +133,7 @@ export default function ReferralIntakePage() {
             {/* Page header with a title and a button to create a new referral. */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-xl font-bold text-gray-800">New Referrals</h1>
-                 <Link href="/referral-intake/create" className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors">
+                 <Link href="/admin/referral-intake/create" className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors">
                     <PlusIcon />
                     Create New Referral
                 </Link>
