@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -12,6 +13,8 @@ import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
 import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
+
+
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -59,8 +62,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
     { id: 2, name: "Bob Johnson", status: "Active", lastSession: "2024-01-08", riskLevel: "Medium" },
     { id: 3, name: "Carol Davis", status: "On Hold", lastSession: "2024-01-05", riskLevel: "High" },
-  ])
-
+    ])
   // Fixed: Added setSchedule function and date fields
   const [schedule, setSchedule] = useState([
     { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min", details: "Session on coping strategies.", date: "2024-09-16" },
@@ -150,6 +152,15 @@ ${appointment.details ? `Details: ${appointment.details}` : ''}`);
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
 
+  const [schedule] = useState([
+    { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
+    { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
+    { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
+  ]);
+
+  const tabs = ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
+
+
   return (
     <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -200,6 +211,19 @@ ${appointment.details ? `Details: ${appointment.details}` : ''}`);
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Overview</CardTitle>
+              <CardDescription>Quick summary of your dashboard</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>
+                Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.
+              </p>
+            </CardContent>
+          </Card>
+
         </TabsContent>
 
         {/* Referrals */}
@@ -278,7 +302,9 @@ ${appointment.details ? `Details: ${appointment.details}` : ''}`);
                       >
                         {client.riskLevel} Risk
                       </Badge>
-                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>{client.status}</Badge>
+                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
+                        {client.status}
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -409,6 +435,14 @@ ${appointment.details ? `Details: ${appointment.details}` : ''}`);
                     </div>
                   ))}
                 </div>
+
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Recent Session Notes</h3>
+                <Button>
+                  <FileText className="h-4 w-4 mr-2" />
+                  New Note
+                </Button>
+
               </div>
             </CardContent>
           </Card>
@@ -518,6 +552,22 @@ ${appointment.details ? `Details: ${appointment.details}` : ''}`);
                         <SelectItem value="crisis">Crisis Interventions</SelectItem>
                       </SelectContent>
                     </Select>
+
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
+              <CardDescription className="text-red-700">
+                Quick access to crisis intervention resources
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button className="bg-red-600 hover:bg-red-700 h-16">
+                  <div className="text-center">
+                    <Phone className="h-6 w-6 mx-auto mb-1" />
+                    <div className="text-sm">Emergency Services</div>
+                    <div className="text-xs">911</div>
+
                   </div>
                   <div className="space-y-2">
                     <Label>Date Range</Label>
@@ -640,5 +690,10 @@ ${appointment.details ? `Details: ${appointment.details}` : ''}`);
         )}
       </Tabs>
     </main>
+
   )
 }
+
+  );
+}
+
