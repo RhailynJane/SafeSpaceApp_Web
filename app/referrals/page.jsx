@@ -205,6 +205,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     },
   ])
 
+  // Helper function : Map status to icon components with colors
   const getStatusIcon = (status) => {
     switch (status) {
       case "submitted":
@@ -227,6 +228,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     }
   }
 
+  // Helper function : Map status to badge colors
   const getStatusColor = (status) => {
     switch (status) {
       case "submitted":
@@ -249,6 +251,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     }
   }
 
+  // Arrow (Helper) function: Map priority to badge colors
   const getPriorityColor = (priority) => {
     switch (priority) {
       case "Critical":
@@ -274,5 +277,190 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     return matchesSearch && matchesStatus && matchesPriority
   })
 
-   return <div>Filtered referrals count: {filteredReferrals.length}</div>
+    // calculate stats for overview cards
+    const getStatusStats = () => {
+    const stats = {
+      total: trackedReferrals.length,
+      pending: trackedReferrals.filter((r) => r.currentStatus === "pending").length,
+      inProgress: trackedReferrals.filter((r) =>
+        ["accepted", "assigned", "in-progress", "in-review"].includes(r.currentStatus),
+      ).length,
+      completed: trackedReferrals.filter((r) => r.currentStatus === "completed").length,
+      needsAttention: trackedReferrals.filter((r) => ["info-requested", "declined"].includes(r.currentStatus)).length,
+    }
+    return stats
+  }
+
+  const stats = getStatusStats()
+
+  return (
+    <div className="space-y-6">
+      {/* Status Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Referrals</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              </div>
+              <div className="p-2 bg-blue-100 rounded-full">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending Review</p>
+                <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+              </div>
+              <div className="p-2 bg-yellow-100 rounded-full">
+                <Clock className="h-5 w-5 text-yellow-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold text-green-600">{stats.inProgress}</p>
+              </div>
+              <div className="p-2 bg-green-100 rounded-full">
+                <UserCheck className="h-5 w-5 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Needs Attention</p>
+                <p className="text-2xl font-bold text-red-600">{stats.needsAttention}</p>
+              </div>
+              <div className="p-2 bg-red-100 rounded-full">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Referral Status Tracking
+          </CardTitle>
+          <CardDescription>Monitor the progress of all referrals from submission to completion</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by client name or referral source..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in-review">In Review</SelectItem>
+                  <SelectItem value="accepted">Accepted</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="declined">Declined</SelectItem>
+                  <SelectItem value="info-requested">Info Requested</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priority</SelectItem>
+                  <SelectItem value="Critical">Critical</SelectItem>
+                  <SelectItem value="High">High</SelectItem>
+                  <SelectItem value="Medium">Medium</SelectItem>
+                  <SelectItem value="Low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Referrals List */}
+          <div className="space-y-4">
+            {filteredReferrals.map((referral) => (
+              <div key={referral.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold text-lg">{referral.clientName}</h3>
+                  <Badge className={getPriorityColor(referral.priority)}>{referral.priority}</Badge>
+                  <Badge className={getStatusColor(referral.currentStatus)}>
+                    <div className="flex items-center gap-1">
+                      {getStatusIcon(referral.currentStatus)}
+                      <span>{referral.currentStatus.replace(/-/g, " ")}</span>
+                    </div>
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => {
+                      setSelectedReferral(referral)
+                      setShowDetails(true)
+                    }}
+                  >
+                    Details <ArrowRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-500">{`Referral source: ${referral.referralSource}`}</p>
+                <p className="text-sm text-gray-500">{`Submitted: ${referral.submissionDate}`}</p>
+              </div>
+            ))}
+            {filteredReferrals.length === 0 && (
+              <p className="text-center text-gray-500">No referrals match your filters or search.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Referral Details Modal */}
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Referral Details</DialogTitle>
+            <DialogDescription>More information will be displayed here.</DialogDescription>
+          </DialogHeader>
+          {/* Future detail content */}
+          <Button variant="outline" onClick={() => setShowDetails(false)}>
+            Close
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
 }
+
+   
