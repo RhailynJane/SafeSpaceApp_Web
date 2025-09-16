@@ -13,6 +13,7 @@ import { AdminDashboard } from "../admin/page.jsx"
 import { DashboardOverview } from "../dashboard/page.jsx"
 import ClientActionButtons from "@/components/ClientActionButtons.jsx"
 
+
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
     {
@@ -59,67 +60,17 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
     { id: 2, name: "Bob Johnson", status: "Active", lastSession: "2024-01-08", riskLevel: "Medium" },
     { id: 3, name: "Carol Davis", status: "On Hold", lastSession: "2024-01-05", riskLevel: "High" },
-  ])
+  ]);
 
   const [schedule] = useState([
     { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
     { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
     { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
-  ])
+  ]);
 
-  const handleAcceptReferral = (id) => {
-    setReferrals((prev) =>
-      prev.map((ref) =>
-        ref.id === id
-          ? {
-            ...ref,
-            status: "accepted",
-            processedDate: new Date().toISOString().split("T")[0],
-            processedBy: userName,
-          }
-          : ref,
-      ),
-    )
-  }
 
-  const handleDeclineReferral = (id) => {
-    setReferrals((prev) =>
-      prev.map((ref) =>
-        ref.id === id
-          ? {
-            ...ref,
-            status: "declined",
-            processedDate: new Date().toISOString().split("T")[0],
-            processedBy: userName,
-          }
-          : ref,
-      ),
-    )
-  }
+  const tabs = ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
 
-  const handleRequestMoreInfo = (id) => {
-    setReferrals((prev) =>
-      prev.map((ref) =>
-        ref.id === id
-          ? {
-            ...ref,
-            status: "more-info-requested",
-            processedDate: new Date().toISOString().split("T")[0],
-            processedBy: userName,
-          }
-          : ref,
-      ),
-    )
-  }
-
-  if (userRole === "admin") {
-    return <AdminDashboard />
-  }
-
-  const tabs =
-    userRole === "team-leader"
-      ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
-      : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
 
   return (
     <main className="p-6 space-y-6">
@@ -144,7 +95,19 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsList>
 
         <TabsContent value="Overview" className="space-y-6">
-          <DashboardOverview userRole={userRole} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Overview</CardTitle>
+              <CardDescription>Quick summary of your dashboard</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>
+                Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.
+              </p>
+            </CardContent>
+          </Card>
+
         </TabsContent>
 
         {userRole === "team-leader" && (
@@ -310,7 +273,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       >
                         {client.riskLevel} Risk
                       </Badge>
-                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>{client.status}</Badge>
+                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
+                        {client.status}
+                      </Badge>
                     </div>
                     <ClientActionButtons client={client} />
                   </div>
@@ -359,138 +324,55 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <CardDescription>Document and review client session notes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Recent Session Notes</h3>
-                  <Button>
-                    <FileText className="h-4 w-4 mr-2" />
-                    New Note
-                  </Button>
-                </div>
 
-                <div className="space-y-3">
-                  {[
-                    {
-                      client: "Alice Smith",
-                      date: "2024-01-15",
-                      type: "Individual Session",
-                      summary: "Client showed improvement in anxiety management techniques.",
-                    },
-                    {
-                      client: "Bob Johnson",
-                      date: "2024-01-14",
-                      type: "Group Therapy",
-                      summary: "Participated actively in group discussion about coping strategies.",
-                    },
-                    {
-                      client: "Carol Davis",
-                      date: "2024-01-12",
-                      type: "Assessment",
-                      summary: "Initial assessment completed. Recommended weekly individual sessions.",
-                    },
-                  ].map((note, index) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{note.client}</h4>
-                        <span className="text-sm text-gray-500">{note.date}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">{note.type}</p>
-                      <p className="text-sm">{note.summary}</p>
-                      <div className="flex gap-2 mt-3">
-                        <Button variant="outline" size="sm">
-                          View Full Note
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          Edit
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Recent Session Notes</h3>
+                <Button>
+                  <FileText className="h-4 w-4 mr-2" />
+                  New Note
+                </Button>
+
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="Crisis" className="space-y-6">
-          <div className="grid gap-6">
-            <Card className="border-red-200 bg-red-50">
-              <CardHeader>
-                <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
-                <CardDescription className="text-red-700">
-                  Quick access to crisis intervention resources
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button className="bg-red-600 hover:bg-red-700 h-16">
-                    <div className="text-center">
-                      <Phone className="h-6 w-6 mx-auto mb-1" />
-                      <div className="text-sm">Emergency Services</div>
-                      <div className="text-xs">911</div>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
-                    <div className="text-center">
-                      <Phone className="h-6 w-6 mx-auto mb-1" />
-                      <div className="text-sm">Crisis Hotline</div>
-                      <div className="text-xs">988</div>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
-                    <div className="text-center">
-                      <User className="h-6 w-6 mx-auto mb-1" />
-                      <div className="text-sm">Supervisor</div>
-                      <div className="text-xs">On-call</div>
-                    </div>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>High-Risk Clients</CardTitle>
-                <CardDescription>Monitor clients requiring immediate attention</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    {
-                      name: "Carol Davis",
-                      risk: "High",
-                      lastContact: "2024-01-15",
-                      reason: "Expressed suicidal ideation",
-                      status: "Active monitoring",
-                    },
-                    {
-                      name: "David Wilson",
-                      risk: "Medium",
-                      lastContact: "2024-01-14",
-                      reason: "Substance abuse relapse",
-                      status: "Weekly check-ins",
-                    },
-                  ].map((client, index) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{client.name}</h4>
-                        <Badge variant={client.risk === "High" ? "destructive" : "default"}>{client.risk} Risk</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">Last contact: {client.lastContact}</p>
-                      <p className="text-sm mb-2">{client.reason}</p>
-                      <p className="text-sm text-blue-600">{client.status}</p>
-                      <div className="flex gap-2 mt-3">
-                        <Button size="sm">Contact Now</Button>
-                        <Button variant="outline" size="sm">
-                          Update Status
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
+              <CardDescription className="text-red-700">
+                Quick access to crisis intervention resources
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button className="bg-red-600 hover:bg-red-700 h-16">
+                  <div className="text-center">
+                    <Phone className="h-6 w-6 mx-auto mb-1" />
+                    <div className="text-sm">Emergency Services</div>
+                    <div className="text-xs">911</div>
+                  </div>
+                </Button>
+                <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <div className="text-center">
+                    <Phone className="h-6 w-6 mx-auto mb-1" />
+                    <div className="text-sm">Crisis Hotline</div>
+                    <div className="text-xs">988</div>
+                  </div>
+                </Button>
+                <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <div className="text-center">
+                    <User className="h-6 w-6 mx-auto mb-1" />
+                    <div className="text-sm">Supervisor</div>
+                    <div className="text-xs">On-call</div>
+                  </div>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
         </TabsContent>
 
         <TabsContent value="Reports" className="space-y-6">
@@ -580,5 +462,5 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         )}
       </Tabs>
     </main>
-  )
+  );
 }
