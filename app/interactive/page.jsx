@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react"
 import { ReferralStatusTracker } from "../referrals/page.jsx"
-import { AdminDashboard } from "../admin/page.jsx"
+
 import { DashboardOverview } from "../dashboard/page.jsx"
 import ClientActionButtons from "@/components/ClientActionButtons.jsx"
+import ReferralActions from "@/components/ReferralActions.jsx"
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -53,6 +54,24 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
       processedDate: "2024-01-14",
       processedBy: "Team Leader",
     },
+    {
+      id: "3",
+      clientName: "Emma Davis",
+      age: 42,
+      referralSource: "Hospital Emergency Department",
+      reason: "Crisis intervention needed for severe depression",
+      priority: "Critical",
+      submittedDate: "2024-01-16",
+      status: "pending",
+      contactInfo: {
+        phone: "(555) 345-6789",
+        email: "emma.davis@email.com",
+        address: "789 Pine St, City, State 12345",
+        emergencyContact: "Robert Davis (Husband) - (555) 654-3210",
+      },
+      additionalNotes: "Patient was brought in after suicide attempt. Requires immediate attention.",
+      submittedBy: "ER Social Worker",
+    },
   ])
 
   const [clients] = useState([
@@ -66,6 +85,15 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
     { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
   ])
+
+  // Handler for updating referral status
+  const handleReferralStatusUpdate = (referralId, updatedReferral) => {
+    setReferrals((prevReferrals) =>
+      prevReferrals.map((ref) =>
+        ref.id === referralId ? updatedReferral : ref
+      )
+    );
+  };
 
   const handleAcceptReferral = (id) => {
     setReferrals((prev) =>
@@ -163,6 +191,11 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 <CardContent className="space-y-4">
                   {referrals
                     .filter((r) => r.status === "pending")
+                    .sort((a, b) => {
+                      // Sort by priority: Critical > High > Medium > Low
+                      const priorityOrder = { "Critical": 4, "High": 3, "Medium": 2, "Low": 1 };
+                      return priorityOrder[b.priority] - priorityOrder[a.priority];
+                    })
                     .map((referral) => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
@@ -172,17 +205,26 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                               <div>Age: {referral.age}</div>
                               <div>
                                 Priority:{" "}
-                                <Badge
-                                  variant={
-                                    referral.priority === "High"
-                                      ? "destructive"
-                                      : referral.priority === "Medium"
-                                        ? "default"
-                                        : "secondary"
-                                  }
-                                >
-                                  {referral.priority}
-                                </Badge>
+                               <Badge
+                                variant={
+                                  referral.priority === "Critical"
+                                    ? "destructive"
+                                    : referral.priority === "High"
+                                    ? "default"
+                                    : referral.priority === "Medium"
+                                    ? "secondary"
+                                    : "outline"
+                                }
+                                className={
+                                  referral.priority === "Critical" 
+                                    ? "bg-red-600 text-white animate-pulse" 
+                                    : referral.priority === "High"
+                                    ? "bg-orange-500 text-white"
+                                    : ""
+                                }
+                              >
+                                {referral.priority} Priority
+                              </Badge>  
                               </div>
                               <div>Source: {referral.referralSource}</div>
                               <div>Submitted: {referral.submittedDate}</div>
@@ -224,28 +266,21 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                           </div>
                         )}
 
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            onClick={() => handleAcceptReferral(referral.id)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Accept
-                          </Button>
-                          <Button variant="destructive" onClick={() => handleDeclineReferral(referral.id)}>
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Decline
-                          </Button>
-                          <Button variant="outline" onClick={() => handleRequestMoreInfo(referral.id)}>
-                            <Info className="h-4 w-4 mr-2" />
-                            Request More Info
-                          </Button>
-                        </div>
+                        <ReferralActions 
+                          referral={referral}
+                          onStatusUpdate={handleReferralStatusUpdate}
+                          userRole={userRole}
+                        />
                       </div>
                     ))}
-                  {referrals.filter((r) => r.status === "pending").length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No pending referrals</p>
+                   {referrals.filter((r) => r.status === "pending").length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
+                      <p className="text-sm">All referrals have been processed.</p>
+                    </div>
                   )}
+
                 </CardContent>
               </Card>
 
@@ -272,6 +307,10 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                                   ? "destructive"
                                   : "secondary"
                             }
+                            className={
+                                referral.status === "accepted" ? "bg-green-600" :
+                                referral.status === "more-info-requested" ? "bg-orange-100 text-orange-800" : ""
+                              }
                           >
                             {referral.status.replace("-", " ")}
                           </Badge>
