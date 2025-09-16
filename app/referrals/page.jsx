@@ -30,6 +30,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   
+  // Mock data
   const [trackedReferrals] = useState([
     {
       id: "1",
@@ -414,33 +415,81 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
           <div className="space-y-4">
             {filteredReferrals.map((referral) => (
               <div key={referral.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
-                <div className="flex items-center gap-3">
-                  <h3 className="font-semibold text-lg">{referral.clientName}</h3>
-                  <Badge className={getPriorityColor(referral.priority)}>{referral.priority}</Badge>
-                  <Badge className={getStatusColor(referral.currentStatus)}>
-                    <div className="flex items-center gap-1">
-                      {getStatusIcon(referral.currentStatus)}
-                      <span>{referral.currentStatus.replace(/-/g, " ")}</span>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-3 flex-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold text-lg">{referral.clientName}</h3>
+                      <Badge className={getPriorityColor(referral.priority)}>{referral.priority}</Badge>
+                      <Badge className={getStatusColor(referral.currentStatus)}>
+                        <div className="flex items-center gap-1">
+                          {getStatusIcon(referral.currentStatus)}
+                          {referral.currentStatus.replace("-", " ").toUpperCase()}
+                        </div>
+                      </Badge>
                     </div>
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-auto"
-                    onClick={() => {
-                      setSelectedReferral(referral)
-                      setShowDetails(true)
-                    }}
-                  >
-                    Details <ArrowRight className="ml-1 h-4 w-4" />
-                  </Button>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        <span>Age: {referral.age}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        <span>{referral.referralSource}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>Submitted: {referral.submittedDate}</span>
+                      </div>
+                    </div>
+
+                    {referral.assignedTo && (
+                      <div className="flex items-center gap-2 text-sm text-teal-600">
+                        <UserCheck className="h-4 w-4" />
+                        <span>Assigned to: {referral.assignedTo}</span>
+                      </div>
+                    )}
+
+                    {/* Status Timeline Preview */}
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>Progress:</span>
+                      <div className="flex items-center gap-1">
+                        {referral.statusHistory.slice(-3).map((history, index) => (
+                          <div key={history.id} className="flex items-center gap-1">
+                            {index > 0 && <ArrowRight className="h-3 w-3" />}
+                            <div className="flex items-center gap-1">
+                              {getStatusIcon(history.status)}
+                              <span className="capitalize">{history.status.replace("-", " ")}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ml-4 flex flex-col gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedReferral(referral)
+                        setShowDetails(true)
+                      }}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      View Timeline
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-sm text-gray-500">{`Referral source: ${referral.referralSource}`}</p>
-                <p className="text-sm text-gray-500">{`Submitted: ${referral.submissionDate}`}</p>
               </div>
             ))}
+
             {filteredReferrals.length === 0 && (
-              <p className="text-center text-gray-500">No referrals match your filters or search.</p>
+              <div className="py-12 text-center text-gray-500">
+                <FileText className="mx-auto mb-4 h-16 w-16 opacity-50" />
+                <h3 className="text-lg font-medium mb-2">No referrals found</h3>
+                <p className="text-sm">Try adjusting your search or filter criteria.</p>
+              </div>
             )}
           </div>
         </CardContent>
@@ -448,19 +497,109 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
 
       {/* Referral Details Modal */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Referral Details</DialogTitle>
-            <DialogDescription>More information will be displayed here.</DialogDescription>
+            <DialogTitle>Referral Timeline - {selectedReferral?.clientName}</DialogTitle>
+            <DialogDescription>Complete status history and processing timeline</DialogDescription>
           </DialogHeader>
-          {/* Future detail content */}
-          <Button variant="outline" onClick={() => setShowDetails(false)}>
-            Close
-          </Button>
+
+          {selectedReferral && (
+            <div className="space-y-6">
+              {/* Referral Summary */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Client</p>
+                  <p className="font-semibold">{selectedReferral.clientName}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Current Status</p>
+                  <Badge className={getStatusColor(selectedReferral.currentStatus)}>
+                    {selectedReferral.currentStatus.replace("-", " ").toUpperCase()}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Priority</p>
+                  <Badge className={getPriorityColor(selectedReferral.priority)}>{selectedReferral.priority}</Badge>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Referral Source</p>
+                  <p>{selectedReferral.referralSource}</p>
+                </div>
+                {selectedReferral.assignedTo && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Assigned To</p>
+                    <p>{selectedReferral.assignedTo}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Submitted By</p>
+                  <p>{selectedReferral.submittedBy}</p>
+                </div>
+              </div>
+
+              {/* Status Timeline */}
+              <div>
+                <h3 className="font-semibold mb-4">Status Timeline</h3>
+                <div className="space-y-4">
+                  {selectedReferral.statusHistory.map((history, index) => (
+                    <div key={history.id} className="flex items-start gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="p-2 bg-white border-2 border-gray-200 rounded-full">
+                          {getStatusIcon(history.status)}
+                        </div>
+                        {index < selectedReferral.statusHistory.length - 1 && (
+                          <div className="w-px h-8 bg-gray-200 mt-2" />
+                        )}
+                      </div>
+                      <div className="flex-1 pb-4">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge className={getStatusColor(history.status)}>
+                            {history.status.replace("-", " ").toUpperCase()}
+                          </Badge>
+                          <span className="text-sm text-gray-500">{history.timestamp}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-xs bg-teal-100 text-teal-700">
+                              {history.processedBy.split("@")[0].charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium">{history.processedBy}</span>
+                        </div>
+                        {history.notes && (
+                          <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">{history.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Referral Details */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-4">Referral Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="font-medium text-gray-600">Contact Email</p>
+                    <p>{selectedReferral.contactEmail}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-600">Contact Phone</p>
+                    <p>{selectedReferral.contactPhone}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="font-medium text-gray-600">Reason for Referral</p>
+                    <p className="mt-1">{selectedReferral.reason}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
   )
 }
 
-   
+
+          
