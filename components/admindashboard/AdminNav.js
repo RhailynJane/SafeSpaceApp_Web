@@ -17,7 +17,7 @@ export default function AdminNav() {
     const navLinks = [
         { name: 'Overview', href: '/overview' },
         { name: 'Users', href: '/users' },
-        { name: 'Referral Intake', href: '/referral-intake' },
+        { name: 'Referral Intake', href: '/admin/referral-intake' },
         { name: 'Referral Tracking', href: '/referral-tracking' },
         { name: 'System Monitoring', href: '/system-monitoring' },
         { name: 'Audit & Compliance', href: '/audit-compliance' },

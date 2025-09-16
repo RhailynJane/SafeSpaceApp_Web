@@ -22,7 +22,7 @@ const SignOutIcon = () => (
 // Configuration for the navigation tabs. Each object contains the name and the link href.
 const tabs = [
   { name: 'Overview', href: '/overview' },
-  { name: 'Referral', href: '/referral-intake' },
+  { name: 'Referral', href: '/admin/referral-intake' },
   { name: 'Clients', href: '/users' },
   { name: 'Schedule', href: '/Schedule' },
   { name: 'Notes', href: '/Notes' },

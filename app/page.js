@@ -8,19 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import SiteHeader from "@/components/site-header";
 import InteractiveDashboard from "./interactive/page"; // only interactive dashboard
-import OverviewPage from "./(admin)/overview/page";
+import OverviewPage from "./admin/overview/page";
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const router = useRouter();
-
-  // No redirection needed, the component will render the correct dashboard based on role
-  // useEffect(() => {
-  //   if (currentUser && currentUser.role === 'admin') {
-  //     router.push('/overview');
-  //   }
-  // }, [currentUser, router]);
 
   // Mock users for demo
   const mockUsers = {
@@ -44,6 +37,13 @@ export default function SafespacePlatform() {
   };
 
   const isAuthed = Boolean(currentUser);
+
+  // Redirect to admin dashboard if admin user logs in
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'admin') {
+      router.push('/admin/overview');
+    }
+  }, [currentUser, router]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,7 +101,8 @@ export default function SafespacePlatform() {
       ) : (
                 // After Login → Show Dashboard based on user role
         currentUser.role === 'admin' ? (
-          <OverviewPage />
+          // Redirect to /admin/overview to use the admin layout
+          null // Render nothing here, as the redirect will handle navigation
         ) : (
           <InteractiveDashboard
             userRole={currentUser.role}

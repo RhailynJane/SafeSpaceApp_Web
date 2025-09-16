@@ -24,6 +24,18 @@ The following branches will be created, each from the `main` branch. Each branch
 *   The basic project structure is in place.
 *   A mock authentication system is implemented.
 *   The branching strategy has been defined and documented in this file.
+*   The `@radix-ui/react-avatar` package was installed.
+*   The `AdminHeader` component's "Overview" tab now correctly links to `/overview`.
+*   The `DashboardOverview` component (originally from `app/dashboard/page.jsx`) has been moved to `app/(admin)/overview/page.js` and its export changed to `default`.
+*   `app/page.js` has been modified to:
+    *   Import `OverviewPage` (the content of `app/(admin)/overview/page.js`).
+    *   Conditionally render `OverviewPage` for admin users directly after login, instead of redirecting.
+    *   The `useEffect` hook for redirection has been commented out.
+    *   Imports for `AdminHeader` and `DashboardOverview` have been removed from `app/page.js` as they are now handled by the admin layout.
+*   Missing `Edit` and `BarChart3` icons have been added to the imports in `app/(admin)/overview/page.js`.
+*   The logo in the `AdminHeader` has been updated to use `public/images/logo.png` instead of the SVG icon.
+*   A new layout file `app/(admin)/layout.js` has been created to provide a common layout for admin pages, including the `AdminHeader`.
+*   The "Overview" page is now functional and accessible at `/overview` for admin users.
 
 ## 4. Next Steps
 
