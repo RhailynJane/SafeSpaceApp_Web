@@ -8,13 +8,10 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import AddAppointmentModal from "@/components/modals/AddAppointmentModal"
-import ViewAvailabilityModal from "@/components/modals/ViewAvailabilityModal"
-import ViewCalendarModal from "@/components/modals/ViewCalendarModal"
-import ViewDetailsModal from "@/components/modals/ViewDetailModal"
-//import { AddAppointmentModal, ViewAvailabilityModal, ViewCalendarModal, } 
-  //from "@/components/modals";
-
+import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
+import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
+import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
+import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -64,16 +61,44 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 3, name: "Carol Davis", status: "On Hold", lastSession: "2024-01-05", riskLevel: "High" },
   ])
 
-  const [schedule] = useState([
-    { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min", details: "Session on coping strategies." },
-    { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min", details: "Focus on stress management." },
-    { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min", details: "Initial assessment and intake." },
+  // Fixed: Added setSchedule function and date fields
+  const [schedule, setSchedule] = useState([
+    { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min", details: "Session on coping strategies.", date: "2024-09-16" },
+    { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min", details: "Focus on stress management.", date: "2024-09-16" },
+    { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min", details: "Initial assessment and intake.", date: "2024-09-16" },
   ])
 
   // Reports state
   const [reportType, setReportType] = useState("caseload")
   const [dateRange, setDateRange] = useState("month")
   const [reportData, setReportData] = useState(null)
+
+  // Handle adding new appointments
+  const handleAddAppointment = (newAppointment) => {
+    console.log("Adding appointment:", newAppointment);
+    setSchedule(prevSchedule => [...prevSchedule, newAppointment]);
+  };
+
+  // Handle viewing appointment details
+  const handleViewDetails = (appointment) => {
+    alert(`Appointment Details:
+
+Client: ${appointment.client}
+Date: ${appointment.date}
+Time: ${appointment.time}
+Type: ${appointment.type}
+Duration: ${appointment.duration}
+${appointment.details ? `Details: ${appointment.details}` : ''}`);
+  };
+
+  // Handle deleting appointments
+  const handleDeleteAppointment = (appointmentId) => {
+    if (confirm("Are you sure you want to delete this appointment?")) {
+      setSchedule(prevSchedule => 
+        prevSchedule.filter(appt => appt.id !== appointmentId)
+      );
+    }
+  };
 
   // Referral actions
   const handleAcceptReferral = (id) => {
@@ -141,13 +166,88 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
         {/* Overview */}
         <TabsContent value="Overview" className="space-y-6">
-          <p className="text-gray-500">Overview content goes here.</p>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold">My Clients</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">24</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold">Today's Sessions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">6</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold">Urgent Cases</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">3</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg font-semibold">Pending Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-4xl font-bold">2</div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Referrals */}
         {userRole === "team-leader" && (
           <TabsContent value="Referrals" className="space-y-6">
-            {/* ...Referral content unchanged... */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Client Referrals</CardTitle>
+                <CardDescription>Review and manage incoming client referrals</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {referrals.map((referral) => (
+                    <div key={referral.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-semibold">{referral.clientName}</h3>
+                          <p className="text-sm text-gray-600">Age: {referral.age} • Source: {referral.referralSource}</p>
+                        </div>
+                        <Badge variant={referral.priority === "High" ? "destructive" : "default"}>
+                          {referral.priority} Priority
+                        </Badge>
+                      </div>
+                      <p className="text-sm mb-3">{referral.reason}</p>
+                      {referral.status === "pending" && (
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleAcceptReferral(referral.id)}>
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Accept
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDeclineReferral(referral.id)}>
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Decline
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleRequestMoreInfo(referral.id)}>
+                            <Info className="h-4 w-4 mr-1" />
+                            More Info
+                          </Button>
+                        </div>
+                      )}
+                      {referral.status !== "pending" && (
+                        <Badge variant="secondary">{referral.status.replace("-", " ").toUpperCase()}</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
 
@@ -187,39 +287,73 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </Card>
         </TabsContent>
 
-
         {/* Schedule */}
         <TabsContent value="Schedule" className="space-y-6">
-  <Card>
-    <CardHeader>
-      <CardTitle>Today's Schedule</CardTitle>
-      <CardDescription>Your appointments and sessions for today</CardDescription>
-    </CardHeader>
-    <CardContent>
-      {/* Action Buttons */}
-      <div className="flex gap-2 mb-4">
-        <AddAppointmentModal onAdd={(appt) => setSchedule([...schedule, appt])} />
-        <ViewAvailabilityModal
-          availability={[
-            { day: "Monday", time: "10:00 AM - 12:00 PM" },
-            { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
-            { day: "Friday", time: "9:00 AM - 11:00 AM" },
-          ]}
-        />
-        <ViewCalendarModal schedule={schedule} />
-      </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Today's Schedule</CardTitle>
+              <CardDescription>Your appointments and sessions for today</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Action Buttons */}
+              <div className="flex gap-2 mb-4">
+                <AddAppointmentModal onAdd={handleAddAppointment} />
+                <ViewAvailabilityModal
+                  availability={[
+                    { day: "Monday", time: "10:00 AM - 12:00 PM" },
+                    { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
+                    { day: "Friday", time: "9:00 AM - 11:00 AM" },
+                  ]}
+                />
+                <ViewCalendarModal schedule={schedule} />
+              </div>
 
-      {/* Schedule List */}
-      <div className="space-y-4">
-        {schedule.map((appt) => (
-          <ViewDetailsModal key={appt.id} appointment={appt} />
-        ))}
-      </div>
-    </CardContent>
-  </Card>
-</TabsContent>
+              {/* Schedule List */}
+              <div className="space-y-4">
+                {schedule.length > 0 ? (
+                  schedule.map((appt) => (
+                    <div key={appt.id} className="border rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-semibold">{appt.client}</h3>
+                          <p className="text-sm text-gray-600">
+                            {appt.date} at {appt.time} • {appt.type} • {appt.duration}
+                          </p>
+                          {appt.details && (
+                            <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewDetails(appt)}
+                          >
+                            View Details
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteAppointment(appt.id)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No appointments scheduled</p>
+                    <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Notes */}
-        
         <TabsContent value="Notes" className="space-y-6">
           <Card>
             <CardHeader>
@@ -279,6 +413,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="Crisis" className="space-y-6">
           <div className="grid gap-6">
             <Card className="border-red-200 bg-red-50">
@@ -361,7 +496,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsContent>
 
         {/* Reports */}
-         <TabsContent value="Reports" className="space-y-6">
+        <TabsContent value="Reports" className="space-y-6">
           <div className="grid gap-6">
             <Card>
               <CardHeader>
@@ -372,7 +507,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Report Type</Label>
-                    <Select defaultValue="caseload">
+                    <Select value={reportType} onValueChange={setReportType}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -386,7 +521,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                   </div>
                   <div className="space-y-2">
                     <Label>Date Range</Label>
-                    <Select defaultValue="month">
+                    <Select value={dateRange} onValueChange={setDateRange}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -399,10 +534,19 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                     </Select>
                   </div>
                 </div>
-                <Button className="w-full">
+                <Button className="w-full" onClick={generateReport}>
                   <BarChart3 className="h-4 w-4 mr-2" />
                   Generate Report
                 </Button>
+                
+                {reportData && (
+                  <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                    <h4 className="font-medium mb-2">Report Generated</h4>
+                    <pre className="text-sm text-gray-600">
+                      {JSON.stringify(reportData, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -440,6 +584,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             </Card>
           </div>
         </TabsContent>
+
         {/* Tracking */}
         {userRole === "team-leader" && (
           <TabsContent value="Tracking" className="space-y-6">
@@ -449,7 +594,46 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 <CardDescription>Monitor client progress and activities</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-500">Tracking content placeholder</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Progress Metrics</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Sessions Completed</span>
+                        <span className="font-semibold">156</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Goals Achieved</span>
+                        <span className="font-semibold">23</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Improvement Rate</span>
+                        <span className="font-semibold">78%</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Team Performance</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>Active Staff</span>
+                        <span className="font-semibold">12</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Avg. Caseload</span>
+                        <span className="font-semibold">15</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Satisfaction Score</span>
+                        <span className="font-semibold">4.2/5</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
