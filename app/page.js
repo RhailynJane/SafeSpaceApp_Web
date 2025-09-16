@@ -1,16 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import SiteHeader from "@/components/site-header";
 import InteractiveDashboard from "./interactive/page"; // only interactive dashboard
+import OverviewPage from "./(admin)/overview/page";
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const router = useRouter();
+
+  // No redirection needed, the component will render the correct dashboard based on role
+  // useEffect(() => {
+  //   if (currentUser && currentUser.role === 'admin') {
+  //     router.push('/overview');
+  //   }
+  // }, [currentUser, router]);
 
   // Mock users for demo
   const mockUsers = {
@@ -89,11 +99,15 @@ export default function SafespacePlatform() {
           </Card>
         </section>
       ) : (
-        // After Login → Show Interactive Dashboard
-        <InteractiveDashboard
-          userRole={currentUser.role}
-          userName={currentUser.name.split(" ")[0]}
-        />
+                // After Login → Show Dashboard based on user role
+        currentUser.role === 'admin' ? (
+          <OverviewPage />
+        ) : (
+          <InteractiveDashboard
+            userRole={currentUser.role}
+            userName={currentUser.name.split(" ")[0]}
+          />
+        )
       )}
     </div>
   );
