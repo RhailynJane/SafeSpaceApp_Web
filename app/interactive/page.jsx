@@ -13,6 +13,9 @@ import { ReferralStatusTracker } from "../referrals/page.jsx"
 import { DashboardOverview } from "../dashboard/page.jsx"
 import ClientActionButtons from "@/components/ClientActionButtons.jsx"
 import ReferralActions from "@/components/ReferralActions.jsx"
+import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
+import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
+import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -86,6 +89,14 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
   ])
 
+  const [modals, setModals] = useState({
+  newNote: false,
+  viewNote: false,
+  editNote: false,
+})
+
+const [selectedNote, setSelectedNote] = useState(null)
+
   // Handler for updating referral status
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
     setReferrals((prevReferrals) =>
@@ -139,6 +150,16 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
       ),
     )
   }
+
+  const openModal = (modalName, note = null) => {
+  setSelectedNote(note)
+  setModals(prev => ({ ...prev, [modalName]: true }))
+}
+
+const closeModal = (modalName) => {
+  setModals(prev => ({ ...prev, [modalName]: false }))
+  setSelectedNote(null)
+}
 
   if (userRole === "admin") {
     return <AdminDashboard />
@@ -392,6 +413,24 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsContent>
 
         <TabsContent value="Notes" className="space-y-6">
+          <NewNoteModal 
+            isOpen={modals.newNote} 
+            onClose={() => closeModal('newNote')}
+            clients={clients}
+          />
+          
+          <ViewNoteModal 
+            isOpen={modals.viewNote} 
+            onClose={() => closeModal('viewNote')}
+            onEdit={(note) => openModal('editNote', note)}
+            note={selectedNote}
+          />
+          
+          <EditNoteModal 
+            isOpen={modals.editNote} 
+            onClose={() => closeModal('editNote')}
+            note={selectedNote}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Session Notes</CardTitle>
@@ -401,7 +440,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <div className="grid gap-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Recent Session Notes</h3>
-                  <Button>
+                  <Button onClick={() => openModal('newNote')}>
                     <FileText className="h-4 w-4 mr-2" />
                     New Note
                   </Button>
@@ -436,10 +475,10 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       <p className="text-sm text-gray-600 mb-2">{note.type}</p>
                       <p className="text-sm">{note.summary}</p>
                       <div className="flex gap-2 mt-3">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => openModal('viewNote',note)}>
                           View Full Note
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => openModal('editNote', note)} >
                           Edit
                         </Button>
                       </div>
