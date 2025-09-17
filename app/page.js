@@ -1,12 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import SiteHeader from "@/components/site-header";
-import InteractiveDashboard from "./interactive/page"; // only interactive dashboard
+import { Shield } from "lucide-react";
+import InteractiveDashboard from "../app/interactive/page.jsx";
+import SiteHeader from "@/components/site-header.jsx";
+
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -37,8 +46,13 @@ export default function SafespacePlatform() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <SiteHeader isAuthenticated={isAuthed} userName={currentUser?.name ?? null} onSignOut={handleLogout} />
+
+      <SiteHeader
+        isAuthenticated={isAuthed}
+        userName={currentUser?.name ?? null}
+        onSignOut={handleLogout}
+      />
+
 
       {!isAuthed ? (
         // Login Page
@@ -78,8 +92,12 @@ export default function SafespacePlatform() {
               <Button onClick={handleLogin} className="w-full bg-teal-600 hover:bg-teal-700">
                 Sign In
               </Button>
-              <div className="text-sm text-gray-600 mt-4">
-                <p><strong>Demo Accounts:</strong></p>
+
+              <div className="space-y-1 text-sm text-gray-600">
+                <p>
+                  <strong>Demo Accounts:</strong>
+                </p>
+
                 <p>Admin: admin@safespace.com</p>
                 <p>Team Leader: leader@safespace.com</p>
                 <p>Support Worker: worker@safespace.com</p>
