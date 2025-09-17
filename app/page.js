@@ -94,6 +94,7 @@ export default function SafespacePlatform() {
               </Button>
 
               <div className="space-y-1 text-sm text-gray-600 ">
+
                 <p>
                   <strong>Demo Accounts:</strong>
                 </p>
