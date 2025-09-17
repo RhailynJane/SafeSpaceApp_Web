@@ -1,8 +1,4 @@
-
-
-
 "use client"
-
 
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,14 +20,11 @@ import ReferralActions from "@/components/ReferralActions.jsx"
 import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
 import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
 import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
-
 import EmergencyCallModal from "@/components/crisis/EmergencyCallModal.jsx"
 import CrisisHotlineModal from "@/components/crisis/CrisisHotlineModal.jsx"
 import SafetyPlanModal from "@/components/clients/SafetyPlanModal.jsx"
 import ContactClientModal from "@/components/crisis/ContactClientModal.jsx"
 import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal.jsx"
-
-
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -97,14 +90,13 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
     { id: 2, name: "Bob Johnson", status: "Active", lastSession: "2024-01-08", riskLevel: "Medium" },
     { id: 3, name: "Carol Davis", status: "On Hold", lastSession: "2024-01-05", riskLevel: "High" },
-  ]);
+  ])
 
   const [schedule] = useState([
     { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
     { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
     { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
-  ]);
-
+  ])
 
   // Modal state management
   const [modals, setModals] = useState({
@@ -122,7 +114,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
   })
 
   const [selectedNote, setSelectedNote] = useState(null)
-
 
   // Handler for updating referral status
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
@@ -188,7 +179,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     setSelectedNote(null)
   }
 
-
   if (userRole === "admin") {
     return <AdminDashboard />
   }
@@ -197,9 +187,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     userRole === "team-leader"
       ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
       : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
-
-
-
 
   return (
     <main className="p-6 space-y-6">
@@ -224,11 +211,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsList>
 
         <TabsContent value="Overview" className="space-y-6">
-
-
           <DashboardOverview userRole={userRole} />
-
-
         </TabsContent>
 
         {userRole === "team-leader" && (
@@ -405,9 +388,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       >
                         {client.riskLevel} Risk
                       </Badge>
-                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
-                        {client.status}
-                      </Badge>
+                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>{client.status}</Badge>
                     </div>
                     <ClientActionButtons client={client} />
                   </div>
@@ -450,7 +431,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsContent>
 
         <TabsContent value="Notes" className="space-y-6">
-
           <NewNoteModal
             isOpen={modals.newNote}
             onClose={() => closeModal('newNote')}
@@ -459,16 +439,13 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
           <ViewNoteModal
             isOpen={modals.viewNote}
-
             onClose={() => closeModal('viewNote')}
             onEdit={(note) => openModal('editNote', note)}
             note={selectedNote}
           />
 
-
           <EditNoteModal
             isOpen={modals.editNote}
-
             onClose={() => closeModal('editNote')}
             note={selectedNote}
           />
@@ -478,8 +455,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <CardDescription>Document and review client session notes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-
-
               <div className="grid gap-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Recent Session Notes</h3>
@@ -518,10 +493,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       <p className="text-sm text-gray-600 mb-2">{note.type}</p>
                       <p className="text-sm">{note.summary}</p>
                       <div className="flex gap-2 mt-3">
-
                         <Button variant="outline" size="sm" onClick={() => openModal('viewNote', note)}>
-
-
                           View Full Note
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => openModal('editNote', note)} >
@@ -531,15 +503,12 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                     </div>
                   ))}
                 </div>
-
-
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="Crisis" className="space-y-6">
-
           <EmergencyCallModal
             isOpen={modals.emergencyCall}
             onClose={() => closeModal('emergencyCall')}
@@ -562,7 +531,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             onClose={() => closeModal('updateRiskStatus')}
             client={selectedNote}
           />
-
 
           {/* Inline Supervisor Modal */}
           <Dialog open={modals.supervisorCall} onOpenChange={() => closeModal('supervisorCall')}>
@@ -608,7 +576,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               </DialogFooter>
             </DialogContent>
           </Dialog>
-
 
           <div className="grid gap-6">
             <Card className="border-red-200 bg-red-50">
@@ -696,8 +663,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               </CardContent>
             </Card>
           </div>
-
-
         </TabsContent>
 
         <TabsContent value="Reports" className="space-y-6">
@@ -787,5 +752,5 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         )}
       </Tabs>
     </main>
-  );
+  )
 }
