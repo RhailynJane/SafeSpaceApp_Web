@@ -7,12 +7,24 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react"
-import { ReferralStatusTracker } from "../referrals/page.jsx"
+import { Input } from "@/components/ui/input.jsx"
+import { Textarea } from "@/components/ui/textarea.jsx"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, AlertTriangle, Calendar, MessageSquare, Edit, Eye, Download, Share2, Shield } from "lucide-react"
 
+
+import { ReferralStatusTracker } from "../referrals/page.jsx"
 import { DashboardOverview } from "../dashboard/page.jsx"
 import ClientActionButtons from "@/components/ClientActionButtons.jsx"
 import ReferralActions from "@/components/ReferralActions.jsx"
+import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
+import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
+import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
+import EmergencyCallModal from "@/components/crisis/EmergencyCallModal.jsx"
+import CrisisHotlineModal from "@/components/crisis/CrisisHotlineModal.jsx"
+import SafetyPlanModal from "@/components/clients/SafetyPlanModal.jsx"
+import ContactClientModal from "@/components/crisis/ContactClientModal.jsx"
+import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal.jsx"
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -86,6 +98,23 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
   ])
 
+  // Modal state management
+  const [modals, setModals] = useState({
+    newNote: false,
+    viewNote: false,
+    editNote: false,
+    emergencyCall: false,
+    crisisHotline: false,
+    supervisorCall: false,
+    contactClient: false,
+    updateRiskStatus: false,
+    safetyPlan: false,
+    crisisResources: false,
+    crisisProtocols: false,
+  })
+
+  const [selectedNote, setSelectedNote] = useState(null)
+
   // Handler for updating referral status
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
     setReferrals((prevReferrals) =>
@@ -138,6 +167,16 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           : ref,
       ),
     )
+  }
+
+  const openModal = (modalName, item = null) => {
+    setSelectedNote(item)
+    setModals(prev => ({ ...prev, [modalName]: true }))
+  }
+
+  const closeModal = (modalName) => {
+    setModals(prev => ({ ...prev, [modalName]: false }))
+    setSelectedNote(null)
   }
 
   if (userRole === "admin") {
@@ -205,26 +244,26 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                               <div>Age: {referral.age}</div>
                               <div>
                                 Priority:{" "}
-                               <Badge
-                                variant={
-                                  referral.priority === "Critical"
-                                    ? "destructive"
-                                    : referral.priority === "High"
-                                    ? "default"
-                                    : referral.priority === "Medium"
-                                    ? "secondary"
-                                    : "outline"
-                                }
-                                className={
-                                  referral.priority === "Critical" 
-                                    ? "bg-red-600 text-white animate-pulse" 
-                                    : referral.priority === "High"
-                                    ? "bg-orange-500 text-white"
-                                    : ""
-                                }
-                              >
-                                {referral.priority} Priority
-                              </Badge>  
+                                <Badge
+                                  variant={
+                                    referral.priority === "Critical"
+                                      ? "destructive"
+                                      : referral.priority === "High"
+                                        ? "default"
+                                        : referral.priority === "Medium"
+                                          ? "secondary"
+                                          : "outline"
+                                  }
+                                  className={
+                                    referral.priority === "Critical"
+                                      ? "bg-red-600 text-white animate-pulse"
+                                      : referral.priority === "High"
+                                        ? "bg-orange-500 text-white"
+                                        : ""
+                                  }
+                                >
+                                  {referral.priority} Priority
+                                </Badge>
                               </div>
                               <div>Source: {referral.referralSource}</div>
                               <div>Submitted: {referral.submittedDate}</div>
@@ -266,14 +305,14 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                           </div>
                         )}
 
-                        <ReferralActions 
+                        <ReferralActions
                           referral={referral}
                           onStatusUpdate={handleReferralStatusUpdate}
                           userRole={userRole}
                         />
                       </div>
                     ))}
-                   {referrals.filter((r) => r.status === "pending").length === 0 && (
+                  {referrals.filter((r) => r.status === "pending").length === 0 && (
                     <div className="text-center py-8 text-gray-500">
                       <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
                       <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
@@ -308,9 +347,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                                   : "secondary"
                             }
                             className={
-                                referral.status === "accepted" ? "bg-green-600" :
+                              referral.status === "accepted" ? "bg-green-600" :
                                 referral.status === "more-info-requested" ? "bg-orange-100 text-orange-800" : ""
-                              }
+                            }
                           >
                             {referral.status.replace("-", " ")}
                           </Badge>
@@ -392,6 +431,24 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsContent>
 
         <TabsContent value="Notes" className="space-y-6">
+          <NewNoteModal
+            isOpen={modals.newNote}
+            onClose={() => closeModal('newNote')}
+            clients={clients}
+          />
+
+          <ViewNoteModal
+            isOpen={modals.viewNote}
+            onClose={() => closeModal('viewNote')}
+            onEdit={(note) => openModal('editNote', note)}
+            note={selectedNote}
+          />
+
+          <EditNoteModal
+            isOpen={modals.editNote}
+            onClose={() => closeModal('editNote')}
+            note={selectedNote}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Session Notes</CardTitle>
@@ -401,7 +458,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <div className="grid gap-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Recent Session Notes</h3>
-                  <Button>
+                  <Button onClick={() => openModal('newNote')}>
                     <FileText className="h-4 w-4 mr-2" />
                     New Note
                   </Button>
@@ -436,10 +493,10 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       <p className="text-sm text-gray-600 mb-2">{note.type}</p>
                       <p className="text-sm">{note.summary}</p>
                       <div className="flex gap-2 mt-3">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => openModal('viewNote', note)}>
                           View Full Note
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => openModal('editNote', note)} >
                           Edit
                         </Button>
                       </div>
@@ -452,6 +509,74 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsContent>
 
         <TabsContent value="Crisis" className="space-y-6">
+          <EmergencyCallModal
+            isOpen={modals.emergencyCall}
+            onClose={() => closeModal('emergencyCall')}
+          />
+          <CrisisHotlineModal
+            isOpen={modals.crisisHotline}
+            onClose={() => closeModal('crisisHotline')}
+          />
+          <SafetyPlanModal
+            isOpen={modals.safetyPlan}
+            onClose={() => closeModal('safetyPlan')}
+          />
+          <ContactClientModal
+            isOpen={modals.contactClient}
+            onClose={() => closeModal('contactClient')}
+            client={selectedNote}
+          />
+          <UpdateRiskStatusModal
+            isOpen={modals.updateRiskStatus}
+            onClose={() => closeModal('updateRiskStatus')}
+            client={selectedNote}
+          />
+
+          {/* Inline Supervisor Modal */}
+          <Dialog open={modals.supervisorCall} onOpenChange={() => closeModal('supervisorCall')}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Contact Supervisor
+                </DialogTitle>
+                <DialogDescription>
+                  Reach out to your supervisor for guidance
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>On-Call Supervisor</Label>
+                  <p className="text-sm font-medium">Dr. Sarah Mitchell</p>
+                  <p className="text-sm text-gray-600">(555) 999-1234</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Reason for Contact</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="emergency">Emergency consultation</SelectItem>
+                      <SelectItem value="clinical">Clinical guidance</SelectItem>
+                      <SelectItem value="ethical">Ethical consultation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => closeModal('supervisorCall')}>Cancel</Button>
+                <Button onClick={() => {
+                  closeModal('supervisorCall')
+                  alert('Calling supervisor...')
+                }}>
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call Supervisor
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <div className="grid gap-6">
             <Card className="border-red-200 bg-red-50">
               <CardHeader>
@@ -462,21 +587,21 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button className="bg-red-600 hover:bg-red-700 h-16">
+                  <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => openModal('emergencyCall')}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Emergency Services</div>
                       <div className="text-xs">911</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => openModal('crisisHotline')}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Crisis Hotline</div>
                       <div className="text-xs">988</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => openModal('supervisorCall')}>
                     <div className="text-center">
                       <User className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Supervisor</div>
@@ -519,10 +644,18 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       <p className="text-sm mb-2">{client.reason}</p>
                       <p className="text-sm text-blue-600">{client.status}</p>
                       <div className="flex gap-2 mt-3">
-                        <Button size="sm">Contact Now</Button>
-                        <Button variant="outline" size="sm">
+                        <Button size="sm" onClick={() => openModal('contactClient', client)}>Contact Now</Button>
+                        {/* <Button variant="outline" size="sm" onClick={() => openModal('UpdateRiskStatus', client)}>
                           Update Status
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openModal('newNote', { client: client.name, template: 'Crisis Intervention' })}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Add Note
+                        </Button> */}
                       </div>
                     </div>
                   ))}
