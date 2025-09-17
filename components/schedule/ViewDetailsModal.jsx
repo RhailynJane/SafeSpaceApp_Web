@@ -10,29 +10,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-export default function ViewCalendarModal({ schedule = [] }) {
+export default function ViewDetailsModal({ message = "Details about this appointment will appear here." }) {
   const [open, setOpen] = useState(false)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">View Calendar</Button>
+        <Button variant="outline">View Details</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Calendar View</DialogTitle>
+          <DialogTitle>Details</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2 mt-2">
-          {schedule.length > 0 ? (
-            schedule.map((appt) => (
-              <div key={appt.id} className="border p-2 rounded">
-                <p><strong>{appt.time}</strong> – {appt.client}</p>
-                <p className="text-sm text-gray-600">{appt.type} • {appt.duration}</p>
-              </div>
-            ))
-          ) : (
-            <p className="text-center text-gray-500 py-4">No appointments scheduled</p>
-          )}
+        <div className="mt-2 text-gray-700">
+          <p>{message}</p>
         </div>
       </DialogContent>
     </Dialog>
