@@ -1,6 +1,6 @@
 
 "use client"
-
+import jsPDF from "jspdf"
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -490,7 +490,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </div>
         </TabsContent>
 
-        {/* Reports */}
+// Reports Tab
 <TabsContent value="Reports" className="space-y-6">
   <div className="grid gap-6">
     {/* Generate Reports */}
@@ -580,7 +580,19 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => alert(`Downloading ${report.name}`)}
+                  onClick={() => {
+                    if (report.type === "PDF") {
+                      // Generate PDF dynamically
+                      const doc = new jsPDF()
+                      doc.text(`Report Name: ${report.name}`, 10, 10)
+                      doc.text(`Date: ${report.date}`, 10, 20)
+                      doc.text(`Type: ${report.type}`, 10, 30)
+                      doc.text(`Size: ${report.size}`, 10, 40)
+                      doc.save(`${report.name}.pdf`)
+                    } else {
+                      alert("Downloading non-PDF files is not yet supported")
+                    }
+                  }}
                 >
                   Download
                 </Button>
