@@ -1,5 +1,7 @@
 import React from 'react';
 
+// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
+
 // --- MOCK DATA ---
 // This is mock data for recent audit events. In a real application, this would be fetched from an API.
 const auditEvents = [
