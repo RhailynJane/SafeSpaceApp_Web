@@ -1,8 +1,8 @@
-"use client"
+"use client";
 
-import { Bell, LogOut } from "lucide-react";
-import { Button } from "./ui/button"; 
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Bell, LogOut } from "lucide-react";
 
 function getInitials(name) {
   if (!name) return "SS";
@@ -36,7 +36,6 @@ export default function SiteHeader({
         <div className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
-              {/* Notifications */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -46,14 +45,12 @@ export default function SiteHeader({
                 <Bell className="h-5 w-5 text-orange-500" />
               </Button>
 
-              {/* User Avatar */}
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-teal-100 text-teal-700 text-xs">
                   {getInitials(userName)}
                 </AvatarFallback>
               </Avatar>
 
-              {/* Sign Out */}
               <Button
                 variant="ghost"
                 onClick={onSignOut}
