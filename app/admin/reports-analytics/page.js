@@ -1,6 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 
+// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
+
 // --- ICONS ---
 // A collection of simple, stateless functional components for rendering SVG icons.
 
