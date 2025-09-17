@@ -1,4 +1,8 @@
 
+
+"use client"
+
+
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,9 +12,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react"
 import { ReferralStatusTracker } from "../referrals/page.jsx"
-import { AdminDashboard } from "../admin/page.jsx"
+
 import { DashboardOverview } from "../dashboard/page.jsx"
 import ClientActionButtons from "@/components/ClientActionButtons.jsx"
+import ReferralActions from "@/components/ReferralActions.jsx"
+import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
+import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
+import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
+
 
 
 
@@ -54,6 +63,24 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
       processedDate: "2024-01-14",
       processedBy: "Team Leader",
     },
+    {
+      id: "3",
+      clientName: "Emma Davis",
+      age: 42,
+      referralSource: "Hospital Emergency Department",
+      reason: "Crisis intervention needed for severe depression",
+      priority: "Critical",
+      submittedDate: "2024-01-16",
+      status: "pending",
+      contactInfo: {
+        phone: "(555) 345-6789",
+        email: "emma.davis@email.com",
+        address: "789 Pine St, City, State 12345",
+        emergencyContact: "Robert Davis (Husband) - (555) 654-3210",
+      },
+      additionalNotes: "Patient was brought in after suicide attempt. Requires immediate attention.",
+      submittedBy: "ER Social Worker",
+    },
   ])
 
   const [clients] = useState([
@@ -69,7 +96,87 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
   ]);
 
 
-  const tabs = ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
+
+  const [modals, setModals] = useState({
+  newNote: false,
+  viewNote: false,
+  editNote: false,
+})
+
+const [selectedNote, setSelectedNote] = useState(null)
+
+  // Handler for updating referral status
+  const handleReferralStatusUpdate = (referralId, updatedReferral) => {
+    setReferrals((prevReferrals) =>
+      prevReferrals.map((ref) =>
+        ref.id === referralId ? updatedReferral : ref
+      )
+    );
+  };
+
+  const handleAcceptReferral = (id) => {
+    setReferrals((prev) =>
+      prev.map((ref) =>
+        ref.id === id
+          ? {
+            ...ref,
+            status: "accepted",
+            processedDate: new Date().toISOString().split("T")[0],
+            processedBy: userName,
+          }
+          : ref,
+      ),
+    )
+  }
+
+  const handleDeclineReferral = (id) => {
+    setReferrals((prev) =>
+      prev.map((ref) =>
+        ref.id === id
+          ? {
+            ...ref,
+            status: "declined",
+            processedDate: new Date().toISOString().split("T")[0],
+            processedBy: userName,
+          }
+          : ref,
+      ),
+    )
+  }
+
+  const handleRequestMoreInfo = (id) => {
+    setReferrals((prev) =>
+      prev.map((ref) =>
+        ref.id === id
+          ? {
+            ...ref,
+            status: "more-info-requested",
+            processedDate: new Date().toISOString().split("T")[0],
+            processedBy: userName,
+          }
+          : ref,
+      ),
+    )
+  }
+
+  const openModal = (modalName, note = null) => {
+  setSelectedNote(note)
+  setModals(prev => ({ ...prev, [modalName]: true }))
+}
+
+const closeModal = (modalName) => {
+  setModals(prev => ({ ...prev, [modalName]: false }))
+  setSelectedNote(null)
+}
+
+  if (userRole === "admin") {
+    return <AdminDashboard />
+  }
+
+  const tabs =
+    userRole === "team-leader"
+      ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
+      : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
 
 
 
@@ -127,6 +234,11 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 <CardContent className="space-y-4">
                   {referrals
                     .filter((r) => r.status === "pending")
+                    .sort((a, b) => {
+                      // Sort by priority: Critical > High > Medium > Low
+                      const priorityOrder = { "Critical": 4, "High": 3, "Medium": 2, "Low": 1 };
+                      return priorityOrder[b.priority] - priorityOrder[a.priority];
+                    })
                     .map((referral) => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
@@ -136,17 +248,26 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                               <div>Age: {referral.age}</div>
                               <div>
                                 Priority:{" "}
-                                <Badge
-                                  variant={
-                                    referral.priority === "High"
-                                      ? "destructive"
-                                      : referral.priority === "Medium"
-                                        ? "default"
-                                        : "secondary"
-                                  }
-                                >
-                                  {referral.priority}
-                                </Badge>
+                               <Badge
+                                variant={
+                                  referral.priority === "Critical"
+                                    ? "destructive"
+                                    : referral.priority === "High"
+                                    ? "default"
+                                    : referral.priority === "Medium"
+                                    ? "secondary"
+                                    : "outline"
+                                }
+                                className={
+                                  referral.priority === "Critical" 
+                                    ? "bg-red-600 text-white animate-pulse" 
+                                    : referral.priority === "High"
+                                    ? "bg-orange-500 text-white"
+                                    : ""
+                                }
+                              >
+                                {referral.priority} Priority
+                              </Badge>  
                               </div>
                               <div>Source: {referral.referralSource}</div>
                               <div>Submitted: {referral.submittedDate}</div>
@@ -188,28 +309,21 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                           </div>
                         )}
 
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            onClick={() => handleAcceptReferral(referral.id)}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Accept
-                          </Button>
-                          <Button variant="destructive" onClick={() => handleDeclineReferral(referral.id)}>
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Decline
-                          </Button>
-                          <Button variant="outline" onClick={() => handleRequestMoreInfo(referral.id)}>
-                            <Info className="h-4 w-4 mr-2" />
-                            Request More Info
-                          </Button>
-                        </div>
+                        <ReferralActions 
+                          referral={referral}
+                          onStatusUpdate={handleReferralStatusUpdate}
+                          userRole={userRole}
+                        />
                       </div>
                     ))}
-                  {referrals.filter((r) => r.status === "pending").length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No pending referrals</p>
+                   {referrals.filter((r) => r.status === "pending").length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                      <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
+                      <p className="text-sm">All referrals have been processed.</p>
+                    </div>
                   )}
+
                 </CardContent>
               </Card>
 
@@ -236,6 +350,10 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                                   ? "destructive"
                                   : "secondary"
                             }
+                            className={
+                                referral.status === "accepted" ? "bg-green-600" :
+                                referral.status === "more-info-requested" ? "bg-orange-100 text-orange-800" : ""
+                              }
                           >
                             {referral.status.replace("-", " ")}
                           </Badge>
@@ -319,6 +437,24 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsContent>
 
         <TabsContent value="Notes" className="space-y-6">
+          <NewNoteModal 
+            isOpen={modals.newNote} 
+            onClose={() => closeModal('newNote')}
+            clients={clients}
+          />
+          
+          <ViewNoteModal 
+            isOpen={modals.viewNote} 
+            onClose={() => closeModal('viewNote')}
+            onEdit={(note) => openModal('editNote', note)}
+            note={selectedNote}
+          />
+          
+          <EditNoteModal 
+            isOpen={modals.editNote} 
+            onClose={() => closeModal('editNote')}
+            note={selectedNote}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Session Notes</CardTitle>
@@ -327,14 +463,54 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             <CardContent className="space-y-4">
 
 
+              <div className="grid gap-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Recent Session Notes</h3>
+                  <Button onClick={() => openModal('newNote')}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    New Note
+                  </Button>
+                </div>
 
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Recent Session Notes</h3>
-                <Button>
-                  <FileText className="h-4 w-4 mr-2" />
-                  New Note
-                </Button>
-
+                <div className="space-y-3">
+                  {[
+                    {
+                      client: "Alice Smith",
+                      date: "2024-01-15",
+                      type: "Individual Session",
+                      summary: "Client showed improvement in anxiety management techniques.",
+                    },
+                    {
+                      client: "Bob Johnson",
+                      date: "2024-01-14",
+                      type: "Group Therapy",
+                      summary: "Participated actively in group discussion about coping strategies.",
+                    },
+                    {
+                      client: "Carol Davis",
+                      date: "2024-01-12",
+                      type: "Assessment",
+                      summary: "Initial assessment completed. Recommended weekly individual sessions.",
+                    },
+                  ].map((note, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">{note.client}</h4>
+                        <span className="text-sm text-gray-500">{note.date}</span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{note.type}</p>
+                      <p className="text-sm">{note.summary}</p>
+                      <div className="flex gap-2 mt-3">
+                        <Button variant="outline" size="sm" onClick={() => openModal('viewNote',note)}>
+                          View Full Note
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => openModal('editNote', note)} >
+                          Edit
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
 
               </div>
@@ -344,39 +520,86 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
         <TabsContent value="Crisis" className="space-y-6">
 
-          <Card className="border-red-200 bg-red-50">
-            <CardHeader>
-              <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
-              <CardDescription className="text-red-700">
-                Quick access to crisis intervention resources
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button className="bg-red-600 hover:bg-red-700 h-16">
-                  <div className="text-center">
-                    <Phone className="h-6 w-6 mx-auto mb-1" />
-                    <div className="text-sm">Emergency Services</div>
-                    <div className="text-xs">911</div>
-                  </div>
-                </Button>
-                <Button variant="outline" className="border-red-300 h-16 bg-transparent">
-                  <div className="text-center">
-                    <Phone className="h-6 w-6 mx-auto mb-1" />
-                    <div className="text-sm">Crisis Hotline</div>
-                    <div className="text-xs">988</div>
-                  </div>
-                </Button>
-                <Button variant="outline" className="border-red-300 h-16 bg-transparent">
-                  <div className="text-center">
-                    <User className="h-6 w-6 mx-auto mb-1" />
-                    <div className="text-sm">Supervisor</div>
-                    <div className="text-xs">On-call</div>
-                  </div>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+
+          <div className="grid gap-6">
+            <Card className="border-red-200 bg-red-50">
+              <CardHeader>
+                <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
+                <CardDescription className="text-red-700">
+                  Quick access to crisis intervention resources
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button className="bg-red-600 hover:bg-red-700 h-16">
+                    <div className="text-center">
+                      <Phone className="h-6 w-6 mx-auto mb-1" />
+                      <div className="text-sm">Emergency Services</div>
+                      <div className="text-xs">911</div>
+                    </div>
+                  </Button>
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                    <div className="text-center">
+                      <Phone className="h-6 w-6 mx-auto mb-1" />
+                      <div className="text-sm">Crisis Hotline</div>
+                      <div className="text-xs">988</div>
+                    </div>
+                  </Button>
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                    <div className="text-center">
+                      <User className="h-6 w-6 mx-auto mb-1" />
+                      <div className="text-sm">Supervisor</div>
+                      <div className="text-xs">On-call</div>
+                    </div>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>High-Risk Clients</CardTitle>
+                <CardDescription>Monitor clients requiring immediate attention</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {[
+                    {
+                      name: "Carol Davis",
+                      risk: "High",
+                      lastContact: "2024-01-15",
+                      reason: "Expressed suicidal ideation",
+                      status: "Active monitoring",
+                    },
+                    {
+                      name: "David Wilson",
+                      risk: "Medium",
+                      lastContact: "2024-01-14",
+                      reason: "Substance abuse relapse",
+                      status: "Weekly check-ins",
+                    },
+                  ].map((client, index) => (
+                    <div key={index} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium">{client.name}</h4>
+                        <Badge variant={client.risk === "High" ? "destructive" : "default"}>{client.risk} Risk</Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-1">Last contact: {client.lastContact}</p>
+                      <p className="text-sm mb-2">{client.reason}</p>
+                      <p className="text-sm text-blue-600">{client.status}</p>
+                      <div className="flex gap-2 mt-3">
+                        <Button size="sm">Contact Now</Button>
+                        <Button variant="outline" size="sm">
+                          Update Status
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
 
         </TabsContent>
 

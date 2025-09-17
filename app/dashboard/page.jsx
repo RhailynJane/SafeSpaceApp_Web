@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye,Plus } from "lucide-react"
+import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit,Plus } from "lucide-react"
 
 export function DashboardOverview({ userRole }) {
   const metrics = getMetricsForRole(userRole)
