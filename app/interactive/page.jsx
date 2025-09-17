@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -12,8 +13,6 @@ import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
 import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
-
-
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
     {
@@ -62,7 +61,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 3, name: "Carol Davis", status: "On Hold", lastSession: "2024-01-05", riskLevel: "High" },
   ])
 
-  // Fixed: Added setSchedule function and date fields
   const [schedule, setSchedule] = useState([
     { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min", details: "Session on coping strategies.", date: "2024-09-16" },
     { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min", details: "Focus on stress management.", date: "2024-09-16" },
@@ -76,16 +74,13 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
   // Handle adding new appointments
   const handleAddAppointment = (newAppointment) => {
-    console.log("Adding appointment:", newAppointment);
-    setSchedule(prevSchedule => [...prevSchedule, newAppointment]);
-  };
+    setSchedule(prevSchedule => [...prevSchedule, newAppointment])
+  }
 
   // Handle deleting appointments
   const handleDeleteAppointment = (appointmentId) => {
-    setSchedule(prevSchedule => 
-      prevSchedule.filter(appt => appt.id !== appointmentId)
-    );
-  };
+    setSchedule(prevSchedule => prevSchedule.filter(appt => appt.id !== appointmentId))
+  }
 
   // Referral actions
   const handleAcceptReferral = (id) => {
@@ -187,6 +182,19 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Overview</CardTitle>
+              <CardDescription>Quick summary of your dashboard</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>
+                Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.
+              </p>
+            </CardContent>
+          </Card>
+
         </TabsContent>
 
         {/* Referrals */}
@@ -265,7 +273,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       >
                         {client.riskLevel} Risk
                       </Badge>
-                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>{client.status}</Badge>
+                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
+                        {client.status}
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -383,11 +393,18 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                     </div>
                   ))}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Recent Session Notes</h3>
+                <Button>
+                  <FileText className="h-4 w-4 mr-2" />
+                  New Note
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        </TabsContent>
         <TabsContent value="Crisis" className="space-y-6">
           <div className="grid gap-6">
             <Card className="border-red-200 bg-red-50">
@@ -613,6 +630,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </TabsContent>
         )}
       </Tabs>
-    </main>
-  )
-}
+        </main>
+      );
+    }
+  
+
+
