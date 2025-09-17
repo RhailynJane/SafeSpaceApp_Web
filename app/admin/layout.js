@@ -1,9 +1,9 @@
-import AdminHeader from "@/components/admindashboard/AdminHeader";
+import AdminNav from "@/components/admindashboard/AdminNav";
 
 export default function AdminLayout({ children }) {
   return (
     <>
-      <AdminHeader />
+      <AdminNav />
       {children}
     </>
   );
