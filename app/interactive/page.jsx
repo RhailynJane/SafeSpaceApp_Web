@@ -1,4 +1,3 @@
-"use client"
 
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,6 +11,7 @@ import { ReferralStatusTracker } from "../referrals/page.jsx"
 import { AdminDashboard } from "../admin/page.jsx"
 import { DashboardOverview } from "../dashboard/page.jsx"
 import ClientActionButtons from "@/components/ClientActionButtons.jsx"
+
 
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
@@ -70,6 +70,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
 
   const tabs = ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
+
 
 
   return (
@@ -325,12 +326,16 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             </CardHeader>
             <CardContent className="space-y-4">
 
+
+
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Recent Session Notes</h3>
                 <Button>
                   <FileText className="h-4 w-4 mr-2" />
                   New Note
                 </Button>
+
+
 
               </div>
             </CardContent>
