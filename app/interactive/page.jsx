@@ -13,6 +13,7 @@ import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
 import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
+import ViewReportModal from "@/components/reports/ViewReportModal"
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
     {
@@ -487,94 +488,106 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         </TabsContent>
 
         {/* Reports */}
-        <TabsContent value="Reports" className="space-y-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Generate Reports</CardTitle>
-                <CardDescription>Create custom reports for your caseload</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Report Type</Label>
-                    <Select value={reportType} onValueChange={setReportType}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="caseload">Caseload Summary</SelectItem>
-                        <SelectItem value="sessions">Session Reports</SelectItem>
-                        <SelectItem value="outcomes">Outcome Metrics</SelectItem>
-                        <SelectItem value="crisis">Crisis Interventions</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Date Range</Label>
-                    <Select value={dateRange} onValueChange={setDateRange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="week">Last Week</SelectItem>
-                        <SelectItem value="month">Last Month</SelectItem>
-                        <SelectItem value="quarter">Last Quarter</SelectItem>
-                        <SelectItem value="year">Last Year</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button className="w-full" onClick={generateReport}>
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Generate Report
-                </Button>
-                
-                {reportData && (
-                  <div className="mt-4 p-4 border rounded-lg bg-gray-50">
-                    <h4 className="font-medium mb-2">Report Generated</h4>
-                    <pre className="text-sm text-gray-600">
-                      {JSON.stringify(reportData, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Reports</CardTitle>
-                <CardDescription>Previously generated reports</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB" },
-                    { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
-                    { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
-                  ].map((report, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded">
-                      <div>
-                        <p className="font-medium">{report.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {report.date} • {report.type} • {report.size}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          Download
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          Share
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+<TabsContent value="Reports" className="space-y-6">
+  <div className="grid gap-6">
+    {/* Generate Reports */}
+    <Card>
+      <CardHeader>
+        <CardTitle>Generate Reports</CardTitle>
+        <CardDescription>Create custom reports for your caseload</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Report Type</Label>
+            <Select value={reportType} onValueChange={setReportType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="caseload">Caseload Summary</SelectItem>
+                <SelectItem value="sessions">Session Reports</SelectItem>
+                <SelectItem value="outcomes">Outcome Metrics</SelectItem>
+                <SelectItem value="crisis">Crisis Interventions</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </TabsContent>
+          <div className="space-y-2">
+            <Label>Date Range</Label>
+            <Select value={dateRange} onValueChange={setDateRange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week">Last Week</SelectItem>
+                <SelectItem value="month">Last Month</SelectItem>
+                <SelectItem value="quarter">Last Quarter</SelectItem>
+                <SelectItem value="year">Last Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <Button className="w-full" onClick={generateReport}>
+          <BarChart3 className="h-4 w-4 mr-2" />
+          Generate Report
+        </Button>
+
+        {reportData && (
+          <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+            <h4 className="font-medium mb-2">Report Generated</h4>
+            <pre className="text-sm text-gray-600">{JSON.stringify(reportData, null, 2)}</pre>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+
+    {/* Recent Reports */}
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent Reports</CardTitle>
+        <CardDescription>Previously generated reports</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {[
+            { name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB" },
+            { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
+            { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
+          ].map((report, index) => (
+            <div key={index} className="flex items-center justify-between p-3 border rounded">
+              <div>
+                <p className="font-medium">{report.name}</p>
+                <p className="text-sm text-gray-600">
+                  {report.date} • {report.type} • {report.size}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleView(report)}>
+                  View
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleDownload(report)}>
+                  Download
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleShare(report)}>
+                  Share
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+
+    {/* View Report Modal */}
+    {selectedReport && (
+      <ViewReportModal
+        report={selectedReport}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+      />
+    )}
+</div>
+</TabsContent>
 
         {/* Tracking */}
         {userRole === "team-leader" && (
