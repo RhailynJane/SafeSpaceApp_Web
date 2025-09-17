@@ -1,6 +1,4 @@
 
-
-
 "use client"
 
 
@@ -44,11 +42,16 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+
+
+
+
 import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
 import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
 import ViewReportModal from "@/components/reports/ViewReportModal"
+
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
     {
@@ -116,7 +119,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
     { id: 2, name: "Bob Johnson", status: "Active", lastSession: "2024-01-08", riskLevel: "Medium" },
     { id: 3, name: "Carol Davis", status: "On Hold", lastSession: "2024-01-05", riskLevel: "High" },
-  ])
+  ]);
 
   const [schedule, setSchedule] = useState([
     { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min", details: "Session on coping strategies.", date: "2024-09-16" },
@@ -192,6 +195,14 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
   const tabs = userRole === "team-leader"
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
+  
+    { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
+    { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
+    { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
+  ]);
+
+  const tabs = ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
+
 
 
   // Modal state management
@@ -307,6 +318,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
         {/* Overview */}
         <TabsContent value="Overview" className="space-y-6">
+
+          <p className="text-gray-500">Overview content goes here.</p>
+
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
@@ -348,7 +362,13 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <CardDescription>Quick summary of your dashboard</CardDescription>
             </CardHeader>
             <CardContent>
+
+              <p>
+                Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.
+              </p>
+
               
+
             </CardContent>
           </Card>
 
@@ -696,7 +716,11 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <CardTitle>Session Notes</CardTitle>
               <CardDescription>Document and review client session notes</CardDescription>
             </CardHeader>
+
+           <CardContent className="space-y-4">
+
             <CardContent className="space-y-4">
+
 
               <div className="grid gap-4">
                 <div className="flex items-center justify-between">
@@ -1228,6 +1252,29 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                         <SelectItem value="crisis">Crisis Interventions</SelectItem>
                       </SelectContent>
                     </Select>
+
+          <Card className="border-red-200 bg-red-50">
+            <CardHeader>
+              <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
+              <CardDescription className="text-red-700">
+                Quick access to crisis intervention resources
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button className="bg-red-600 hover:bg-red-700 h-16">
+                  <div className="text-center">
+                    <Phone className="h-6 w-6 mx-auto mb-1" />
+                    <div className="text-sm">Emergency Services</div>
+                    <div className="text-xs">911</div>
+                  </div>
+                </Button>
+                <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <div className="text-center">
+                    <Phone className="h-6 w-6 mx-auto mb-1" />
+                    <div className="text-sm">Crisis Hotline</div>
+                    <div className="text-xs">988</div>
+
                   </div>
                   <div className="space-y-2">
                     <Label>Date Range</Label>
@@ -1293,9 +1340,14 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </TabsContent>
         )}
       </Tabs>
+
+    </main>
+  );
+}
         </main>
       );
     }
   
+
 
 
