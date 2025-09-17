@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -16,6 +17,7 @@ import ReferralActions from "@/components/ReferralActions.jsx"
 import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
 import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
 import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
+
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -81,13 +83,14 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
     { id: 2, name: "Bob Johnson", status: "Active", lastSession: "2024-01-08", riskLevel: "Medium" },
     { id: 3, name: "Carol Davis", status: "On Hold", lastSession: "2024-01-05", riskLevel: "High" },
-  ])
+  ]);
 
   const [schedule] = useState([
     { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
     { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
     { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
-  ])
+  ]);
+
 
   const [modals, setModals] = useState({
   newNote: false,
@@ -170,6 +173,7 @@ const closeModal = (modalName) => {
       ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
       : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
 
+
   return (
     <main className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -193,7 +197,19 @@ const closeModal = (modalName) => {
         </TabsList>
 
         <TabsContent value="Overview" className="space-y-6">
-          <DashboardOverview userRole={userRole} />
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Overview</CardTitle>
+              <CardDescription>Quick summary of your dashboard</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>
+                Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.
+              </p>
+            </CardContent>
+          </Card>
+
         </TabsContent>
 
         {userRole === "team-leader" && (
@@ -370,7 +386,9 @@ const closeModal = (modalName) => {
                       >
                         {client.riskLevel} Risk
                       </Badge>
-                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>{client.status}</Badge>
+                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
+                        {client.status}
+                      </Badge>
                     </div>
                     <ClientActionButtons client={client} />
                   </div>
@@ -437,6 +455,7 @@ const closeModal = (modalName) => {
               <CardDescription>Document and review client session notes</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+
               <div className="grid gap-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Recent Session Notes</h3>
@@ -485,12 +504,14 @@ const closeModal = (modalName) => {
                     </div>
                   ))}
                 </div>
+
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="Crisis" className="space-y-6">
+
           <div className="grid gap-6">
             <Card className="border-red-200 bg-red-50">
               <CardHeader>
@@ -569,6 +590,7 @@ const closeModal = (modalName) => {
               </CardContent>
             </Card>
           </div>
+
         </TabsContent>
 
         <TabsContent value="Reports" className="space-y-6">
@@ -658,5 +680,5 @@ const closeModal = (modalName) => {
         )}
       </Tabs>
     </main>
-  )
+  );
 }
