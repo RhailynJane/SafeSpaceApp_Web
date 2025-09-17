@@ -13,6 +13,7 @@ import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
 
+
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
     {
@@ -79,25 +80,11 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     setSchedule(prevSchedule => [...prevSchedule, newAppointment]);
   };
 
-  // Handle viewing appointment details
-  const handleViewDetails = (appointment) => {
-    alert(`Appointment Details:
-
-Client: ${appointment.client}
-Date: ${appointment.date}
-Time: ${appointment.time}
-Type: ${appointment.type}
-Duration: ${appointment.duration}
-${appointment.details ? `Details: ${appointment.details}` : ''}`);
-  };
-
   // Handle deleting appointments
   const handleDeleteAppointment = (appointmentId) => {
-    if (confirm("Are you sure you want to delete this appointment?")) {
-      setSchedule(prevSchedule => 
-        prevSchedule.filter(appt => appt.id !== appointmentId)
-      );
-    }
+    setSchedule(prevSchedule => 
+      prevSchedule.filter(appt => appt.id !== appointmentId)
+    );
   };
 
   // Referral actions
@@ -324,20 +311,7 @@ ${appointment.details ? `Details: ${appointment.details}` : ''}`);
                           )}
                         </div>
                         <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewDetails(appt)}
-                          >
-                            View Details
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteAppointment(appt.id)}
-                          >
-                            Delete
-                          </Button>
+                          <ViewDetailsModal appointment={appt} />
                         </div>
                       </div>
                     </div>
