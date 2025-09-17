@@ -1,5 +1,7 @@
 
+
 "use client"
+
 
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,6 +19,8 @@ import ReferralActions from "@/components/ReferralActions.jsx"
 import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
 import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
 import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
+
+
 
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
@@ -90,6 +94,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
     { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
   ]);
+
 
 
   const [modals, setModals] = useState({
@@ -172,6 +177,7 @@ const closeModal = (modalName) => {
     userRole === "team-leader"
       ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
       : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
+
 
 
   return (
@@ -456,6 +462,7 @@ const closeModal = (modalName) => {
             </CardHeader>
             <CardContent className="space-y-4">
 
+
               <div className="grid gap-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Recent Session Notes</h3>
@@ -505,12 +512,14 @@ const closeModal = (modalName) => {
                   ))}
                 </div>
 
+
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="Crisis" className="space-y-6">
+
 
           <div className="grid gap-6">
             <Card className="border-red-200 bg-red-50">
@@ -590,6 +599,7 @@ const closeModal = (modalName) => {
               </CardContent>
             </Card>
           </div>
+
 
         </TabsContent>
 
