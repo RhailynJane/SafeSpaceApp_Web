@@ -69,9 +69,12 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
   ])
 
   // Reports state
+ // Reports state
   const [reportType, setReportType] = useState("caseload")
   const [dateRange, setDateRange] = useState("month")
   const [reportData, setReportData] = useState(null)
+  const [selectedReport, setSelectedReport] = useState(null)
+  const [modalOpen, setModalOpen] = useState(false)
 
   // Handle adding new appointments
   const handleAddAppointment = (newAppointment) => {
@@ -535,7 +538,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         {reportData && (
           <div className="mt-4 p-4 border rounded-lg bg-gray-50">
             <h4 className="font-medium mb-2">Report Generated</h4>
-            <pre className="text-sm text-gray-600">{JSON.stringify(reportData, null, 2)}</pre>
+            <pre className="text-sm text-gray-600">
+              {JSON.stringify(reportData, null, 2)}
+            </pre>
           </div>
         )}
       </CardContent>
@@ -562,13 +567,28 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleView(report)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedReport(report)
+                    setModalOpen(true)
+                  }}
+                >
                   View
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => handleDownload(report)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => alert(`Downloading ${report.name}`)}
+                >
                   Download
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => handleShare(report)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => alert(`Sharing ${report.name}`)}
+                >
                   Share
                 </Button>
               </div>
@@ -586,8 +606,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         onClose={() => setModalOpen(false)}
       />
     )}
-</div>
+  </div>
 </TabsContent>
+
 
         {/* Tracking */}
         {userRole === "team-leader" && (
