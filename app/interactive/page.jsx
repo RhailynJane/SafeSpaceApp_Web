@@ -193,9 +193,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               <CardDescription>Quick summary of your dashboard</CardDescription>
             </CardHeader>
             <CardContent>
-              <p>
-                Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.
-              </p>
+              
             </CardContent>
           </Card>
 
@@ -490,7 +488,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </div>
         </TabsContent>
 
-// Reports Tab
+   {/* Generate Reports */}
 <TabsContent value="Reports" className="space-y-6">
   <div className="grid gap-6">
     {/* Generate Reports */}
