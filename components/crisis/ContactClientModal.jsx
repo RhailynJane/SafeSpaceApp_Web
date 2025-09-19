@@ -46,8 +46,8 @@ export default function ContactClientModal({ isOpen, onClose, client }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Phone className="h-5 w-5" />
             Contact Client
@@ -56,7 +56,7 @@ export default function ContactClientModal({ isOpen, onClose, client }) {
             Reach out to {client?.name}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto pr-2 space-y-4">
           {/* Client Info Display */}
           <div className="bg-blue-50 border border-blue-200 p-3 rounded">
             <div className="flex items-center justify-between">

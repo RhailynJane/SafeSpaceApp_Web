@@ -25,6 +25,7 @@ import CrisisHotlineModal from "@/components/crisis/CrisisHotlineModal.jsx"
 import SafetyPlanModal from "@/components/clients/SafetyPlanModal.jsx"
 import ContactClientModal from "@/components/crisis/ContactClientModal.jsx"
 import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal.jsx"
+import CallSupervisorModal from "@/components/crisis/CallSupervisorModal.jsx"
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -531,51 +532,12 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             onClose={() => closeModal('updateRiskStatus')}
             client={selectedNote}
           />
+          <NewNoteModal isOpen={modals.newNote}
+          onClose={() => closeModal('newNote')} 
+          />
+          
 
-          {/* Inline Supervisor Modal */}
-          <Dialog open={modals.supervisorCall} onOpenChange={() => closeModal('supervisorCall')}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Contact Supervisor
-                </DialogTitle>
-                <DialogDescription>
-                  Reach out to your supervisor for guidance
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>On-Call Supervisor</Label>
-                  <p className="text-sm font-medium">Dr. Sarah Mitchell</p>
-                  <p className="text-sm text-gray-600">(555) 999-1234</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Reason for Contact</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select reason" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="emergency">Emergency consultation</SelectItem>
-                      <SelectItem value="clinical">Clinical guidance</SelectItem>
-                      <SelectItem value="ethical">Ethical consultation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => closeModal('supervisorCall')}>Cancel</Button>
-                <Button onClick={() => {
-                  closeModal('supervisorCall')
-                  alert('Calling supervisor...')
-                }}>
-                  <Phone className="h-4 w-4 mr-2" />
-                  Call Supervisor
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <CallSupervisorModal isOpen={modals.supervisorCall} onClose={() => closeModal('supervisorCall')} />
 
           <div className="grid gap-6">
             <Card className="border-red-200 bg-red-50">
@@ -645,17 +607,14 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       <p className="text-sm text-blue-600">{client.status}</p>
                       <div className="flex gap-2 mt-3">
                         <Button size="sm" onClick={() => openModal('contactClient', client)}>Contact Now</Button>
-                        {/* <Button variant="outline" size="sm" onClick={() => openModal('UpdateRiskStatus', client)}>
+                        <Button variant="outline" size="sm" onClick={() => openModal('updateRiskStatus', client)}>
                           Update Status
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openModal('newNote', { client: client.name, template: 'Crisis Intervention' })}
-                        >
+                        <Button onClick={() => openModal('newNote')}>
                           <FileText className="h-4 w-4 mr-2" />
                           Add Note
-                        </Button> */}
+                        </Button>
+
                       </div>
                     </div>
                   ))}
