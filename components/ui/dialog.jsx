@@ -4,34 +4,56 @@ import * as React from "react"
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 
 
-import { XIcon } from "lucide-react"
+import { XIcon } from "lucide-react" // Close icon component
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils" // Utility for conditional classNames
 
+/**
+ * Dialog Root component
+ * Wraps Radix's Root, which manages open/close state for the dialog.
+ */
 function Dialog({
   ...props
 }) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
 
+/**
+ * DialogTrigger component
+ * Element that triggers the opening of the dialog (like a button).
+ */
 function DialogTrigger({
   ...props
 }) {
   return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
 }
 
+/**
+ * DialogPortal component
+ * Portal to render dialog content outside of the DOM hierarchy.
+ * Useful for overlay and modal layering.
+ */
 function DialogPortal({
   ...props
 }) {
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
 }
 
+/**
+ * DialogClose component
+ * Button or element to close the dialog.
+ */
 function DialogClose({
   ...props
 }) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
+/**
+ * DialogOverlay component
+ * The semi-transparent backdrop overlay behind the dialog.
+ * Includes animations for opening/closing.
+ */
 function DialogOverlay({
   className,
   ...props
@@ -47,6 +69,13 @@ function DialogOverlay({
   );
 }
 
+/**
+ * DialogContent component
+ * The main container box for dialog content.
+ * Uses portal & overlay internally.
+ * Supports optional close button.
+ * Includes animations, styling for positioning, shadow, padding, and responsiveness.
+ */
 function DialogContent({
   className,
   children,
@@ -77,6 +106,11 @@ function DialogContent({
   );
 }
 
+/**
+ * DialogHeader component
+ * Container for dialog header content.
+ * Adds flex layout and spacing.
+ */
 function DialogHeader({
   className,
   ...props
@@ -89,6 +123,11 @@ function DialogHeader({
   );
 }
 
+/**
+ * DialogFooter component
+ * Container for dialog footer content (e.g. buttons).
+ * Layout changes from vertical stack on mobile to horizontal aligned right on larger screens.
+ */
 function DialogFooter({
   className,
   ...props
@@ -101,6 +140,10 @@ function DialogFooter({
   );
 }
 
+/**
+ * DialogTitle component
+ * Styled title text inside the dialog.
+ */
 function DialogTitle({
   className,
   ...props
@@ -113,6 +156,10 @@ function DialogTitle({
   );
 }
 
+/**
+ * DialogDescription component
+ * Styled description text inside the dialog.
+ */
 function DialogDescription({
   className,
   ...props
