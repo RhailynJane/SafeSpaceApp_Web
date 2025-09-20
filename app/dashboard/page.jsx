@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -7,7 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit,Plus } from "lucide-react"
 
+//main React functional component - receive userRole as prop
 export function DashboardOverview({ userRole }) {
+
+  //Calls a helper function that returns an array of dashboard metric objects based on the userRole.
   const metrics = getMetricsForRole(userRole)
 
   const [notifications] = useState([
@@ -58,10 +60,15 @@ export function DashboardOverview({ userRole }) {
     },
   ])
 
+  // render UI
   return (
     <div className="space-y-6">
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> 
+        {/* A responsive grid layout with 1–4 columns depending on screen size. */}
+
+
+        {/* Loops through the metrics array and renders a Card for each. */}
         {metrics.map((metric, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
@@ -167,7 +174,7 @@ export function DashboardOverview({ userRole }) {
           </CardContent>
         </Card>
       </div>
-      {/* Quick Actions */}
+      {/* Quick Actions - interactive takes to another pages*/}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
@@ -223,7 +230,7 @@ export function DashboardOverview({ userRole }) {
 
 
 // Helpers
-
+//Returns a different set of 4 dashboard metrics based on the userRole
 const getMetricsForRole = (userRole) => {
   switch (userRole) {
     case "admin":
@@ -252,6 +259,7 @@ const getMetricsForRole = (userRole) => {
   }
 }
 
+//Returns a small icon component based on the notification type.
 const getNotificationIcon = (type) => {
   switch (type) {
     case "referral":
@@ -265,6 +273,7 @@ const getNotificationIcon = (type) => {
   }
 }
 
+//Returns Tailwind classes to style the Badge based on the appointment status (confirmed or pending).
 const getStatusColor = (status) => {
   switch (status) {
     case "confirmed":
@@ -275,3 +284,4 @@ const getStatusColor = (status) => {
       return "bg-gray-400 text-white"
   }
 }
+
