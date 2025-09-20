@@ -284,3 +284,4 @@ const getStatusColor = (status) => {
       return "bg-gray-400 text-white"
   }
 }
+
