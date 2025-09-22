@@ -1,7 +1,6 @@
 
 "use client"
 
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,8 +11,11 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input.jsx"
 import { Textarea } from "@/components/ui/textarea.jsx"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, AlertTriangle, Calendar, MessageSquare, Edit, Eye, Download, Share2, Shield } from "lucide-react"
-
+import {
+  Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User,
+  FileText, BarChart3, AlertTriangle, Calendar, MessageSquare,
+  Edit, Eye, Download, Share2, Shield
+} from "lucide-react"
 
 import { ReferralStatusTracker } from "../referrals/page.jsx"
 import { DashboardOverview } from "../dashboard/page.jsx"
@@ -22,35 +24,18 @@ import ReferralActions from "@/components/ReferralActions.jsx"
 import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
 import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
 import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
-
 import EmergencyCallModal from "@/components/crisis/EmergencyCallModal.jsx"
 import CrisisHotlineModal from "@/components/crisis/CrisisHotlineModal.jsx"
-import SafetyPlanModal from "@/components/clients/SafetyPlanModal.jsx"
 import ContactClientModal from "@/components/crisis/ContactClientModal.jsx"
 import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal.jsx"
-
-
-
-
-"use client"
-import jsPDF from "jspdf"
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-
-
-
-
 import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
 import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
 import ViewReportModal from "@/components/reports/ViewReportModal"
+
+import jsPDF from "jspdf"
+
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
   const [referrals, setReferrals] = useState([
@@ -147,21 +132,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
 
   // Referral actions
-  const handleAcceptReferral = (id) => {
-    setReferrals(prev =>
-      prev.map(r => r.id === id ? { ...r, status: "accepted", processedDate: new Date().toISOString().split("T")[0], processedBy: userName } : r)
-    )
-  }
-  const handleDeclineReferral = (id) => {
-    setReferrals(prev =>
-      prev.map(r => r.id === id ? { ...r, status: "declined", processedDate: new Date().toISOString().split("T")[0], processedBy: userName } : r)
-    )
-  }
-  const handleRequestMoreInfo = (id) => {
-    setReferrals(prev =>
-      prev.map(r => r.id === id ? { ...r, status: "more-info-requested", processedDate: new Date().toISOString().split("T")[0], processedBy: userName } : r)
-    )
-  }
+  // (Removed duplicate handleAcceptReferral, handleDeclineReferral, handleRequestMoreInfo)
 
   // Generate reports
   const generateReport = () => {
@@ -192,16 +163,11 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     }
   }
 
-  const tabs = userRole === "team-leader"
+     const tabs = userRole === "team-leader"
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
   
-    { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
-    { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
-    { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min" },
-  ]);
-
-  const tabs = ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
+  // (Removed extraneous array declaration)
 
 
 
@@ -292,10 +258,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
     return <AdminDashboard />
   }
 
-  const tabs =
-    userRole === "team-leader"
-      ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
-      : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
+  // Removed duplicate tabs declaration to avoid redeclaration error
 
 
 
@@ -316,63 +279,8 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           {tabs.map(tab => <TabsTrigger key={tab} value={tab} className="text-xs">{tab}</TabsTrigger>)}
         </TabsList>
 
-        {/* Overview */}
-        <TabsContent value="Overview" className="space-y-6">
+        
 
-          <p className="text-gray-500">Overview content goes here.</p>
-
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold">My Clients</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">24</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold">Today's Sessions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">6</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold">Urgent Cases</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">3</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold">Pending Notes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-4xl font-bold">2</div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Overview</CardTitle>
-              <CardDescription>Quick summary of your dashboard</CardDescription>
-            </CardHeader>
-            <CardContent>
-
-              <p>
-                Welcome {userName}! Use the tabs to navigate through your clients, schedule, notes, and reports.
-              </p>
-
-              
-
-            </CardContent>
-          </Card>
-
-        </TabsContent>
 
         {/* Referrals */}
         {userRole === "team-leader" && (
@@ -423,17 +331,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           </TabsContent>
         )}
 
-        {/* Clients */}
-        <TabsList
-          className={`grid w-full ${userRole === "team-leader" ? "grid-cols-4 lg:grid-cols-8" : "grid-cols-3 lg:grid-cols-6"}`}
-        >
-          {tabs.map((tab) => (
-            <TabsTrigger key={tab} value={tab} className="text-xs">
-              {tab}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
+        {/* Overview */}
         <TabsContent value="Overview" className="space-y-6">
 
 
@@ -719,17 +617,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
            <CardContent className="space-y-4">
 
-            <CardContent className="space-y-4">
-
-
-              <div className="grid gap-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Recent Session Notes</h3>
-                  <Button>
-
-
-
-              <div className="grid gap-4">
+            <div className="grid gap-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Recent Session Notes</h3>
                   <Button onClick={() => openModal('newNote')}>
@@ -772,9 +660,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                         <Button variant="outline" size="sm">
                           View Full Note
                         </Button>
-                        <Button variant="outline" size="sm">
-
-
                         <Button variant="outline" size="sm" onClick={() => openModal('viewNote', note)}>
 
 
@@ -881,6 +766,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               </CardContent>
             </Card>
           </div>
+          
         </TabsContent>
 
    {/* Generate Reports */}
@@ -1064,289 +950,15 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                     </CardContent>
                   </Card>
                 </div>
-              </CardContent>
+            </CardContent>
             </Card>
-
-
-        <TabsContent value="Crisis" className="space-y-6">
-
-          <EmergencyCallModal
-            isOpen={modals.emergencyCall}
-            onClose={() => closeModal('emergencyCall')}
-          />
-          <CrisisHotlineModal
-            isOpen={modals.crisisHotline}
-            onClose={() => closeModal('crisisHotline')}
-          />
-          <SafetyPlanModal
-            isOpen={modals.safetyPlan}
-            onClose={() => closeModal('safetyPlan')}
-          />
-          <ContactClientModal
-            isOpen={modals.contactClient}
-            onClose={() => closeModal('contactClient')}
-            client={selectedNote}
-          />
-          <UpdateRiskStatusModal
-            isOpen={modals.updateRiskStatus}
-            onClose={() => closeModal('updateRiskStatus')}
-            client={selectedNote}
-          />
-
-
-          {/* Inline Supervisor Modal */}
-          <Dialog open={modals.supervisorCall} onOpenChange={() => closeModal('supervisorCall')}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Contact Supervisor
-                </DialogTitle>
-                <DialogDescription>
-                  Reach out to your supervisor for guidance
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>On-Call Supervisor</Label>
-                  <p className="text-sm font-medium">Dr. Sarah Mitchell</p>
-                  <p className="text-sm text-gray-600">(555) 999-1234</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Reason for Contact</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select reason" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="emergency">Emergency consultation</SelectItem>
-                      <SelectItem value="clinical">Clinical guidance</SelectItem>
-                      <SelectItem value="ethical">Ethical consultation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => closeModal('supervisorCall')}>Cancel</Button>
-                <Button onClick={() => {
-                  closeModal('supervisorCall')
-                  alert('Calling supervisor...')
-                }}>
-                  <Phone className="h-4 w-4 mr-2" />
-                  Call Supervisor
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-
-          <div className="grid gap-6">
-            <Card className="border-red-200 bg-red-50">
-              <CardHeader>
-                <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
-                <CardDescription className="text-red-700">
-                  Quick access to crisis intervention resources
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => openModal('emergencyCall')}>
-                    <div className="text-center">
-                      <Phone className="h-6 w-6 mx-auto mb-1" />
-                      <div className="text-sm">Emergency Services</div>
-                      <div className="text-xs">911</div>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => openModal('crisisHotline')}>
-                    <div className="text-center">
-                      <Phone className="h-6 w-6 mx-auto mb-1" />
-                      <div className="text-sm">Crisis Hotline</div>
-                      <div className="text-xs">988</div>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => openModal('supervisorCall')}>
-                    <div className="text-center">
-                      <User className="h-6 w-6 mx-auto mb-1" />
-                      <div className="text-sm">Supervisor</div>
-                      <div className="text-xs">On-call</div>
-                    </div>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>High-Risk Clients</CardTitle>
-                <CardDescription>Monitor clients requiring immediate attention</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    {
-                      name: "Carol Davis",
-                      risk: "High",
-                      lastContact: "2024-01-15",
-                      reason: "Expressed suicidal ideation",
-                      status: "Active monitoring",
-                    },
-                    {
-                      name: "David Wilson",
-                      risk: "Medium",
-                      lastContact: "2024-01-14",
-                      reason: "Substance abuse relapse",
-                      status: "Weekly check-ins",
-                    },
-                  ].map((client, index) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{client.name}</h4>
-                        <Badge variant={client.risk === "High" ? "destructive" : "default"}>{client.risk} Risk</Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">Last contact: {client.lastContact}</p>
-                      <p className="text-sm mb-2">{client.reason}</p>
-                      <p className="text-sm text-blue-600">{client.status}</p>
-                      <div className="flex gap-2 mt-3">
-                        <Button size="sm" onClick={() => openModal('contactClient', client)}>Contact Now</Button>
-                        {/* <Button variant="outline" size="sm" onClick={() => openModal('UpdateRiskStatus', client)}>
-                          Update Status
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openModal('newNote', { client: client.name, template: 'Crisis Intervention' })}
-                        >
-                          <FileText className="h-4 w-4 mr-2" />
-                          Add Note
-                        </Button> */}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-
-        </TabsContent>
-
-        <TabsContent value="Reports" className="space-y-6">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Generate Reports</CardTitle>
-                <CardDescription>Create custom reports for your caseload</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Report Type</Label>
-                    <Select defaultValue="caseload">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="caseload">Caseload Summary</SelectItem>
-                        <SelectItem value="sessions">Session Reports</SelectItem>
-                        <SelectItem value="outcomes">Outcome Metrics</SelectItem>
-                        <SelectItem value="crisis">Crisis Interventions</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-          <Card className="border-red-200 bg-red-50">
-            <CardHeader>
-              <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
-              <CardDescription className="text-red-700">
-                Quick access to crisis intervention resources
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button className="bg-red-600 hover:bg-red-700 h-16">
-                  <div className="text-center">
-                    <Phone className="h-6 w-6 mx-auto mb-1" />
-                    <div className="text-sm">Emergency Services</div>
-                    <div className="text-xs">911</div>
-                  </div>
-                </Button>
-                <Button variant="outline" className="border-red-300 h-16 bg-transparent">
-                  <div className="text-center">
-                    <Phone className="h-6 w-6 mx-auto mb-1" />
-                    <div className="text-sm">Crisis Hotline</div>
-                    <div className="text-xs">988</div>
-
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Date Range</Label>
-                    <Select defaultValue="month">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="week">Last Week</SelectItem>
-                        <SelectItem value="month">Last Month</SelectItem>
-                        <SelectItem value="quarter">Last Quarter</SelectItem>
-                        <SelectItem value="year">Last Year</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Button className="w-full">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Generate Report
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Reports</CardTitle>
-                <CardDescription>Previously generated reports</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {[
-                    { name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB" },
-                    { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
-                    { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
-                  ].map((report, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded">
-                      <div>
-                        <p className="font-medium">{report.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {report.date} • {report.type} • {report.size}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          Download
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          Share
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {userRole === "team-leader" && (
-          <TabsContent value="Tracking" className="space-y-6">
-            <ReferralStatusTracker userRole="team-leader" />
-
           </TabsContent>
         )}
       </Tabs>
-
+      
     </main>
   );
 }
-        </main>
-      );
-    }
   
 
 

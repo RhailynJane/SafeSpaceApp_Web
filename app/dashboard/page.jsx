@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit,Plus } from "lucide-react"
-
+import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
 export function DashboardOverview({ userRole }) {
   const metrics = getMetricsForRole(userRole)
 
@@ -127,14 +127,12 @@ export function DashboardOverview({ userRole }) {
         <Card className="bg-teal-50 border-teal-200">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
+            <AddAppointmentModal
+  onAdd={(newAppointment) =>
+    setTodaySchedule((prev) => [...prev, newAppointment])
+  }
+/>
+
           </CardHeader>
           <CardContent className="space-y-3">
             {todaySchedule.map((appointment) => (
@@ -168,54 +166,66 @@ export function DashboardOverview({ userRole }) {
         </Card>
       </div>
       {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Edit className="h-6 w-6 text-orange-600" />
-              </div>
-              <span className="text-sm font-medium">Case Notes</span>
-            </Button>
+<Card>
+  <CardHeader>
+    <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+  </CardHeader>
+  <CardContent>
+    
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Case Notes */}
+      <Button
+        variant="outline"
+        onClick={() => setActiveTab("Notes")}
+        className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+      >
+        <div className="p-2 bg-orange-100 rounded-lg">
+          <Edit className="h-6 w-6 text-orange-600" />
+        </div>
+        <span className="text-sm font-medium">Case Notes</span>
+      </Button>
 
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-teal-100 rounded-lg">
-                <Users className="h-6 w-6 text-teal-600" />
-              </div>
-              <span className="text-sm font-medium">View Clients</span>
-            </Button>
+      {/* View Clients */}
+      <Button
+        variant="outline"
+        onClick={() => setActiveTab("Clients")}
+        className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+      >
+        <div className="p-2 bg-teal-100 rounded-lg">
+          <Users className="h-6 w-6 text-teal-600" />
+        </div>
+        <span className="text-sm font-medium">View Clients</span>
+      </Button>
 
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium">Manage Schedule</span>
-            </Button>
+      {/* Manage Schedule */}
+      <Button
+        variant="outline"
+        onClick={() => setActiveTab("Schedule")}
+        className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+      >
+        <div className="p-2 bg-blue-100 rounded-lg">
+          <Calendar className="h-6 w-6 text-blue-600" />
+        </div>
+        <span className="text-sm font-medium">Manage Schedule</span>
+      </Button>
 
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BarChart3 className="h-6 w-6 text-green-600" />
-              </div>
-              <span className="text-sm font-medium">Generate Reports</span>
-            </Button>
-          </div>
-        </CardContent>d
-      </Card>
+      {/* Generate Reports */}
+      <Button
+        variant="outline"
+        onClick={() => setActiveTab("Reports")}
+        className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+      >
+        <div className="p-2 bg-green-100 rounded-lg">
+          <BarChart3 className="h-6 w-6 text-green-600" />
+        </div>
+        <span className="text-sm font-medium">Generate Reports</span>
+      </Button>
+    </div>
+  </CardContent>
+</Card>
+
+
+
     </div>
   )
 }
