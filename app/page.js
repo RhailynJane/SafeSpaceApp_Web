@@ -1,25 +1,23 @@
 "use client";
 
 import { useState } from "react";
-
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield } from "lucide-react";
-import InteractiveDashboard from "../app/interactive/page.jsx";
-import SiteHeader from "@/components/site-header.jsx";
-
+import SiteHeader from "@/components/site-header";
+import InteractiveDashboard from "./interactive/page"; // only interactive dashboard
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const router = useRouter();
+
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'admin') {
+      router.push('/admin/overview');
+    }
+  }, [currentUser, router]);
 
   // Mock users for demo
   const mockUsers = {
@@ -108,11 +106,11 @@ export default function SafespacePlatform() {
           </Card>
         </section>
       ) : (
-        // After Login → Show Interactive Dashboard
-        <InteractiveDashboard
-          userRole={currentUser.role}
-          userName={currentUser.name.split(" ")[0]}
-        />
+                // After Login → Show Dashboard based on user role
+                <InteractiveDashboard
+            userRole={currentUser.role}
+            userName={currentUser.name.split(" ")[0]}
+          />
       )}
     </div>
   );
