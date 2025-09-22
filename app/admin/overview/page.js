@@ -1,4 +1,4 @@
-// File path: app/(admin)/overview/page.js
+// File path: app/admin/overview/page.js
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
