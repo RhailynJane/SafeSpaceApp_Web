@@ -1,5 +1,7 @@
 import React from 'react';
 
+// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
+
 // --- MOCK DATA ---
 // This is mock data for system alerts. In a real application, this would be fetched from a monitoring service or a logging system.
 const systemAlerts = [

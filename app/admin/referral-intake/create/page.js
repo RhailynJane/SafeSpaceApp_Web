@@ -1,7 +1,17 @@
 // File path: app/(admin)/referral-intake/create/page.js
 
+<<<<<<< HEAD
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
+
+=======
+
+// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
+
+>>>>>>> sam-admin-reports-analytics
+// File path: app/(admin)/referral-intake/create/page.js
+
+// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
 'use client';
 import React, { useState } from 'react';

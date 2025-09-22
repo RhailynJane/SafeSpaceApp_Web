@@ -2,6 +2,9 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+
+// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
+
 // --- Create User Form Page ---
 /**
  * The main page for creating a new user account.
