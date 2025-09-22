@@ -18,12 +18,12 @@ export default function AdminNav() {
     // Each object contains a 'name' for display and an 'href' for the navigation path.
     const navLinks = [
         { name: 'Overview', href: '/admin/overview' },
+        { name: 'Users', href: '/admin/users' },
         { name: 'Referral Intake', href: '/admin/referral-intake' },
         { name: 'Referral Tracking', href: '/admin/referral-tracking' },
-        { name: 'Reports & Analytics', href: '/admin/reports-analytics' },
         { name: 'System Monitoring', href: '/admin/system-monitoring' },
         { name: 'Audit & Compliance', href: '/admin/audit-compliance' },
-        { name: 'Users', href: '/admin/users' },
+        { name: 'Reports & Analytics', href: '/admin/reports-analytics' },
     ];
 
     return (
