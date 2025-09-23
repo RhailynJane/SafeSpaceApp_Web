@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit,Plus } from "lucide-react"
 import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
 export function DashboardOverview({ userRole }) {
+   const [schedule, setSchedule] = useState([]);
   const metrics = getMetricsForRole(userRole)
 
   const [notifications] = useState([
@@ -129,7 +130,7 @@ export function DashboardOverview({ userRole }) {
             <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
             <AddAppointmentModal
   onAdd={(newAppointment) =>
-    setTodaySchedule((prev) => [...prev, newAppointment])
+    setSchedule((prev) => [...prev, newAppointment])
   }
 />
 
