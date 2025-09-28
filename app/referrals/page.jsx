@@ -1,6 +1,6 @@
-"use client"
+"use client" // specific to Next.js App Router
 
-import { useState } from "react"
+import { useState } from "react" //built-in hook to manage component state
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +23,7 @@ import {
   UserCheck,
 } from "lucide-react"
 
+// functional React component - userRole and showAllReferrals passed as props
 export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
   const [selectedReferral, setSelectedReferral] = useState(null)
   const [showDetails, setShowDetails] = useState(false)
@@ -30,7 +31,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   
-  // Mock data
+  // Mock data of referral objects
   const [trackedReferrals] = useState([
     {
       id: "1",
@@ -206,7 +207,8 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     },
   ])
 
-  // Helper function : Map status to icon components with colors
+  // Helper function : Map status to icon components with colors - return an icon
+  // status is taken as paramter
   const getStatusIcon = (status) => {
     switch (status) {
       case "submitted":
@@ -229,7 +231,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     }
   }
 
-  // Helper function : Map status to badge colors
+  // Helper function : Map status to badge colors - return CSS class string(Tailwind) for color styling
   const getStatusColor = (status) => {
     switch (status) {
       case "submitted":
@@ -252,7 +254,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     }
   }
 
-  // Arrow (Helper) function: Map priority to badge colors
+  // Arrow (Helper) function: Map priority to badge colors - return tailwind class string
   const getPriorityColor = (priority) => {
     switch (priority) {
       case "Critical":
@@ -268,6 +270,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     }
   }
 
+  // filters the full list of referrals based on text search, status filter and priority filter
   const filteredReferrals = trackedReferrals.filter((referral) => {
     const matchesSearch =
       referral.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -291,6 +294,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
     }
     return stats
   }
+  //Returns counts for different referral statuses to show in summary cards.
 
   const stats = getStatusStats()
 
@@ -490,6 +494,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
                 <h3 className="text-lg font-medium mb-2">No referrals found</h3>
                 <p className="text-sm">Try adjusting your search or filter criteria.</p>
               </div>
+              //shown when no referral matches filters/search.
             )}
           </div>
         </CardContent>

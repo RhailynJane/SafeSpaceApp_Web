@@ -1,31 +1,45 @@
 "use client";
 
-import { useState } from "react";
-
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield } from "lucide-react";
-import InteractiveDashboard from "../app/interactive/page.jsx";
-import SiteHeader from "@/components/site-header.jsx";
-
+import SiteHeader from "@/components/site-header";
+import InteractiveDashboard from "./interactive/page"; // only interactive dashboard
 
 export default function SafespacePlatform() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const router = useRouter();
 
   // Mock users for demo
   const mockUsers = {
-    "admin@safespace.com": { id: "1", name: "Admin User", email: "admin@safespace.com", role: "admin" },
-    "leader@safespace.com": { id: "2", name: "Team Leader", email: "leader@safespace.com", role: "team-leader" },
-    "worker@safespace.com": { id: "3", name: "Support Worker", email: "worker@safespace.com", role: "support-worker" },
+    "admin@safespace.com": {
+      id: "1",
+      name: "Admin User",
+      email: "admin@safespace.com",
+      role: "admin",
+    },
+    "leader@safespace.com": {
+      id: "2",
+      name: "Team Leader",
+      email: "leader@safespace.com",
+      role: "team-leader",
+    },
+    "worker@safespace.com": {
+      id: "3",
+      name: "Support Worker",
+      email: "worker@safespace.com",
+      role: "support-worker",
+    },
   };
 
   const handleLogin = () => {
@@ -44,25 +58,33 @@ export default function SafespacePlatform() {
 
   const isAuthed = Boolean(currentUser);
 
+  // Redirect to admin dashboard if admin user logs in
+  useEffect(() => {
+    if (currentUser && currentUser.role === "admin") {
+      router.push("/admin/overview");
+    }
+  }, [currentUser, router]);
+
   return (
     <div className="min-h-screen bg-gray-50">
-
       <SiteHeader
         isAuthenticated={isAuthed}
         userName={currentUser?.name ?? null}
         onSignOut={handleLogout}
       />
 
-
       {!isAuthed ? (
-        // Login Page
         <section className="flex min-h-[calc(100vh-56px)] items-center justify-center bg-gradient-to-br from-teal-50 to-green-100 p-4">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-600">
-                <img src="/images/logo.png" alt="SafeSpace Logo" className="h-10 w-10" />
+                <img
+                  src="/images/logo.png"
+                  alt="SafeSpace Logo"
+                  className="h-10 w-10"
+                />
               </div>
-              <CardTitle className="text-2xl font-bold text-gray-900">
+              <CardTitle className="text-2xl font-bold text-gray-800">
                 <span className="text-teal-600">Safe</span>
                 <span className="text-gray-900">Space</span>
               </CardTitle>
@@ -76,7 +98,9 @@ export default function SafespacePlatform() {
                   type="email"
                   placeholder="Enter your email"
                   value={loginForm.email}
-                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, email: e.target.value })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -86,19 +110,21 @@ export default function SafespacePlatform() {
                   type="password"
                   placeholder="Enter your password"
                   value={loginForm.password}
-                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                  onChange={(e) =>
+                    setLoginForm({ ...loginForm, password: e.target.value })
+                  }
                 />
               </div>
-              <Button onClick={handleLogin} className="w-full bg-teal-600 hover:bg-teal-700">
+              <Button
+                onClick={handleLogin}
+                className="w-full bg-teal-600 hover:bg-teal-700"
+              >
                 Sign In
               </Button>
-
-              <div className="space-y-1 text-sm text-gray-600 ">
-
+              <div className="space-y-1 text-sm text-gray-600">
                 <p>
                   <strong>Demo Accounts:</strong>
                 </p>
-
                 <p>Admin: admin@safespace.com</p>
                 <p>Team Leader: leader@safespace.com</p>
                 <p>Support Worker: worker@safespace.com</p>
@@ -107,8 +133,11 @@ export default function SafespacePlatform() {
             </CardContent>
           </Card>
         </section>
+      ) : // After Login → Show Dashboard based on user role
+      currentUser.role === "admin" ? (
+        // Redirect to /admin/overview to use the admin layout
+        null // Render nothing here, as the redirect will handle navigation
       ) : (
-        // After Login → Show Interactive Dashboard
         <InteractiveDashboard
           userRole={currentUser.role}
           userName={currentUser.name.split(" ")[0]}
