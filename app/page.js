@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth, useSignIn, useUser } from "@clerk/nextjs";
 import {
   Card,
   CardContent,
@@ -13,67 +14,73 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import SiteHeader from "@/components/site-header";
-import InteractiveDashboard from "./interactive/page"; // only interactive dashboard
 
 export default function SafespacePlatform() {
-  const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+
   const router = useRouter();
+  const { isSignedIn } = useAuth();
+  const { signIn, setActive } = useSignIn();
+  const { user } = useUser();
 
-  // Mock users for demo
-  const mockUsers = {
-    "admin@safespace.com": {
-      id: "1",
-      name: "Admin User",
-      email: "admin@safespace.com",
-      role: "admin",
-    },
-    "leader@safespace.com": {
-      id: "2",
-      name: "Team Leader",
-      email: "leader@safespace.com",
-      role: "team-leader",
-    },
-    "worker@safespace.com": {
-      id: "3",
-      name: "Support Worker",
-      email: "worker@safespace.com",
-      role: "support-worker",
-    },
-  };
+  // Handle login
+  const handleLogin = async () => {
+    setLoading(true);
+    try {
+      const result = await signIn.create({
+        identifier: loginForm.email,
+        password: loginForm.password,
+      });
 
-  const handleLogin = () => {
-    const user = mockUsers[loginForm.email];
-    if (user && loginForm.password === "demo123") {
-      setCurrentUser(user);
-    } else {
-      alert("Invalid credentials. Use demo123 as password.");
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+
+        // Fetch user role from Postgres via API
+        const res = await fetch("/api/getUserRole", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: loginForm.email }),
+        });
+
+        if (res.ok) {
+          const { role } = await res.json();
+
+          if (role === "admin") {
+            router.push("/admin/overview");
+          } else if (role === "team_leader" || role === "support_worker") {
+            router.push("/dashboard");
+          } else {
+            alert("No role assigned. Please contact admin.");
+          }
+        } else {
+          alert("Could not fetch user role.");
+        }
+      } else {
+        alert("Login failed. Please check credentials.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Invalid credentials");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setLoginForm({ email: "", password: "" });
+  const handleLogout = async () => {
+    window.location.href = "/sign-out"; // Clerk handles logout route
   };
-
-  const isAuthed = Boolean(currentUser);
-
-  // Redirect to admin dashboard if admin user logs in
-  useEffect(() => {
-    if (currentUser && currentUser.role === "admin") {
-      router.push("/admin/overview");
-    }
-  }, [currentUser, router]);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <SiteHeader
-        isAuthenticated={isAuthed}
-        userName={currentUser?.name ?? null}
+        isAuthenticated={isSignedIn}
+        userName={user?.fullName ?? null}
         onSignOut={handleLogout}
       />
 
-      {!isAuthed ? (
+      {/* Only show login card if not signed in */}
+      {!isSignedIn && (
         <section className="flex min-h-[calc(100vh-56px)] items-center justify-center bg-gradient-to-br from-teal-50 to-green-100 p-4">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
@@ -117,31 +124,14 @@ export default function SafespacePlatform() {
               </div>
               <Button
                 onClick={handleLogin}
+                disabled={loading}
                 className="w-full bg-teal-600 hover:bg-teal-700"
               >
-                Sign In
+                {loading ? "Signing In..." : "Sign In"}
               </Button>
-              <div className="space-y-1 text-sm text-gray-600">
-                <p>
-                  <strong>Demo Accounts:</strong>
-                </p>
-                <p>Admin: admin@safespace.com</p>
-                <p>Team Leader: leader@safespace.com</p>
-                <p>Support Worker: worker@safespace.com</p>
-                <p>Password: demo123</p>
-              </div>
             </CardContent>
           </Card>
         </section>
-      ) : // After Login → Show Dashboard based on user role
-      currentUser.role === "admin" ? (
-        // Redirect to /admin/overview to use the admin layout
-        null // Render nothing here, as the redirect will handle navigation
-      ) : (
-        <InteractiveDashboard
-          userRole={currentUser.role}
-          userName={currentUser.name.split(" ")[0]}
-        />
       )}
     </div>
   );
