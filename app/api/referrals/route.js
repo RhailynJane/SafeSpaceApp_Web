@@ -1,19 +1,12 @@
-import { auth } from "@clerk/nextjs/server";
-import pool from "@/lib/db";
+import { NextResponse } from 'next/server';
+import pool from '@/lib/db';
 
 export async function GET() {
   try {
-    const { userId } = auth();
-    if (!userId) return new Response("Unauthorized", { status: 401 });
-
-    const { rows } = await pool.query(
-      "SELECT * FROM referrals WHERE assigned_to = (SELECT id FROM users WHERE clerk_user_id = $1)",
-      [userId]
-    );
-
-    return new Response(JSON.stringify(rows), { status: 200 });
-  } catch (err) {
-    console.error("Error fetching referrals:", err);
-    return new Response("Server error", { status: 500 });
+    const { rows } = await pool.query('SELECT * FROM referrals');
+    return NextResponse.json(rows);
+  } catch (error) {
+    console.error('Error fetching referrals:', error);
+    return NextResponse.json({ message: 'Error fetching referrals' }, { status: 500 });
   }
 }

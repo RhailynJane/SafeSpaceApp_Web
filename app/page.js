@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, useSignIn, useUser } from "@clerk/nextjs";
 import {
@@ -24,6 +24,35 @@ export default function SafespacePlatform() {
   const { signIn, setActive } = useSignIn();
   const { user } = useUser();
 
+  useEffect(() => {
+    if (isSignedIn) {
+      const fetchRoleAndRedirect = async () => {
+        const email = user?.primaryEmailAddress.emailAddress;
+        if (!email) return;
+
+        const res = await fetch("/api/get-user-role", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+
+        if (res.ok) {
+          const { role } = await res.json();
+          if (role && role.trim().toLowerCase() === "admin") {
+            window.location.href = "/admin/overview";
+          } else if (role === "team_leader" || role === "support_worker") {
+            window.location.href = "/dashboard";
+          } else {
+            // Handle cases where the user is signed in but has no role
+          }
+        } else {
+          // Handle error fetching role
+        }
+      };
+      fetchRoleAndRedirect();
+    }
+  }, [isSignedIn, user, router]);
+
   // Handle login
   const handleLogin = async () => {
     setLoading(true);
@@ -35,27 +64,7 @@ export default function SafespacePlatform() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-
-        // Fetch user role from Postgres via API
-        const res = await fetch("/api/getUserRole", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: loginForm.email }),
-        });
-
-        if (res.ok) {
-          const { role } = await res.json();
-
-          if (role === "admin") {
-            router.push("/admin/overview");
-          } else if (role === "team_leader" || role === "support_worker") {
-            router.push("/dashboard");
-          } else {
-            alert("No role assigned. Please contact admin.");
-          }
-        } else {
-          alert("Could not fetch user role.");
-        }
+        // The useEffect will now handle the redirection
       } else {
         alert("Login failed. Please check credentials.");
       }
@@ -67,16 +76,11 @@ export default function SafespacePlatform() {
     }
   };
 
-  const handleLogout = async () => {
-    window.location.href = "/sign-out"; // Clerk handles logout route
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <SiteHeader
         isAuthenticated={isSignedIn}
         userName={user?.fullName ?? null}
-        onSignOut={handleLogout}
       />
 
       {/* Only show login card if not signed in */}

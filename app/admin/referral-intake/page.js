@@ -1,19 +1,6 @@
-// File path: app/(admin)/referral-intake/page.js
-
-// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
-
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-
-// --- MOCK DATA ---
-// This is mock data for new referrals. In a real application, this would be fetched from an API.
-const referrals = [
-    { id: 'RFP-001', clientName: 'Alice Johnson', referredBy: 'Dr. Smith', date: '2025-09-08', status: 'New' },
-    { id: 'RFP-002', clientName: 'Bob Williams', referredBy: 'Community Clinic', date: '2025-09-08', status: 'New' },
-    { id: 'RFP-003', clientName: 'Charlie Brown', referredBy: 'Self-Referral', date: '2025-09-07', status: 'New' },
-    { id: 'RFP-004', clientName: 'Diana Miller', referredBy: 'Dr. Evans', date: '2025-09-06', status: 'New' },
-];
 
 // --- ICONS ---
 /**
@@ -38,14 +25,14 @@ const CloseIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" hei
  * @param {Function} props.onClose - The function to call to close the modal.
  * @returns {JSX.Element} The AcceptReferralModal component.
  */
-const AcceptReferralModal = ({ referral, onClose }) => (
+const AcceptReferralModal = ({ referral, onClose, onAccept }) => (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">Accept Referral for {referral.clientName}</h2>
+                <h2 className="text-xl font-bold text-gray-800">Accept Referral for {referral.client_name}</h2>
                 <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon/></button>
             </div>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onAccept(); }}>
                 <div>
                     <label htmlFor="assignTherapist" className="block text-sm font-medium text-gray-700">Assign to Therapist</label>
                     <select id="assignTherapist" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
@@ -84,14 +71,14 @@ const AcceptReferralModal = ({ referral, onClose }) => (
  * @param {Function} props.onClose - The function to call to close the modal.
  * @returns {JSX.Element} The DeclineReferralModal component.
  */
-const DeclineReferralModal = ({ referral, onClose }) => (
+const DeclineReferralModal = ({ referral, onClose, onDecline }) => (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
             <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">Decline Referral for {referral.clientName}</h2>
+                <h2 className="text-xl font-bold text-gray-800">Decline Referral for {referral.client_name}</h2>
                 <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon/></button>
             </div>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onDecline(); }}>
                 <div>
                     <label htmlFor="declineReason" className="block text-sm font-medium text-gray-700">Reason for Decline</label>
                     <select id="declineReason" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
@@ -122,17 +109,47 @@ const DeclineReferralModal = ({ referral, onClose }) => (
  * @returns {JSX.Element} The ReferralIntakePage component.
  */
 export default function ReferralIntakePage() {
-    // State to manage which modal is currently open ('accept', 'decline', or null) and the data for that modal.
+    const [referrals, setReferrals] = useState([]);
     const [modal, setModal] = useState({ type: null, data: null });
 
-    // Function to open a modal with the specified type and referral data.
+    useEffect(() => {
+        const getReferrals = async () => {
+            const res = await fetch('/api/referrals');
+            const data = await res.json();
+            setReferrals(data.filter(r => r.status === 'pending'));
+        };
+        getReferrals();
+    }, []);
+
     const openModal = (type, referral) => setModal({ type, data: referral });
-    // Function to close any open modal.
     const closeModal = () => setModal({ type: null, data: null });
+
+    const handleAcceptReferral = async () => {
+        const res = await fetch(`/api/referrals/${modal.data.id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'accepted' }),
+        });
+        if (res.ok) {
+            setReferrals(referrals.filter(r => r.id !== modal.data.id));
+            closeModal();
+        }
+    };
+
+    const handleDeclineReferral = async () => {
+        const res = await fetch(`/api/referrals/${modal.data.id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'declined' }),
+        });
+        if (res.ok) {
+            setReferrals(referrals.filter(r => r.id !== modal.data.id));
+            closeModal();
+        }
+    };
 
     return (
         <div className="bg-white p-8 rounded-2xl shadow-lg">
-            {/* Page header with a title and a button to create a new referral. */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-xl font-bold text-gray-800">New Referrals</h1>
                  <Link href="/admin/referral-intake/create" className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors">
@@ -141,30 +158,26 @@ export default function ReferralIntakePage() {
                 </Link>
             </div>
             
-            {/* Table to display the list of new referrals. */}
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-teal-50">
                         <tr>
-                            {/* Dynamically generate table headers. */}
                             {['Referral ID', 'Client Name', 'Referred By', 'Referral Date', 'Status', 'Action'].map(header => (
                                 <th key={header} className="px-6 py-3 text-left text-xs font-bold text-teal-800 uppercase tracking-wider">{header}</th>
                             ))}
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {/* Map over the referrals data to create a table row for each referral. */}
                         {referrals.map(referral => (
                             <tr key={referral.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{referral.id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{referral.clientName}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{referral.referredBy}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{referral.date}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{referral.client_name}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{referral.referral_source}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(referral.submitted_date).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                                     <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{referral.status}</span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    {/* Buttons to open the accept and decline modals. */}
                                     <button onClick={() => openModal('accept', referral)} className="px-4 py-1.5 border border-transparent rounded-md text-xs text-white bg-green-600 hover:bg-green-700">Accept</button>
                                     <button onClick={() => openModal('decline', referral)} className="px-4 py-1.5 border border-gray-300 rounded-md text-xs text-gray-700 bg-white hover:bg-gray-100">Decline</button>
                                 </td>
@@ -174,9 +187,8 @@ export default function ReferralIntakePage() {
                 </table>
             </div>
 
-            {/* Conditionally render the modals based on the 'modal' state. */}
-            {modal.type === 'accept' && <AcceptReferralModal referral={modal.data} onClose={closeModal} />}
-            {modal.type === 'decline' && <DeclineReferralModal referral={modal.data} onClose={closeModal} />}
+            {modal.type === 'accept' && <AcceptReferralModal referral={modal.data} onClose={closeModal} onAccept={handleAcceptReferral} />}
+            {modal.type === 'decline' && <DeclineReferralModal referral={modal.data} onClose={closeModal} onDecline={handleDeclineReferral} />}
         </div>
     );
 }

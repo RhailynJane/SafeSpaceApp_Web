@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -19,10 +20,10 @@ function getInitials(name) {
 export default function SiteHeader({
   isAuthenticated = false,
   userName = null,
-  onSignOut,
 }) {
   const [notificationModal, setNotificationModal] = useState(false);
   const router = useRouter();
+  const { signOut } = useClerk();
 
   // Sample notifications 
   const notifications = [
@@ -137,7 +138,7 @@ export default function SiteHeader({
 
                 <Button
                   variant="ghost"
-                  onClick={onSignOut}
+                  onClick={() => signOut()}
                   className="gap-2"
                   aria-label="Sign out"
                 >

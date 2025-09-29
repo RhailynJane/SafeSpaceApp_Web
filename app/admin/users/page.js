@@ -89,28 +89,14 @@ export default function UsersPage() {
     const [users, setUsers] = useState([]);
     const router = useRouter();
 
-    // This effect runs on component mount to load user data from localStorage.
-    // It initializes localStorage with mock data if it's empty.
-    React.useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const storedUsers = localStorage.getItem('mockUsers');
-            let parsedUsers = storedUsers ? JSON.parse(storedUsers) : [];
-            
-            if (!parsedUsers || parsedUsers.length === 0) {
-                parsedUsers = initialUsers;
-                localStorage.setItem('mockUsers', JSON.stringify(parsedUsers));
-            }
-            setUsers(parsedUsers);
-        }
-    }, [router]); // The dependency on `router` helps to reload data on page refresh.
-
-    // This effect runs whenever the `users` state changes, saving the updated list to localStorage.
-    // This ensures that changes (like deleting a user) are persisted.
-    React.useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('mockUsers', JSON.stringify(users));
-        }
-    }, [users]);
+    useEffect(() => {
+        const getUsers = async () => {
+            const res = await fetch('/api/admin/users');
+            const data = await res.json();
+            setUsers(data);
+        };
+        getUsers();
+    }, []);
 
     // Filters the users based on the search query.
     // This is recalculated on every render, ensuring the list is always up-to-date with the search query.
@@ -144,9 +130,14 @@ export default function UsersPage() {
      * Confirms the deletion of a user.
      * It filters the user out of the `users` state and then shows the success modal.
      */
-    const handleConfirmDelete = () => {
-        setUsers(users.filter(user => user.id !== modal.data.id));
-        setModal({ type: 'delete-success', data: modal.data });
+    const handleConfirmDelete = async () => {
+        const res = await fetch(`/api/admin/users/${modal.data.id}`, {
+            method: 'DELETE',
+        });
+        if (res.ok) {
+            setUsers(users.filter(user => user.id !== modal.data.id));
+            setModal({ type: 'delete-success', data: modal.data });
+        }
     };
 
     /**

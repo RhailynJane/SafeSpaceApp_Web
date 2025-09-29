@@ -21,6 +21,7 @@ export default function CreateUserPage() {
         lastName: '',
         role: 'Select Role',
         email: '',
+        password: '',
     });
     const router = useRouter();
 
@@ -41,31 +42,20 @@ export default function CreateUserPage() {
      * It creates a new user object, adds it to the list of users in localStorage, and shows the success modal.
      * @param {React.FormEvent<HTMLFormElement>} e - The form submission event.
      */
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // Generate a simple unique ID for mock data purposes. In a real app, this would be handled by the backend.
-        const newId = Date.now(); 
-        const newUser = {
-            id: newId,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            lastLogin: 'N/A', // Mock data for a new user
-            createdAt: new Date().toLocaleString(), // Set creation date to now
-            status: 'Active', // Default status for a new user
-            role: formData.role,
-        };
+        const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData),
+        });
 
-        // Get existing users from localStorage, add the new user, and save the updated list back.
-        if (typeof window !== 'undefined') {
-            const storedUsers = localStorage.getItem('mockUsers');
-            const users = storedUsers ? JSON.parse(storedUsers) : [];
-            const updatedUsers = [...users, newUser];
-            localStorage.setItem('mockUsers', JSON.stringify(updatedUsers));
+        if (res.ok) {
+            setShowSuccessModal(true);
         }
-
-        setShowSuccessModal(true);
     };
 
     /**
@@ -74,8 +64,7 @@ export default function CreateUserPage() {
      */
     const handleCloseModal = () => {
         setShowSuccessModal(false);
-        router.push('/users'); // Navigate back to the user list page
-        router.refresh(); // Force a refresh to re-fetch the user list from localStorage
+        router.push('/admin/users'); // Navigate back to the user list page
     };
 
     return (
@@ -115,13 +104,13 @@ export default function CreateUserPage() {
 
                 {/* Temporary password field (read-only) */}
                 <div>
-                    <label htmlFor="tempPassword" className="block text-sm font-medium text-gray-700">Temporary Password</label>
-                    <input type="text" id="tempPassword" placeholder="Generate secure password" readOnly value="************" className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-gray-100 focus:outline-none" />
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" placeholder="Enter a password" value={formData.password} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" />
                 </div>
 
                 {/* Form action buttons */}
                 <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={() => router.push('/users')} className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                    <button type="button" onClick={() => router.push('/admin/users')} className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
                     <button type="submit" className="px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700">Create User</button>
                 </div>
             </form>
