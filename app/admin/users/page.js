@@ -100,14 +100,14 @@ export default function UsersPage() {
 
     // Filters the users based on the search query.
     // This is recalculated on every render, ensuring the list is always up-to-date with the search query.
-    const filteredUsers = users.filter(user => {
+    const filteredUsers = Array.isArray(users) ? users.filter(user => {
         const lowercasedQuery = searchQuery.toLowerCase();
         return (
-            user.firstName.toLowerCase().includes(lowercasedQuery) ||
-            user.lastName.toLowerCase().includes(lowercasedQuery) ||
+            user.first_name.toLowerCase().includes(lowercasedQuery) ||
+            user.last_name.toLowerCase().includes(lowercasedQuery) ||
             user.email.toLowerCase().includes(lowercasedQuery)
         );
-    });
+    }) : [];
 
     /**
      * Toggles the visibility of the action menu for a specific user.
@@ -182,11 +182,11 @@ export default function UsersPage() {
                             {filteredUsers.map(user => (
                                 <tr key={user.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.id}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.firstName}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.lastName}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.first_name}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.last_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.lastLogin}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.createdAt}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.last_login}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.created_at}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{user.status}</span>
                                     </td>

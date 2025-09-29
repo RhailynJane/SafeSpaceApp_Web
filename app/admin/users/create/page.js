@@ -45,12 +45,17 @@ export default function CreateUserPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
+        const transformedFormData = {
+            ...formData,
+            role: formData.role.toLowerCase().replace(' ', '_'),
+        };
+
         const res = await fetch('/api/admin/users', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(formData),
+            body: JSON.stringify(transformedFormData),
         });
 
         if (res.ok) {

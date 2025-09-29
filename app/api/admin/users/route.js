@@ -1,11 +1,10 @@
-
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import bcrypt from 'bcrypt';
 
 export async function GET() {
   try {
-    const { rows } = await pool.query('SELECT id, first_name, last_name, email, last_login, created_at, status FROM users');
+    const { rows } = await pool.query('SELECT id, first_name, last_name, email, last_login, created_at FROM users');
     return NextResponse.json(rows);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -18,8 +17,8 @@ export async function POST(request) {
   const hashedPassword = await bcrypt.hash(password, 10);
   try {
     const { rows } = await pool.query(
-      'INSERT INTO users (first_name, last_name, email, password_hash, role, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, first_name, last_name, email, role, status',
-      [firstName, lastName, email, hashedPassword, role, 'Active']
+      'INSERT INTO users (first_name, last_name, email, password_hash, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, first_name, last_name, email, role',
+      [firstName, lastName, email, hashedPassword, role]
     );
     return NextResponse.json(rows[0]);
   } catch (error) {
