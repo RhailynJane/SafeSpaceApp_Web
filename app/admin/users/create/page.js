@@ -15,6 +15,8 @@ import { useRouter } from 'next/navigation';
 export default function CreateUserPage() {
     // State to control the visibility of the success modal.
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    // State to manage form errors, especially for email.
+    const [formError, setFormError] = useState(null);
     // State to manage the form data for the new user.
     const [formData, setFormData] = useState({
         firstName: '',
@@ -27,6 +29,7 @@ export default function CreateUserPage() {
 
     /**
      * Handles changes in the form fields and updates the formData state.
+     * Clears the form error when the user modifies an input.
      * @param {React.ChangeEvent<HTMLInputElement | HTMLSelectElement>} e - The input change event.
      */
     const handleChange = (e) => {
@@ -35,16 +38,21 @@ export default function CreateUserPage() {
             ...prevData,
             [id]: value,
         }));
+        // Clear previous errors when user starts typing
+        if (formError) {
+            setFormError(null);
+        }
     };
 
     /**
      * Handles the form submission.
-     * It creates a new user object, adds it to the list of users in localStorage, and shows the success modal.
+     * It sends the new user data to the backend API and handles both success and error responses.
      * @param {React.FormEvent<HTMLFormElement>} e - The form submission event.
      */
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+        setFormError(null); // Reset error state on new submission
+
         const transformedFormData = {
             ...formData,
             role: formData.role.toLowerCase().replace(' ', '_'),
@@ -60,41 +68,54 @@ export default function CreateUserPage() {
 
         if (res.ok) {
             setShowSuccessModal(true);
+        } else {
+            // If the server response is not OK, parse the error and display it
+            const errorData = await res.json();
+            const errorMessage = errorData.details?.errors?.[0]?.message || errorData.error || "An unexpected error occurred.";
+            setFormError(errorMessage);
         }
     };
 
     /**
      * Closes the success modal and navigates the user back to the main users list.
-     * It also refreshes the page to ensure the new user is displayed in the list.
      */
     const handleCloseModal = () => {
         setShowSuccessModal(false);
-        router.push('/admin/users'); // Navigate back to the user list page
+        router.push('/admin/users');
     };
 
     return (
         <div className="bg-white p-8 rounded-2xl shadow-lg max-w-4xl mx-auto">
             <h1 className="text-2xl font-bold text-gray-800 mb-8">Create New User Account</h1>
             
+            {/* Display Form Error Message */}
+            {formError && (
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6" role="alert">
+                    <p className="font-bold">Could not create user</p>
+                    <p>{formError}</p>
+                </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Grid for first name and last name fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">First Name</label>
-                        <input type="text" id="firstName" placeholder="Enter First Name" value={formData.firstName} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" />
+                        <input type="text" id="firstName" placeholder="Enter First Name" value={formData.firstName} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" required />
                     </div>
                     <div>
                         <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">Last Name</label>
-                        <input type="text" id="lastName" placeholder="Enter Last Name" value={formData.lastName} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" />
+                        <input type="text" id="lastName" placeholder="Enter Last Name" value={formData.lastName} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" required />
                     </div>
                 </div>
 
                 {/* Role selection field */}
                 <div>
                     <label htmlFor="role" className="block text-sm font-medium text-gray-700">Role</label>
-                    <select id="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500">
-                        <option>Select Role</option>
+                    <select id="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" required>
+                        <option disabled>Select Role</option>
                         <option>Support Worker</option>
+                        <option>Team Leader</option>
                         <option>Therapist</option>
                         <option>Admin</option>
                         <option>Patient</option>
@@ -104,13 +125,13 @@ export default function CreateUserPage() {
                 {/* Email address field */}
                 <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
-                    <input type="email" id="email" placeholder="Enter email address" value={formData.email} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" />
+                    <input type="email" id="email" placeholder="Enter email address" value={formData.email} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" required />
                 </div>
 
-                {/* Temporary password field (read-only) */}
+                {/* Temporary password field */}
                 <div>
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
-                    <input type="password" id="password" placeholder="Enter a password" value={formData.password} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" />
+                    <input type="password" id="password" placeholder="Enter a password" value={formData.password} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" required />
                 </div>
 
                 {/* Form action buttons */}
@@ -138,3 +159,4 @@ export default function CreateUserPage() {
         </div>
     );
 }
+

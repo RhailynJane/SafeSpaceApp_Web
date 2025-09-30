@@ -23,7 +23,6 @@ export async function POST(req) {
         }
       );
       const data = await response.json();
-      console.log('Clerk API response:', data);
     } catch (error) {
       console.error("Error updating user metadata:", error);
       // It's probably fine to continue even if this fails

@@ -1,39 +1,13 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { useUser } from "@clerk/nextjs"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit, Plus } from "lucide-react"
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit, Plus } from "lucide-react";
 
-// This is the main component for the page, which now handles fetching user data.
-export default function DashboardPage() {
-  const { isLoaded, user } = useUser();
-
-  // Show a loading state while Clerk is getting the user's information.
-  if (!isLoaded) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-lg text-gray-600">Loading Dashboard...</p>
-      </div>
-    );
-  }
-
-  // Once loaded, get the role from the user's metadata.
-  const userRole = user?.publicMetadata?.role || 'support-worker';
-
-  // Render your original component, passing the role down as a prop.
-  return <DashboardOverview userRole={userRole} />;
-}
-
-// Your original component and helpers remain unchanged below.
-// ==========================================================
-
-function DashboardOverview({ userRole }) {
-
-  //Calls a helper function that returns an array of dashboard metric objects based on the userRole.
-  const metrics = getMetricsForRole(userRole)
+export function DashboardOverview({ userRole }) {
+  const metrics = getMetricsForRole(userRole);
 
   const [notifications] = useState([
     {
@@ -57,7 +31,7 @@ function DashboardOverview({ userRole }) {
       time: "1 hour ago",
       priority: "high",
     },
-  ])
+  ]);
 
   const [todaySchedule] = useState([
     {
@@ -81,17 +55,12 @@ function DashboardOverview({ userRole }) {
       type: "Follow-up session",
       status: "pending",
     },
-  ])
+  ]);
 
-  // render UI
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* A responsive grid layout with 1–4 columns depending on screen size. */}
-
-
-        {/* Loops through the metrics array and renders a Card for each. */}
         {metrics.map((metric, index) => (
           <Card key={index} className="hover:shadow-md transition-shadow">
             <CardContent className="p-6">
@@ -247,11 +216,9 @@ function DashboardOverview({ userRole }) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
 
-// Helpers
-//Returns a different set of 4 dashboard metrics based on the userRole
 const getMetricsForRole = (userRole) => {
   switch (userRole) {
     case "admin":
@@ -260,49 +227,46 @@ const getMetricsForRole = (userRole) => {
         { title: "System Alerts", value: "3", icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
         { title: "Pending Referrals", value: "23", icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
         { title: "Active Workers", value: "89", icon: UserCheck, color: "text-green-600", bgColor: "bg-green-100" },
-      ]
+      ];
     case "team-leader":
       return [
         { title: "Active Clients", value: "156", icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
         { title: "Today's Sessions", value: "12", icon: Calendar, color: "text-blue-600", bgColor: "bg-blue-100" },
         { title: "High-Risk Clients", value: "8", icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
         { title: "Pending Notes", value: "5", icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
-      ]
+      ];
     case "support-worker":
       return [
         { title: "My Clients", value: "24", icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
         { title: "Today's Sessions", value: "6", icon: Calendar, color: "text-blue-600", bgColor: "bg-blue-100" },
         { title: "Urgent Cases", value: "3", icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
         { title: "Pending Notes", value: "2", icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
-      ]
+      ];
     default:
-      return []
+      return [];
   }
-}
+};
 
-//Returns a small icon component based on the notification type.
 const getNotificationIcon = (type) => {
   switch (type) {
     case "referral":
-      return <FileText className="h-4 w-4" />
+      return <FileText className="h-4 w-4" />;
     case "appointment":
-      return <Clock className="h-4 w-4" />
+      return <Clock className="h-4 w-4" />;
     case "crisis":
-      return <AlertTriangle className="h-4 w-4" />
+      return <AlertTriangle className="h-4 w-4" />;
     default:
-      return <FileText className="h-4 w-4" />
+      return <FileText className="h-4 w-4" />;
   }
-}
+};
 
-//Returns Tailwind classes to style the Badge based on the appointment status (confirmed or pending).
 const getStatusColor = (status) => {
   switch (status) {
     case "confirmed":
-      return "bg-teal-600 text-white"
+      return "bg-teal-600 text-white";
     case "pending":
-      return "bg-gray-400 text-white"
+      return "bg-gray-400 text-white";
     default:
-      return "bg-gray-400 text-white"
+      return "bg-gray-400 text-white";
   }
-}
-
+};
