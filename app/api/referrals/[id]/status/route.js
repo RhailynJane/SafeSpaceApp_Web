@@ -3,11 +3,11 @@ import pool from '@/lib/db';
 
 export async function PUT(request, { params }) {
   const { id } = params;
-  const { status } = await request.json();
+  const { status, processed_by_user_id } = await request.json();
   try {
     const { rows } = await pool.query(
-      'UPDATE referrals SET status = $1, processed_date = CURRENT_DATE WHERE id = $2 RETURNING *',
-      [status, id]
+      'UPDATE referrals SET status = $1, processed_date = CURRENT_DATE, processed_by_user_id = $2 WHERE id = $3 RETURNING *',
+      [status, processed_by_user_id, id]
     );
     return NextResponse.json(rows[0]);
   } catch (error) {

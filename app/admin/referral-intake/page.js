@@ -25,43 +25,53 @@ const CloseIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" hei
  * @param {Function} props.onClose - The function to call to close the modal.
  * @returns {JSX.Element} The AcceptReferralModal component.
  */
-const AcceptReferralModal = ({ referral, onClose, onAccept }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">Accept Referral for {referral.client_name}</h2>
-                <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon/></button>
+const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
+    const [selectedTherapist, setSelectedTherapist] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onAccept(selectedTherapist);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-gray-800">Accept Referral for {referral.client_name}</h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon/></button>
+                </div>
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div>
+                        <label htmlFor="assignTherapist" className="block text-sm font-medium text-gray-700">Assign to Therapist</label>
+                        <select id="assignTherapist" value={selectedTherapist} onChange={(e) => setSelectedTherapist(e.target.value)} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
+                            <option value="">Select Therapist...</option>
+                            {therapists.map(therapist => (
+                                <option key={therapist.id} value={therapist.id}>{therapist.first_name} {therapist.last_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                     <div>
+                        <label htmlFor="priority" className="block text-sm font-medium text-gray-700">Priority Level</label>
+                        <select id="priority" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
+                            <option>Select Priority...</option>
+                            <option>High</option>
+                            <option>Medium</option>
+                            <option>Low</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes (optional)</label>
+                        <textarea id="notes" rows="3" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg" placeholder="Add any relevant notes..."></textarea>
+                    </div>
+                    <div className="flex justify-end gap-4 pt-4">
+                        <button type="button" onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                        <button type="submit" className="px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700">Assign Referral</button>
+                    </div>
+                </form>
             </div>
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onAccept(); }}>
-                <div>
-                    <label htmlFor="assignTherapist" className="block text-sm font-medium text-gray-700">Assign to Therapist</label>
-                    <select id="assignTherapist" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
-                        <option>Select Therapist...</option>
-                        <option>Dr. Emily Carter</option>
-                        <option>Dr. Ben Adams</option>
-                    </select>
-                </div>
-                 <div>
-                    <label htmlFor="priority" className="block text-sm font-medium text-gray-700">Priority Level</label>
-                    <select id="priority" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
-                        <option>Select Priority...</option>
-                        <option>High</option>
-                        <option>Medium</option>
-                        <option>Low</option>
-                    </select>
-                </div>
-                <div>
-                    <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes (optional)</label>
-                    <textarea id="notes" rows="3" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg" placeholder="Add any relevant notes..."></textarea>
-                </div>
-                <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button type="submit" className="px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700">Assign Referral</button>
-                </div>
-            </form>
         </div>
-    </div>
-);
+    );
+}
 
 /**
  * A modal for declining a new referral.
@@ -110,6 +120,7 @@ const DeclineReferralModal = ({ referral, onClose, onDecline }) => (
  */
 export default function ReferralIntakePage() {
     const [referrals, setReferrals] = useState([]);
+    const [therapists, setTherapists] = useState([]);
     const [modal, setModal] = useState({ type: null, data: null });
 
     useEffect(() => {
@@ -118,17 +129,23 @@ export default function ReferralIntakePage() {
             const data = await res.json();
             setReferrals(data.filter(r => r.status === 'pending'));
         };
+        const getTherapists = async () => {
+            const res = await fetch('/api/admin/therapists');
+            const data = await res.json();
+            setTherapists(data);
+        };
         getReferrals();
+        getTherapists();
     }, []);
 
     const openModal = (type, referral) => setModal({ type, data: referral });
     const closeModal = () => setModal({ type: null, data: null });
 
-    const handleAcceptReferral = async () => {
+    const handleAcceptReferral = async (therapistId) => {
         const res = await fetch(`/api/referrals/${modal.data.id}/status`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'accepted' }),
+            body: JSON.stringify({ status: 'accepted', processed_by_user_id: therapistId }),
         });
         if (res.ok) {
             setReferrals(referrals.filter(r => r.id !== modal.data.id));
@@ -187,7 +204,7 @@ export default function ReferralIntakePage() {
                 </table>
             </div>
 
-            {modal.type === 'accept' && <AcceptReferralModal referral={modal.data} onClose={closeModal} onAccept={handleAcceptReferral} />}
+            {modal.type === 'accept' && <AcceptReferralModal referral={modal.data} onClose={closeModal} onAccept={handleAcceptReferral} therapists={therapists} />}
             {modal.type === 'decline' && <DeclineReferralModal referral={modal.data} onClose={closeModal} onDecline={handleDeclineReferral} />}
         </div>
     );

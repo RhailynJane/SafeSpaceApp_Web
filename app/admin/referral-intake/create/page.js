@@ -1,16 +1,5 @@
 // File path: app/(admin)/referral-intake/create/page.js
 
-<<<<<<< HEAD
-// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
-
-
-=======
-
-// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
-
->>>>>>> sam-admin-reports-analytics
-// File path: app/(admin)/referral-intake/create/page.js
-
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
 'use client';
@@ -61,38 +50,64 @@ const SubmissionSuccessModal = ({ onClose }) => (
  * @returns {JSX.Element} The CreateReferralPage component.
  */
 export default function CreateReferralPage() {
-    // State to store the name of the uploaded file.
+    const [formData, setFormData] = useState({
+        client_name: '',
+        age: '',
+        phone: '',
+        address: '',
+        email: '',
+        emergency_contact: '',
+        referral_source: '',
+        priority_level: 'Medium',
+        reason_for_referral: '',
+        additional_notes: '',
+    });
     const [fileName, setFileName] = useState(null);
-    // State to control the visibility of the success modal.
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-    /**
-     * Handles the file input change event.
-     * It updates the fileName state with the name of the selected file.
-     * @param {React.ChangeEvent<HTMLInputElement>} e - The file input change event.
-     */
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             setFileName(e.target.files[0].name);
         }
     };
 
-    /**
-     * Handles the form submission.
-     * It prevents the default form submission behavior and shows the success modal.
-     * In a real application, this would also handle the form data submission to an API.
-     * @param {React.FormEvent<HTMLFormElement>} e - The form submission event.
-     */
-    const handleSubmit = (e) => {
+    const handleChange = (e) => {
+        const { id, value } = e.target;
+        setFormData((prevData) => ({
+            ...prevData,
+            [id]: value,
+        }));
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        setShowSuccessModal(true);
+        const res = await fetch('/api/referrals', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData),
+        });
+
+        if (res.ok) {
+            setShowSuccessModal(true);
+        }
     };
     
-    /**
-     * Clears the form fields and resets the file name state.
-     */
     const handleClearForm = () => {
         setFileName(null);
+        setFormData({
+            client_name: '',
+            age: '',
+            phone: '',
+            address: '',
+            email: '',
+            emergency_contact: '',
+            referral_source: '',
+            priority_level: 'Medium',
+            reason_for_referral: '',
+            additional_notes: '',
+        });
         document.getElementById("referral-form").reset();
     };
 
@@ -135,19 +150,19 @@ export default function CreateReferralPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6">
                     {/* Left column of form fields */}
                     <div className="space-y-6">
-                        <div><label className="font-semibold text-gray-700">Client Name</label><input type="text" placeholder="Enter client's full name" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Age</label><input type="text" placeholder="Enter age" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Phone</label><input type="text" placeholder="(555) 123-4567" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Address</label><input type="text" placeholder="123 Main St City State, ZIP" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Email</label><input type="email" placeholder="client@gmail.com" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Emergency Contact</label><input type="text" placeholder="Name (Relationship) - Phone Number" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Client Name</label><input type="text" id="client_name" placeholder="Enter client's full name" value={formData.client_name} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Age</label><input type="text" id="age" placeholder="Enter age" value={formData.age} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Phone</label><input type="text" id="phone" placeholder="(555) 123-4567" value={formData.phone} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Address</label><input type="text" id="address" placeholder="123 Main St City State, ZIP" value={formData.address} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Email</label><input type="email" id="email" placeholder="client@gmail.com" value={formData.email} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Emergency Contact</label><input type="text" id="emergency_contact" placeholder="Name (Relationship) - Phone Number" value={formData.emergency_contact} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
                     </div>
                     {/* Right column of form fields */}
                     <div className="space-y-6">
-                        <div><label className="font-semibold text-gray-700">Referral Source</label><input type="text" placeholder="Enter Source" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Priority Level</label><select className="w-full mt-1 p-3 border border-gray-300 rounded-lg bg-white"><option>Medium</option><option>High</option><option>Low</option></select></div>
-                        <div><label className="font-semibold text-gray-700">Reason for Referral</label><textarea placeholder="Describe the client's needs and reason for referral" rows="4" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"></textarea></div>
-                        <div><label className="font-semibold text-gray-700">Additional Notes</label><textarea placeholder="Any additional information or special considerations" rows="4" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"></textarea></div>
+                        <div><label className="font-semibold text-gray-700">Referral Source</label><input type="text" id="referral_source" placeholder="Enter Source" value={formData.referral_source} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Priority Level</label><select id="priority_level" value={formData.priority_level} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg bg-white"><option>Medium</option><option>High</option><option>Low</option></select></div>
+                        <div><label className="font-semibold text-gray-700">Reason for Referral</label><textarea id="reason_for_referral" placeholder="Describe the client's needs and reason for referral" value={formData.reason_for_referral} onChange={handleChange} rows="4" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"></textarea></div>
+                        <div><label className="font-semibold text-gray-700">Additional Notes</label><textarea id="additional_notes" placeholder="Any additional information or special considerations" value={formData.additional_notes} onChange={handleChange} rows="4" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"></textarea></div>
                     </div>
                 </div>
 
