@@ -25,35 +25,27 @@ export default function SafespacePlatform() {
   const { user } = useUser();
 
   useEffect(() => {
-    if (isSignedIn) {
-      const fetchRoleAndRedirect = async () => {
-        const email = user?.primaryEmailAddress.emailAddress;
-        if (!email) return;
-
-        const res = await fetch("/api/get-user-role", {
+    if (isSignedIn && user) {
+      const email =
+        user.primaryEmailAddress?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
+      if (email) {
+        fetch("/api/get-user-role", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        });
-
-        if (res.ok) {
-          const { role } = await res.json();
-          if (role && role.trim().toLowerCase() === "admin") {
-            window.location.href = "/admin/overview";
-          } else if (role === "team_leader" || role === "support_worker") {
-            window.location.href = "/dashboard";
-          } else {
-            // Handle cases where the user is signed in but has no role
-          }
-        } else {
-          // Handle error fetching role
-        }
-      };
-      fetchRoleAndRedirect();
+          body: JSON.stringify({ email, userId: user.id }),
+        })
+          .then((res) => res.json())
+          .then(({ role }) => {
+            if (role && role.trim().toLowerCase() === "admin") {
+              router.push("/admin/overview");
+            } else if (role === "team_leader" || role === "support_worker") {
+              router.push("/dashboard");
+            }
+          });
+      }
     }
   }, [isSignedIn, user, router]);
 
-  // Handle login
   const handleLogin = async () => {
     setLoading(true);
     try {
@@ -64,7 +56,6 @@ export default function SafespacePlatform() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        // The useEffect will now handle the redirection
       } else {
         alert("Login failed. Please check credentials.");
       }
@@ -100,7 +91,7 @@ export default function SafespacePlatform() {
                 <span className="text-gray-900">Space</span>
               </CardTitle>
               <CardDescription>Mental Health Support Platform</CardDescription>
-            </CardHeader>
+            </CardHeader>.
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>

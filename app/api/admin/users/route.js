@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 
 export async function GET() {
   try {
-    const { rows } = await pool.query('SELECT id, first_name, last_name, email, last_login, created_at FROM users');
+    const { rows } = await pool.query('SELECT id, first_name, last_name, email, role, last_login, created_at FROM users');
     return NextResponse.json(rows);
   } catch (error) {
     console.error('Error fetching users:', error);

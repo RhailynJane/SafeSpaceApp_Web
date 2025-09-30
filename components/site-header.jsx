@@ -25,6 +25,7 @@ export default function SiteHeader({
   const router = useRouter();
   const { signOut } = useClerk();
 
+
   // Sample notifications 
   const notifications = [
     {
@@ -145,6 +146,8 @@ export default function SiteHeader({
                   <LogOut className="h-4 w-4" />
                   <span className="hidden sm:inline">Sign out</span>
                 </Button>
+
+
               </>
             ) : null}
           </div>
