@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
@@ -14,28 +14,6 @@ const UsersIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" hei
 const ShieldIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> );
 /** Renders a file icon for compliance reports. */
 const FileIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> );
-
-// --- MOCK DATA ---
-// This mock data simulates the content of different reports that can be generated.
-// In a real application, this content would likely be generated on the fly or fetched from a reporting service.
-const reportMockData = {
-    "Platform Usage Report": {
-        title: "Platform Usage Summary",
-        content: "This report provides an overview of platform usage, including daily active users, session durations, and feature engagement. Data covers the last 30 days."
-    },
-    "User Activity Report": {
-        title: "User Activity Overview",
-        content: "Detailed insights into user logins, feature interactions, and common pathways within the application. Data is aggregated weekly."
-    },
-    "Security Audit Report": {
-        title: "Security Audit Findings",
-        content: "Summary of recent security scans, vulnerability assessments, and compliance checks. Includes a list of resolved and pending issues."
-    },
-    "Compliance Report": {
-        title: "Regulatory Compliance Status",
-        content: "Report on adherence to relevant industry regulations and internal compliance policies. Highlights areas of full compliance and areas requiring attention."
-    }
-};
 
 // --- COMPONENTS ---
 
@@ -57,66 +35,22 @@ const AnalyticsCard = ({ title, value, subtitle, valueColor }) => (
 );
 
 /**
- * A button component for triggering the generation or display of a report.
- * @param {object} props - The component props.
- * @param {string} props.title - The title of the report.
- * @param {JSX.Element} props.icon - The icon to display on the button.
- * @param {Function} props.onClick - The function to call when the button is clicked.
- * @returns {JSX.Element} The ReportButton component.
- */
-const ReportButton = ({ title, icon, onClick }) => (
-    <button onClick={onClick} className="w-full flex items-center gap-4 p-6 bg-white border-2 border-gray-300 border-dashed rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all text-left">
-        <div className="text-gray-500">{icon}</div>
-        <span className="text-lg font-semibold text-gray-700">{title}</span>
-    </button>
-);
-
-/**
- * A modal component to display the content of a generated report.
- * @param {object} props - The component props.
- * @param {string} props.title - The title of the report.
- * @param {string} props.content - The content of the report.
- * @param {Function} props.onClose - The function to call to close the modal.
- * @returns {JSX.Element} The ReportModal component.
- */
-const ReportModal = ({ title, content, onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">{title}</h2>
-            <p className="text-gray-600 mb-8">{content}</p>
-            <button onClick={onClose} className="w-full bg-teal-600 text-white font-semibold py-3 rounded-lg hover:bg-teal-700 transition-colors">Close</button>
-        </div>
-    </div>
-);
-
-/**
  * The main page for the Reports & Analytics dashboard.
  * It displays key analytics metrics and provides buttons to generate various reports.
  * The report content is displayed in a modal.
  * @returns {JSX.Element} The ReportsAnalyticsPage component.
  */
 export default function ReportsAnalyticsPage() {
-    // State to control the visibility of the report modal.
-    const [showReportModal, setShowReportModal] = useState(false);
-    // State to store the content of the currently displayed report.
-    const [modalContent, setModalContent] = useState({ title: '', content: '' });
+    const [reports, setReports] = useState([]);
 
-    /**
-     * Handles the click event for a report button.
-     * It sets the content for the modal based on the selected report and shows the modal.
-     * @param {string} reportName - The name of the report to display.
-     */
-    const handleReportClick = (reportName) => {
-        setModalContent(reportMockData[reportName]);
-        setShowReportModal(true);
-    };
-
-    /**
-     * Handles closing the report modal.
-     */
-    const handleCloseModal = () => {
-        setShowReportModal(false);
-    };
+    useEffect(() => {
+        const getReports = async () => {
+            const res = await fetch('/api/admin/reports');
+            const data = await res.json();
+            setReports(data);
+        };
+        getReports();
+    }, []);
 
     return (
         <div className="bg-white p-8 rounded-2xl shadow-lg">
@@ -131,22 +65,29 @@ export default function ReportsAnalyticsPage() {
                 <AnalyticsCard title="Session Duration" value="45 m" subtitle="Average" valueColor="text-blue-600" />
             </div>
 
-            {/* Report Buttons Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ReportButton title="Platform Usage Report" icon={<ChartIcon />} onClick={() => handleReportClick("Platform Usage Report")} />
-                <ReportButton title="User Activity Report" icon={<UsersIcon />} onClick={() => handleReportClick("User Activity Report")} />
-                <ReportButton title="Security Audit Report" icon={<ShieldIcon />} onClick={() => handleReportClick("Security Audit Report")} />
-                <ReportButton title="Compliance Report" icon={<FileIcon />} onClick={() => handleReportClick("Compliance Report")} />
+            {/* Reports Table Section */}
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-teal-50">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-teal-800 uppercase tracking-wider">Report Name</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-teal-800 uppercase tracking-wider">Date</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-teal-800 uppercase tracking-wider">Type</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-teal-800 uppercase tracking-wider">Size (MB)</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                        {reports.map(report => (
+                            <tr key={report.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{report.name}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(report.report_date).toLocaleDateString()}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{report.type}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{report.size_mb}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
-
-            {/* Conditionally render the report modal */}
-            {showReportModal && (
-                <ReportModal
-                    title={modalContent.title}
-                    content={modalContent.content}
-                    onClose={handleCloseModal}
-                />
-            )}
         </div>
     );
 }

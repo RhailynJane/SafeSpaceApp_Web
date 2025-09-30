@@ -1,14 +1,7 @@
-import React from 'react';
+'use client';
+import React, { useState, useEffect } from 'react';
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
-
-// --- MOCK DATA ---
-// This is mock data for system alerts. In a real application, this would be fetched from a monitoring service or a logging system.
-const systemAlerts = [
-    { id: 1, message: 'Database backup completed successfully', timestamp: '2 hours ago', type: 'success' },
-    { id: 2, message: 'High memory usage detected on server 2', timestamp: '4 hours ago', type: 'warning' },
-    { id: 3, message: 'Security patch applied successfully', timestamp: '1 day ago', type: 'success' },
-];
 
 /**
  * The main page for monitoring system health and alerts.
@@ -17,6 +10,17 @@ const systemAlerts = [
  * @returns {JSX.Element} The SystemMonitoringPage component.
  */
 export default function SystemMonitoringPage() {
+    const [systemAlerts, setSystemAlerts] = useState([]);
+
+    useEffect(() => {
+        const getSystemAlerts = async () => {
+            const res = await fetch('/api/admin/system-alerts');
+            const data = await res.json();
+            setSystemAlerts(data);
+        };
+        getSystemAlerts();
+    }, []);
+
     /**
      * Returns a Tailwind CSS class for the border color of an alert based on its type.
      * This is used to visually distinguish different types of alerts (e.g., warnings).
@@ -26,6 +30,7 @@ export default function SystemMonitoringPage() {
     const getAlertColor = (type) => {
         switch (type) {
             case 'warning': return 'border-l-4 border-yellow-500';
+            case 'error': return 'border-l-4 border-red-500';
             default: return 'border-l-4 border-gray-300';
         }
     };
@@ -61,7 +66,7 @@ export default function SystemMonitoringPage() {
                     {systemAlerts.map(alert => (
                         <div key={alert.id} className={`bg-gray-50 p-4 rounded-lg border ${getAlertColor(alert.type)} flex justify-between items-center`}>
                             <p className="text-gray-800">{alert.message}</p>
-                            <p className="text-sm text-gray-500">{alert.timestamp}</p>
+                            <p className="text-sm text-gray-500">{new Date(alert.timestamp).toLocaleString()}</p>
                         </div>
                     ))}
                 </div>

@@ -4,6 +4,6 @@ CREATE TABLE audit_logs (
     action VARCHAR(255) NOT NULL,
     user_id INTEGER, -- Foreign Key to users table
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    details TEXT
+    details TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );

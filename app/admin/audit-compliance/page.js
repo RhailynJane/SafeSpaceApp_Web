@@ -1,16 +1,9 @@
-import React from 'react';
+'use client';
+import React, { useState, useEffect } from 'react';
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
-
-// --- MOCK DATA ---
-// This is mock data for recent audit events. In a real application, this would be fetched from an API.
-const auditEvents = [
-    { id: 1, event: 'User Created', description: 'Created new support worker account', timestamp: '2025-08-10 09:00:00' },
-    { id: 2, event: 'Client Access', description: 'Accessed client profile for Emma Wilson', timestamp: '2025-08-10 09:00:00' },
-    { id: 3, event: 'Security Alert', description: 'Multiple failed login attempts detected', timestamp: '2025-08-10 09:30:00' },
-];
 
 // --- STAT CARD COMPONENT ---
 /**
@@ -39,6 +32,17 @@ const StatCard = ({ title, value, subtitle, valueColor = 'text-gray-900' }) => (
  * @returns {JSX.Element} The AuditCompliancePage component.
  */
 export default function AuditCompliancePage() {
+    const [auditEvents, setAuditEvents] = useState([]);
+
+    useEffect(() => {
+        const getAuditEvents = async () => {
+            const res = await fetch('/api/admin/audit-logs');
+            const data = await res.json();
+            setAuditEvents(data);
+        };
+        getAuditEvents();
+    }, []);
+
     return (
         <div className="space-y-8">
             {/* Header section with the main title and a brief description of the page. */}
@@ -62,10 +66,10 @@ export default function AuditCompliancePage() {
                     {auditEvents.map(event => (
                         <div key={event.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-center">
                             <div>
-                                <p className="font-semibold text-gray-800">{event.event}</p>
-                                <p className="text-sm text-gray-600">{event.description}</p>
+                                <p className="font-semibold text-gray-800">{event.action}</p>
+                                <p className="text-sm text-gray-600">{event.details}</p>
                             </div>
-                            <p className="text-sm text-gray-500">{event.timestamp}</p>
+                            <p className="text-sm text-gray-500">{new Date(event.timestamp).toLocaleString()}</p>
                         </div>
                     ))}
                 </div>
