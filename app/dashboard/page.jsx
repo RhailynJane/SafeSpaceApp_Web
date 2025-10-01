@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import ViewNoteModal from "@/components/Notes/ViewNoteModal"
 import NewNoteModal from "@/components/Notes/NewNoteModal"
 import EditNoteModal from "@/components/Notes/EditNoteModal"
@@ -14,11 +15,21 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit, Plus } from "lucide-react"
 
-// This is the main component for the page, which now handles fetching user data.
+// This is the main component for the page, which now handles fetching user data and redirection.
 export default function DashboardPage() {
   const { isLoaded, user } = useUser();
+  const router = useRouter();
 
-  if (!isLoaded) {
+  useEffect(() => {
+    if (isLoaded && user) {
+      const userRole = user.publicMetadata?.role;
+      if (userRole === 'team-leader' || userRole === 'support-worker') {
+        router.push('/interactive');
+      }
+    }
+  }, [isLoaded, user, router]);
+
+  if (!isLoaded || (user && (user.publicMetadata?.role === 'team-leader' || user.publicMetadata?.role === 'support-worker'))) {
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-lg text-gray-600">Loading Dashboard...</p>
@@ -26,33 +37,16 @@ export default function DashboardPage() {
     );
   }
 
-  const userRole = user?.publicMetadata?.role || 'support-worker';
+  const userRole = user?.publicMetadata?.role;
 
   if (userRole === 'admin') {
     return <DashboardOverview userRole="admin" />;
   }
-  if (userRole === 'team-leader') {
-    return <TeamLeaderDashboard />;
-  }
-  if (userRole === 'support-worker') {
-    return <SupportWorkerDashboard />;
-  }
+
+  // Fallback for any other role or if role is not defined
   return <DashboardOverview userRole={userRole} />;
 }
 
-// Team Leader Dashboard
-function TeamLeaderDashboard() {
-  // Only show team leader metrics and actions
-  // ...existing code for DashboardOverview, but restrict actions/metrics as needed...
-  return <DashboardOverview userRole="team-leader" />;
-}
-
-// Support Worker Dashboard
-function SupportWorkerDashboard() {
-  // Only show support worker metrics and actions
-  // ...existing code for DashboardOverview, but restrict actions/metrics as needed...
-  return <DashboardOverview userRole="support-worker" />;
-}
 
 // Your original component and helpers remain unchanged below.
 // ==========================================================
@@ -253,7 +247,7 @@ function DashboardOverview({ userRole }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">{appointment.time}</span>
-                  <Badge className={getStatusColor(appointment.status)}>
+                  <Badge className={getStatusColor(.js)}>
                     {appointment.status}
                   </Badge>
                 </div>

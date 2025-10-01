@@ -84,7 +84,7 @@ export default function SiteHeader({
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <div className="flex items-center gap-2">
             <img src="/images/logo.png" alt="SafeSpace Logo" className="h-10 w-10" />
