@@ -33,15 +33,24 @@ const FileIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" heig
  * @param {Function} props.onClose - The function to call to close the modal.
  * @returns {JSX.Element} The SubmissionSuccessModal component.
  */
-const SubmissionSuccessModal = ({ onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Referral Submitted</h2>
-            <p className="text-gray-600 mb-8">Referral submitted successfully to team leaders!</p>
-            <button onClick={onClose} className="w-full bg-teal-600 text-white font-semibold py-3 rounded-lg hover:bg-teal-700 transition-colors">Close</button>
+import { useRouter } from 'next/navigation';
+
+const SubmissionSuccessModal = ({ onClose }) => {
+    const router = useRouter();
+    const handleClose = () => {
+        onClose();
+        router.push('/admin/referral-intake');
+    };
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
+                <h2 className="text-xl font-bold text-gray-800 mb-4">Referral Submitted</h2>
+                <p className="text-gray-600 mb-8">Referral submitted successfully to team leaders!</p>
+                <button onClick={handleClose} className="w-full bg-teal-600 text-white font-semibold py-3 rounded-lg hover:bg-teal-700 transition-colors">Close</button>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 /**
  * The main page for creating a new referral.
