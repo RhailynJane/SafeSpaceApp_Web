@@ -1,71 +1,90 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth, useSignIn, useUser } from "@clerk/nextjs";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield } from "lucide-react";
-import InteractiveDashboard from "../app/interactive/page.jsx";
-import SiteHeader from "@/components/site-header.jsx";
+import SiteHeader from "@/components/site-header";
 
 export default function SafespacePlatform() {
-  const [currentUser, setCurrentUser] = useState(null);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
 
-  // Mock users for demo
-  const mockUsers = {
-    "admin@safespace.com": {
-      id: "1",
-      name: "Admin User",
-      email: "admin@safespace.com",
-      role: "admin",
-    },
-    "leader@safespace.com": {
-      id: "2",
-      name: "Team Leader",
-      email: "leader@safespace.com",
-      role: "team-leader",
-    },
-    "worker@safespace.com": {
-      id: "3",
-      name: "Support Worker",
-      email: "worker@safespace.com",
-      role: "support-worker",
-    },
-  };
+  const router = useRouter();
+  const { isSignedIn } = useAuth();
+  const { signIn, setActive } = useSignIn();
+  const { user } = useUser();
 
-  const handleLogin = () => {
-    const user = mockUsers[loginForm.email];
-    if (user && loginForm.password === "demo123") {
-      setCurrentUser(user);
-    } else {
-      alert("Invalid credentials. Use demo123 as password.");
+  useEffect(() => {
+    if (isSignedIn) {
+      const fetchRoleAndRedirect = async () => {
+        const email = user?.primaryEmailAddress.emailAddress;
+        if (!email) return;
+
+        const res = await fetch("/api/get-user-role", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+
+        if (res.ok) {
+          const { role } = await res.json();
+          if (role && role.trim().toLowerCase() === "admin") {
+            window.location.href = "/admin/overview";
+          } else if (role === "team_leader" || role === "support_worker") {
+            window.location.href = "/dashboard";
+          } else {
+            // Handle cases where the user is signed in but has no role
+          }
+        } else {
+          // Handle error fetching role
+        }
+      };
+      fetchRoleAndRedirect();
+    }
+  }, [isSignedIn, user, router]);
+
+  // Handle login
+  const handleLogin = async () => {
+    setLoading(true);
+    try {
+      const result = await signIn.create({
+        identifier: loginForm.email,
+        password: loginForm.password,
+      });
+
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId });
+        // The useEffect will now handle the redirection
+      } else {
+        alert("Login failed. Please check credentials.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Invalid credentials");
+    } finally {
+      setLoading(false);
     }
   };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setLoginForm({ email: "", password: "" });
-  };
-
-  const isAuthed = Boolean(currentUser);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <SiteHeader
-        isAuthenticated={isAuthed}
-        userName={currentUser?.name ?? null}
-        onSignOut={handleLogout}
+        isAuthenticated={isSignedIn}
+        userName={user?.fullName ?? null}
       />
 
-      {!isAuthed ? (
+      {/* Only show login card if not signed in */}
+      {!isSignedIn && (
         <section className="flex min-h-[calc(100vh-56px)] items-center justify-center bg-gradient-to-br from-teal-50 to-green-100 p-4">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
@@ -76,7 +95,7 @@ export default function SafespacePlatform() {
                   className="h-10 w-10"
                 />
               </div>
-              <CardTitle className="text-2xl font-bold text-gray-900">
+              <CardTitle className="text-2xl font-bold text-gray-800">
                 <span className="text-teal-600">Safe</span>
                 <span className="text-gray-900">Space</span>
               </CardTitle>
@@ -109,27 +128,14 @@ export default function SafespacePlatform() {
               </div>
               <Button
                 onClick={handleLogin}
+                disabled={loading}
                 className="w-full bg-teal-600 hover:bg-teal-700"
               >
-                Sign In
+                {loading ? "Signing In..." : "Sign In"}
               </Button>
-              <div className="space-y-1 text-sm text-gray-600">
-                <p>
-                  <strong>Demo Accounts:</strong>
-                </p>
-                <p>Admin: admin@safespace.com</p>
-                <p>Team Leader: leader@safespace.com</p>
-                <p>Support Worker: worker@safespace.com</p>
-                <p>Password: demo123</p>
-              </div>
             </CardContent>
           </Card>
         </section>
-      ) : (
-        <InteractiveDashboard
-          userRole={currentUser.role}
-          userName={currentUser.name.split(" ")[0]}
-        />
       )}
     </div>
   );
