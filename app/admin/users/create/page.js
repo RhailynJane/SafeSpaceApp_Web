@@ -58,7 +58,7 @@ export default function CreateUserPage() {
             role: formData.role.toLowerCase().replace(' ', '_'),
         };
 
-        const res = await fetch('/api/admin/create-user', {
+        const res = await fetch('/api/create-user/create', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

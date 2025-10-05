@@ -1,38 +1,51 @@
-import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+// app/api/referrals/route.js
+import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const { rows } = await pool.query('SELECT * FROM referrals WHERE status = \'pending\'');
-    return NextResponse.json(rows);
-  } catch (error) {
-    console.error('Error fetching referrals:', error);
-    return NextResponse.json({ message: 'Error fetching referrals' }, { status: 500 });
+    const { sessionClaims } = auth();
+    const role = sessionClaims?.metadata?.role;
+    if (role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    // NOTE: Requires a `Referral` model in Prisma schema
+    const referrals = await prisma.referral.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({ referrals });
+  } catch (err) {
+    console.error("GET /api/referrals error:", err);
+    return NextResponse.json({ error: "Failed to fetch referrals" }, { status: 500 });
   }
 }
 
-export async function POST(request) {
-  const { 
-    client_name, 
-    age, 
-    phone, 
-    address, 
-    email, 
-    emergency_contact, 
-    referral_source, 
-    priority_level, 
-    reason_for_referral, 
-    additional_notes 
-  } = await request.json();
-
+export async function POST(req) {
   try {
-    const { rows } = await pool.query(
-      'INSERT INTO referrals (client_name, age, phone, address, email, emergency_contact, referral_source, priority_level, reason_for_referral, additional_notes, submitted_date, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE, \'pending\') RETURNING *',
-      [client_name, age, phone, address, email, emergency_contact, referral_source, priority_level, reason_for_referral, additional_notes]
-    );
-    return NextResponse.json(rows[0]);
-  } catch (error) {
-    console.error('Error creating referral:', error);
-    return NextResponse.json({ message: 'Error creating referral' }, { status: 500 });
+    const { sessionClaims, userId } = auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const body = await req.json();
+    // Example body fields: { clientName, notes, referredById (clerkUserId) }
+    const { clientName, notes } = body;
+
+    if (!clientName) return NextResponse.json({ error: "Missing clientName" }, { status: 400 });
+
+    // Create referral associated with the current user
+    const referral = await prisma.referral.create({
+      data: {
+        clientName,
+        notes,
+        createdByClerkUserId: userId,
+      },
+    });
+
+    return NextResponse.json({ referral }, { status: 201 });
+  } catch (err) {
+    console.error("POST /api/referrals error:", err);
+    return NextResponse.json({ error: "Failed to create referral" }, { status: 500 });
   }
 }

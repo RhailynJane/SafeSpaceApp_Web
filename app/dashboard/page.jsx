@@ -1,58 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import ViewNoteModal from "@/components/Notes/ViewNoteModal"
-import NewNoteModal from "@/components/Notes/NewNoteModal"
-import EditNoteModal from "@/components/Notes/EditNoteModal"
-import ViewProfileModal from "@/components/clients/ViewProfileModal"
-import ScheduleModal from "@/components/clients/ScheduleModal"
-import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
-import ViewReportModal from "@/components/reports/ViewReportModal"
-import { useUser } from "@clerk/nextjs"
+import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit, Plus } from "lucide-react"
+import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit,Plus } from "lucide-react"
 
-// This is the main component for the page, which now handles fetching user data and redirection.
-export default function DashboardPage() {
-  const { isLoaded, user } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isLoaded && user) {
-      const userRole = user.publicMetadata?.role;
-      if (userRole === 'team-leader' || userRole === 'support-worker') {
-        router.push('/interactive');
-      }
-    }
-  }, [isLoaded, user, router]);
-
-  if (!isLoaded || (user && (user.publicMetadata?.role === 'team-leader' || user.publicMetadata?.role === 'support-worker'))) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-lg text-gray-600">Loading Dashboard...</p>
-      </div>
-    );
-  }
-
-  const userRole = user?.publicMetadata?.role;
-
-  if (userRole === 'admin') {
-    return <DashboardOverview userRole="admin" />;
-  }
-
-  // Fallback for any other role or if role is not defined
-  return <DashboardOverview userRole={userRole} />;
-}
-
-
-// Your original component and helpers remain unchanged below.
-// ==========================================================
-
-
-function DashboardOverview({ userRole }) {
+//main React functional component - receive userRole as prop
+export function DashboardOverview({ userRole }) {
 
   //Calls a helper function that returns an array of dashboard metric objects based on the userRole.
   const metrics = getMetricsForRole(userRole)
@@ -105,48 +60,11 @@ function DashboardOverview({ userRole }) {
     },
   ])
 
-  // Modal state
-  const [showViewNote, setShowViewNote] = useState(false);
-  const [showNewNote, setShowNewNote] = useState(false);
-  const [showEditNote, setShowEditNote] = useState(false);
-  const [showViewClient, setShowViewClient] = useState(false);
-  const [showSchedule, setShowSchedule] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-
-  // Mock data for modals
-  const mockNote = {
-    client: "Emma Watson",
-    type: "Individual Session",
-    date: "2025-09-29",
-    summary: "Reviewed progress and coping strategies.",
-    detailedNotes: "Client is making steady progress. Homework completed.",
-    nextSteps: "Continue weekly sessions.",
-  };
-  const mockClient = {
-    id: 1,
-    name: "Emma Watson",
-    status: "Active",
-    lastSession: "2025-09-29",
-    riskLevel: "Low",
-  };
-  const mockReport = {
-    name: "Monthly Report",
-    date: "2025-09-01",
-    type: "Summary",
-    size: "2 pages",
-    data: { sessions: 12, notes: 5, clients: 24 },
-  };
-  const mockSchedule = [
-    { date: "2025-09-29", time: "10:00", client: "Emma Watson" },
-    { date: "2025-09-29", time: "14:00", client: "David Chen" },
-  ];
-
   // render UI
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Metrics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"> 
         {/* A responsive grid layout with 1–4 columns depending on screen size. */}
 
 
@@ -247,7 +165,7 @@ function DashboardOverview({ userRole }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">{appointment.time}</span>
-                  <Badge className={getStatusColor(.js)}>
+                  <Badge className={getStatusColor(appointment.status)}>
                     {appointment.status}
                   </Badge>
                 </div>
@@ -263,11 +181,9 @@ function DashboardOverview({ userRole }) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Case Notes */}
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => setShowViewNote(true)}
             >
               <div className="p-2 bg-orange-100 rounded-lg">
                 <Edit className="h-6 w-6 text-orange-600" />
@@ -275,11 +191,9 @@ function DashboardOverview({ userRole }) {
               <span className="text-sm font-medium">Case Notes</span>
             </Button>
 
-            {/* View Clients */}
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => setShowViewClient(true)}
             >
               <div className="p-2 bg-teal-100 rounded-lg">
                 <Users className="h-6 w-6 text-teal-600" />
@@ -287,11 +201,9 @@ function DashboardOverview({ userRole }) {
               <span className="text-sm font-medium">View Clients</span>
             </Button>
 
-            {/* Manage Schedule */}
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => setShowCalendar(true)}
             >
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Calendar className="h-6 w-6 text-blue-600" />
@@ -299,11 +211,9 @@ function DashboardOverview({ userRole }) {
               <span className="text-sm font-medium">Manage Schedule</span>
             </Button>
 
-            {/* Generate Reports */}
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => setShowReport(true)}
             >
               <div className="p-2 bg-green-100 rounded-lg">
                 <BarChart3 className="h-6 w-6 text-green-600" />
@@ -311,28 +221,13 @@ function DashboardOverview({ userRole }) {
               <span className="text-sm font-medium">Generate Reports</span>
             </Button>
           </div>
-        </CardContent>
+        </CardContent>d
       </Card>
-
-      {/* Modals for each action */}
-      <ViewNoteModal isOpen={showViewNote} onClose={() => setShowViewNote(false)} onEdit={() => setShowEditNote(true)} note={mockNote} />
-      <EditNoteModal isOpen={showEditNote} onClose={() => setShowEditNote(false)} note={mockNote} />
-      <NewNoteModal isOpen={showNewNote} onClose={() => setShowNewNote(false)} clients={[mockClient]} />
-      <ViewProfileModal open={showViewClient} onOpenChange={setShowViewClient} client={mockClient} />
-      <ViewCalendarModal schedule={mockSchedule} />
-      {/* Only show calendar modal if triggered */}
-      {showCalendar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded shadow-lg p-4">
-            <ViewCalendarModal schedule={mockSchedule} />
-            <Button className="mt-4" onClick={() => setShowCalendar(false)}>Close</Button>
-          </div>
-        </div>
-      )}
-      <ViewReportModal report={mockReport} open={showReport} onClose={() => setShowReport(false)} />
     </div>
   )
 }
+
+
 
 // Helpers
 //Returns a different set of 4 dashboard metrics based on the userRole
