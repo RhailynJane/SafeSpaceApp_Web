@@ -67,6 +67,25 @@ export default function SafespacePlatform() {
     }
   };
 
+  //  Redirect if already signed in
+  useEffect(() => {
+    if (isSignedIn && user) {
+      const role = user.publicMetadata?.role;
+      switch (role) {
+        case "admin":
+          router.push("/admin/overview");
+          break;
+        case "team_leader":
+        case "support_worker":
+          router.push("/dashboard");
+          break;
+        default:
+          console.log("Signed in but no role assigned in Clerk metadata");
+      }
+    }
+  }, [isSignedIn, user, router]);
+
+  // ✅ Render
   return (
     <div className="min-h-screen bg-gray-50">
       <SiteHeader
