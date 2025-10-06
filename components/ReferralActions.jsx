@@ -83,11 +83,11 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     switch (action) {
       case "accepted":
         return {
-          label: "Accept",
+          label: "Submit to Team Leader",
           icon: CheckCircle,
           variant: "default",
           className: "bg-green-600 hover:bg-green-700",
-          description: "Accept this referral and begin processing"
+          description: "Submit this referral to the team leader for review and assignment"
         };
       case "declined":
         return {

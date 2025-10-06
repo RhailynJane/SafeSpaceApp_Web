@@ -1,0 +1,69 @@
+// schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  clerk_user_id String?  @unique
+  first_name    String
+  last_name     String
+  email         String   @unique
+
+  // Proper relation with Role
+  role_id       Int
+  role          Role     @relation(fields: [role_id], references: [id])
+
+  last_login    DateTime?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Role {
+  id          Int     @id @default(autoincrement())
+  role_name   String  @unique
+  description String?
+
+  // Users belonging to this role
+  users       User[]
+
+  @@map("roles")
+}
+
+model PriorityLevel {
+  id         Int    @id @default(autoincrement())
+  level_name String @unique
+  order_rank Int?
+
+  @@map("priority_levels")
+}
+
+model ReferralStatus {
+  id          Int    @id @default(autoincrement())
+  status_name String @unique
+  description String?
+
+  @@map("referral_statuses")
+}
+
+model SessionType {
+  id        Int    @id @default(autoincrement())
+  type_name String @unique
+
+  @@map("session_types")
+}
+
+model RiskLevel {
+  id          Int    @id @default(autoincrement())
+  level_name  String @unique
+  description String?
+
+  @@map("risk_levels")
+}

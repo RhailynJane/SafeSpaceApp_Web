@@ -12,19 +12,19 @@ import React, { useState } from 'react';
  * Renders a user icon.
  * @returns {JSX.Element} The user icon SVG.
  */
-const UserIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> );
+const UserIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>);
 
 /**
  * Renders an upload icon.
  * @returns {JSX.Element} The upload icon SVG.
  */
-const UploadIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> );
+const UploadIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>);
 
 /**
  * Renders a file icon.
  * @returns {JSX.Element} The file icon SVG.
  */
-const FileIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> );
+const FileIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>);
 
 // --- SUCCESS MODAL ---
 /**
@@ -102,7 +102,7 @@ export default function CreateReferralPage() {
             setShowSuccessModal(true);
         }
     };
-    
+
     const handleClearForm = () => {
         setFileName(null);
         setFormData({
@@ -136,7 +136,7 @@ export default function CreateReferralPage() {
                 <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center mb-8">
                     {fileName ? (
                         // Display the file name if a file has been selected
-                         <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg max-w-xs mx-auto">
+                        <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg max-w-xs mx-auto">
                             <FileIcon />
                             <span className="text-blue-700 font-medium">{fileName}</span>
                         </div>
@@ -159,16 +159,16 @@ export default function CreateReferralPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-6">
                     {/* Left column of form fields */}
                     <div className="space-y-6">
-                        <div><label className="font-semibold text-gray-700">Client Name</label><input type="text" id="client_name" placeholder="Enter client's full name" value={formData.client_name} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Age</label><input type="text" id="age" placeholder="Enter age" value={formData.age} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Phone</label><input type="text" id="phone" placeholder="(555) 123-4567" value={formData.phone} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Address</label><input type="text" id="address" placeholder="123 Main St City State, ZIP" value={formData.address} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Email</label><input type="email" id="email" placeholder="client@gmail.com" value={formData.email} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
-                        <div><label className="font-semibold text-gray-700">Emergency Contact</label><input type="text" id="emergency_contact" placeholder="Name (Relationship) - Phone Number" value={formData.emergency_contact} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Client Name</label><input type="text" id="client_name" placeholder="Enter client's full name" value={formData.client_name} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg" /></div>
+                        <div><label className="font-semibold text-gray-700">Age</label><input type="text" id="age" placeholder="Enter age" value={formData.age} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg" /></div>
+                        <div><label className="font-semibold text-gray-700">Phone</label><input type="text" id="phone" placeholder="(555) 123-4567" value={formData.phone} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg" /></div>
+                        <div><label className="font-semibold text-gray-700">Address</label><input type="text" id="address" placeholder="123 Main St City State, ZIP" value={formData.address} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg" /></div>
+                        <div><label className="font-semibold text-gray-700">Email</label><input type="email" id="email" placeholder="client@gmail.com" value={formData.email} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg" /></div>
+                        <div><label className="font-semibold text-gray-700">Emergency Contact</label><input type="text" id="emergency_contact" placeholder="Name (Relationship) - Phone Number" value={formData.emergency_contact} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg" /></div>
                     </div>
                     {/* Right column of form fields */}
                     <div className="space-y-6">
-                        <div><label className="font-semibold text-gray-700">Referral Source</label><input type="text" id="referral_source" placeholder="Enter Source" value={formData.referral_source} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg"/></div>
+                        <div><label className="font-semibold text-gray-700">Referral Source</label><input type="text" id="referral_source" placeholder="Enter Source" value={formData.referral_source} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg" /></div>
                         <div><label className="font-semibold text-gray-700">Priority Level</label><select id="priority_level" value={formData.priority_level} onChange={handleChange} className="w-full mt-1 p-3 border border-gray-300 rounded-lg bg-white"><option>Medium</option><option>High</option><option>Low</option></select></div>
                         <div><label className="font-semibold text-gray-700">Reason for Referral</label><textarea id="reason_for_referral" placeholder="Describe the client's needs and reason for referral" value={formData.reason_for_referral} onChange={handleChange} rows="4" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"></textarea></div>
                         <div><label className="font-semibold text-gray-700">Additional Notes</label><textarea id="additional_notes" placeholder="Any additional information or special considerations" value={formData.additional_notes} onChange={handleChange} rows="4" className="w-full mt-1 p-3 border border-gray-300 rounded-lg"></textarea></div>
@@ -176,12 +176,18 @@ export default function CreateReferralPage() {
                 </div>
 
                 {/* Form Action Buttons */}
+                <div className="mt-6">
+                    <label className="inline-flex items-start gap-3">
+                        <input type="checkbox" id="consent_given" checked={formData.consent_given} onChange={(e) => setFormData(prev => ({ ...prev, consent_given: e.target.checked }))} className="mt-1" />
+                        <span className="text-sm text-gray-700">I confirm that I have obtained informed consent from the client (or legal guardian) to submit this referral and share relevant personal information with the receiving agency.</span>
+                    </label>
+                </div>
                 <div className="flex justify-end gap-4 mt-10">
                     <button type="button" onClick={handleClearForm} className="px-8 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100">Clear form</button>
                     <button type="submit" className="px-8 py-3 border border-transparent rounded-lg font-semibold text-white bg-teal-600 hover:bg-teal-700">Submit to Team Leaders</button>
                 </div>
             </form>
-            
+
             {/* Conditionally render the success modal based on its state */}
             {showSuccessModal && <SubmissionSuccessModal onClose={() => setShowSuccessModal(false)} />}
         </>
