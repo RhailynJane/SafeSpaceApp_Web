@@ -14,14 +14,22 @@ model User {
   first_name    String
   last_name     String
   email         String   @unique
-
-  // Proper relation with Role
-  role_id       Int
-  role          Role     @relation(fields: [role_id], references: [id])
-
+  role          String
   last_login    DateTime?
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
+
+  // clients              Client[]
+  // appointments         Appointment[]
+  // notes                Note[]
+  // crisis_events_initiator CrisisEvent[] @relation("Initiator")
+  // crisis_events_supervisor CrisisEvent[] @relation("Supervisor")
+  // reports              Report[]
+  // safety_plans         SafetyPlan[]
+  // mood_journals        MoodJournal[]
+  // mood_entries         MoodEntry[]
+  // audit_logs           AuditLog[]
+  processed_referrals  Referral[]    @relation("ProcessedByUser")
 
   @@map("users")
 }
@@ -30,9 +38,6 @@ model Role {
   id          Int     @id @default(autoincrement())
   role_name   String  @unique
   description String?
-
-  // Users belonging to this role
-  users       User[]
 
   @@map("roles")
 }
@@ -67,3 +72,217 @@ model RiskLevel {
 
   @@map("risk_levels")
 }
+
+// model Client {
+//   id                      Int      @id @default(autoincrement())
+//   user_id                 Int?     @unique
+//   name                    String
+//   status                  String?
+//   last_session_date       DateTime?
+//   risk_level              String?
+//   phone                   String?
+//   email                   String?
+//   address                 String?
+//   emergency_contact_name  String?
+//   emergency_contact_phone String?
+//   created_at              DateTime @default(now())
+//   updated_at              DateTime @updatedAt
+//   user                    User?    @relation(fields: [user_id], references: [id])
+//   appointments            Appointment[]
+//   notes                   Note[]
+//   crisis_events           CrisisEvent[]
+//   referrals               Referral[] @relation("ClientReferrals")
+//   safety_plans            SafetyPlan[]
+//
+//   @@map("clients")
+// }
+
+// model Appointment {
+//   id                   Int       @id @default(autoincrement())
+//   client_id            Int
+//   scheduled_by_user_id Int?
+//   appointment_date     DateTime
+//   appointment_time     DateTime
+//   type                 String?
+//   duration             String?
+//   details              String?
+//   status               String?
+//   created_at           DateTime  @default(now())
+//   updated_at           DateTime  @updatedAt
+//   client               Client    @relation(fields: [client_id], references: [id])
+//   scheduled_by         User?     @relation(fields: [scheduled_by_user_id], references: [id])
+//
+//   @@map("appointments")
+// }
+
+// model Note {
+//   id                Int       @id @default(autoincrement())
+//   client_id         Int
+//   author_user_id    Int
+//   note_date         DateTime
+//   session_type      String?
+//   duration_minutes  Int?
+//   summary           String?
+//   detailed_notes    String?
+//   next_steps        String?
+//   risk_assessment   String?
+//   created_at        DateTime  @default(now())
+//   updated_at        DateTime  @updatedAt
+//   client            Client    @relation(fields: [client_id], references: [id])
+//   author            User      @relation(fields: [author_user_id], references: [id])
+//
+//   @@map("notes")
+// }
+
+// model CrisisEvent {
+//   id                           Int       @id @default(autoincrement())
+//   client_id                    Int?
+//   initiator_user_id            Int?
+//   event_type                   String
+//   event_date                   DateTime  @default(now())
+//   description                  String?
+//   risk_level_at_event          String?
+//   intervention_details         String?
+//   contact_method               String?
+//   contact_purpose              String?
+//   urgency_level                String?
+//   supervisor_contacted_user_id Int?
+//   created_at                   DateTime  @default(now())
+//   updated_at                   DateTime  @updatedAt
+//   client                       Client?   @relation(fields: [client_id], references: [id])
+//   initiator                    User?     @relation("Initiator", fields: [initiator_user_id], references: [id])
+//   supervisor_contacted         User?     @relation("Supervisor", fields: [supervisor_contacted_user_id], references: [id])
+//
+//   @@map("crisis_events")
+// }
+
+model Referral {
+  id                   Int       @id @default(autoincrement())
+  client_id            Int?
+  client_name          String
+  age                  Int?
+  phone                String?
+  address              String?
+  email                String?
+  emergency_contact    String?
+  referral_source      String
+  priority_level       String
+  reason_for_referral  String
+  additional_notes     String?
+  submitted_date       DateTime?
+  status               String?
+  processed_date       DateTime?
+  processed_by_user_id Int?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+  // client               Client?   @relation("ClientReferrals", fields: [client_id], references: [id])
+  processed_by         User?     @relation("ProcessedByUser", fields: [processed_by_user_id], references: [id])
+
+  @@map("referrals")
+}
+
+// model SystemMetric {
+//   id           Int      @id @default(autoincrement())
+//   metric_name  String
+//   metric_value String?
+//   timestamp    DateTime @default(now())
+//
+//   @@map("system_metrics")
+// }
+
+// model AuditLog {
+//   id        Int      @id @default(autoincrement())
+//   action    String
+//   user_id   Int?
+//   timestamp DateTime @default(now())
+//   details   String?
+//   user      User?    @relation(fields: [user_id], references: [id])
+//
+//   @@map("audit_logs")
+// }
+
+// model MoodJournal {
+//   id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+//   user_id   Int
+//   title     String
+//   content   String
+//   mood_type mood_enum?
+//   created_at DateTime @default(now())
+//   updated_at DateTime @updatedAt
+//   user      User     @relation(fields: [user_id], references: [id])
+//
+//   @@map("journal_entries")
+// }
+
+// model MoodEntry {
+//   id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+//   user_id   Int
+//   mood_type mood_enum
+//   intensity Int      @db.SmallInt
+//   notes     String?
+//   created_at DateTime @default(now())
+//   user      User     @relation(fields: [user_id], references: [id])
+//   mood_factors MoodFactor[]
+//
+//   @@map("mood_entries")
+// }
+
+// model MoodFactor {
+//   id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+//   entry_id String @db.Uuid
+//   factor   String
+//   entry    MoodEntry @relation(fields: [entry_id], references: [id])
+//
+//   @@map("mood_factors")
+// }
+
+// model Report {
+//   id                   Int       @id @default(autoincrement())
+//   name                 String
+//   report_date          DateTime?
+//   type                 String?
+//   size_mb              Decimal?
+//   generated_by_user_id Int?
+//   data_json            Json?
+//   created_at           DateTime  @default(now())
+//   updated_at           DateTime  @updatedAt
+//   generated_by         User?     @relation(fields: [generated_by_user_id], references: [id])
+//
+//   @@map("reports")
+// }
+
+// model SafetyPlan {
+//   id                      Int      @id @default(autoincrement())
+//   client_id               Int
+//   created_by_user_id      Int
+//   warning_signs           String?
+//   coping_strategies       String?
+//   social_supports         String?
+//   people_for_help         String?
+//   professional_contacts   String?
+//   environment_safety      String?
+//   created_at              DateTime @default(now())
+//   updated_at              DateTime @updatedAt
+//   client                  Client   @relation(fields: [client_id], references: [id])
+//   created_by              User     @relation(fields: [created_by_user_id], references: [id])
+//
+//   @@map("safety_plans")
+// }
+
+// model SystemAlert {
+//   id        Int      @id @default(autoincrement())
+//   message   String
+//   timestamp DateTime @default(now())
+//   type      String
+//   is_read   Boolean  @default(false)
+//
+//   @@map("system_alerts")
+// }
+
+// enum mood_enum {
+//   very_sad @map("very-sad")
+//   sad
+//   neutral
+//   happy
+//   very_happy @map("very-happy")
+// }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useClerk, useAuth, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -16,13 +17,43 @@ function getInitials(name) {
   return (first + last || first || "SS").toUpperCase();
 }
 
-export default function SiteHeader({
-  isAuthenticated = false,
-  userName = null,
-  onSignOut,
-}) {
+export default function SiteHeader() {
+  const { isSignedIn } = useAuth();
+  const { user } = useUser();
+  const isAuthenticated = !!isSignedIn;
+  const userName = user?.fullName ?? null;
   const [notificationModal, setNotificationModal] = useState(false);
   const router = useRouter();
+  const [signOutLoading, setSignOutLoading] = useState(false);
+  const clerk = useClerk();
+
+  const handleSignOutClick = async () => {
+    setSignOutLoading(true);
+    console.debug("Sign out clicked: attempting clerk.signOut");
+    try {
+      if (clerk && typeof clerk.signOut === "function") {
+        // try to sign out via Clerk client which will also handle redirect
+        await clerk.signOut({ redirectUrl: "/" });
+        console.debug("clerk.signOut completed");
+        return;
+      } else {
+        console.debug("clerk.signOut not available on clerk client", clerk);
+      }
+    } catch (err) {
+      console.error("clerk.signOut failed:", err);
+    }
+
+    // Fallback: navigate to login page
+    console.debug("Falling back to router.push('/') for sign-out");
+    try {
+      router.push("/");
+    } catch (err) {
+      console.error("router.push failed during sign-out fallback:", err);
+    } finally {
+      setSignOutLoading(false);
+    }
+  };
+  // clerk client usage removed; prefer SignOutButton for reliable sign-out
 
 
   // Sample notifications 
@@ -138,12 +169,14 @@ export default function SiteHeader({
 
                 <Button
                   variant="ghost"
-                  onClick={onSignOut}
                   className="gap-2"
                   aria-label="Sign out"
+                  onClick={handleSignOutClick}
                 >
                   <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline">Sign out</span>
+                  <span className="hidden sm:inline">
+                    {signOutLoading ? "Signing out..." : "Sign out"}
+                  </span>
                 </Button>
 
 

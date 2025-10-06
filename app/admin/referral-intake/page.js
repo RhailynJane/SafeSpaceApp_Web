@@ -7,13 +7,13 @@ import Link from 'next/link';
  * Renders a plus icon. Used for 'Create New Referral' button.
  * @returns {JSX.Element} The plus icon SVG.
  */
-const PlusIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> );
+const PlusIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>);
 
 /**
  * Renders a close icon ('X'). Used for closing modals.
  * @returns {JSX.Element} The close icon SVG.
  */
-const CloseIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> );
+const CloseIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>);
 
 // --- MODAL COMPONENTS ---
 
@@ -37,26 +37,17 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800">Accept Referral for {referral.client_name}</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon/></button>
+                    <h2 className="text-xl font-bold text-gray-800">Submit Referral to Team Leader for {referral.client_name}</h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon /></button>
                 </div>
                 <form className="space-y-4" onSubmit={handleSubmit}>
                     <div>
-                        <label htmlFor="assignTherapist" className="block text-sm font-medium text-gray-700">Assign to Therapist</label>
+                        <label htmlFor="assignTherapist" className="block text-sm font-medium text-gray-700">Assign to Team Leader</label>
                         <select id="assignTherapist" value={selectedTherapist} onChange={(e) => setSelectedTherapist(e.target.value)} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
-                            <option value="">Select Therapist...</option>
+                            <option value="">Select Team Leader...</option>
                             {therapists.map(therapist => (
                                 <option key={therapist.id} value={therapist.id}>{therapist.first_name} {therapist.last_name}</option>
                             ))}
-                        </select>
-                    </div>
-                     <div>
-                        <label htmlFor="priority" className="block text-sm font-medium text-gray-700">Priority Level</label>
-                        <select id="priority" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
-                            <option>Select Priority...</option>
-                            <option>High</option>
-                            <option>Medium</option>
-                            <option>Low</option>
                         </select>
                     </div>
                     <div>
@@ -65,7 +56,7 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
                     </div>
                     <div className="flex justify-end gap-4 pt-4">
                         <button type="button" onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                        <button type="submit" className="px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700">Assign Referral</button>
+                        <button type="submit" className="px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700">Submit to Team Leader</button>
                     </div>
                 </form>
             </div>
@@ -86,7 +77,7 @@ const DeclineReferralModal = ({ referral, onClose, onDecline }) => (
         <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold text-gray-800">Decline Referral for {referral.client_name}</h2>
-                <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon/></button>
+                <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon /></button>
             </div>
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onDecline(); }}>
                 <div>
@@ -126,8 +117,18 @@ export default function ReferralIntakePage() {
     useEffect(() => {
         const getReferrals = async () => {
             const res = await fetch('/api/referrals');
-            const data = await res.json();
-            setReferrals(data.filter(r => r.status === 'pending'));
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setReferrals(data);
+                } else {
+                    console.error("Fetched data is not an array:", data);
+                    setReferrals([]); // Set to empty array to prevent crash
+                }
+            } else {
+                console.error("Failed to fetch referrals:", res.status, res.statusText);
+                setReferrals([]); // Set to empty array to prevent crash
+            }
         };
         const getTherapists = async () => {
             const res = await fetch('/api/admin/therapists');
@@ -142,10 +143,11 @@ export default function ReferralIntakePage() {
     const closeModal = () => setModal({ type: null, data: null });
 
     const handleAcceptReferral = async (therapistId) => {
-        const res = await fetch(`/api/referrals/${modal.data.id}/status`, {
+        const res = await fetch(`/api/referrals/${modal.data.id}`,
+        {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'accepted', processed_by_user_id: therapistId }),
+            body: JSON.stringify({ status: 'submitted', processed_by_user_id: therapistId }),
         });
         if (res.ok) {
             setReferrals(referrals.filter(r => r.id !== modal.data.id));
@@ -154,7 +156,8 @@ export default function ReferralIntakePage() {
     };
 
     const handleDeclineReferral = async () => {
-        const res = await fetch(`/api/referrals/${modal.data.id}/status`, {
+        const res = await fetch(`/api/referrals/${modal.data.id}`,
+        {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'declined' }),
@@ -169,12 +172,12 @@ export default function ReferralIntakePage() {
         <div className="bg-white p-8 rounded-2xl shadow-lg">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-xl font-bold text-gray-800">New Referrals</h1>
-                 <Link href="/admin/referral-intake/create" className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors">
+                <Link href="/admin/referral-intake/create" className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors">
                     <PlusIcon />
                     Create New Referral
                 </Link>
             </div>
-            
+
             <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-teal-50">
@@ -195,7 +198,7 @@ export default function ReferralIntakePage() {
                                     <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{referral.status}</span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <button onClick={() => openModal('accept', referral)} className="px-4 py-1.5 border border-transparent rounded-md text-xs text-white bg-green-600 hover:bg-green-700">Accept</button>
+                                    <button onClick={() => openModal('accept', referral)} className="px-4 py-1.5 border border-transparent rounded-md text-xs text-white bg-teal-600 hover:bg-teal-700">Submit to Team Leader</button>
                                     <button onClick={() => openModal('decline', referral)} className="px-4 py-1.5 border border-gray-300 rounded-md text-xs text-gray-700 bg-white hover:bg-gray-100">Decline</button>
                                 </td>
                             </tr>

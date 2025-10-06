@@ -13,10 +13,11 @@ export async function GET() {
 
     // NOTE: Requires a `Referral` model in Prisma schema
     const referrals = await prisma.referral.findMany({
-      orderBy: { createdAt: "desc" },
+      where: { status: "pending" },
+      orderBy: { created_at: "desc" },
     });
 
-    return NextResponse.json({ referrals });
+    return NextResponse.json(referrals);
   } catch (err) {
     console.error("GET /api/referrals error:", err);
     return NextResponse.json({ error: "Failed to fetch referrals" }, { status: 500 });
@@ -25,25 +26,47 @@ export async function GET() {
 
 export async function POST(req) {
   try {
-    const { sessionClaims, userId } = auth();
+    const { userId } = auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    // Example body fields: { clientName, notes, referredById (clerkUserId) }
-    const { clientName, notes } = body;
 
-    if (!clientName) return NextResponse.json({ error: "Missing clientName" }, { status: 400 });
+    const {
+      client_first_name,
+      client_last_name,
+      age,
+      phone,
+      address,
+      email,
+      emergency_contact,
+      referral_source,
+      priority_level,
+      reason_for_referral,
+      additional_notes,
+    } = body;
 
-    // Create referral associated with the current user
+    const client_name = `${client_first_name} ${client_last_name}`;
+
+    if (!client_name) return NextResponse.json({ error: "Missing client name" }, { status: 400 });
+
     const referral = await prisma.referral.create({
       data: {
-        clientName,
-        notes,
-        createdByClerkUserId: userId,
+        client_name,
+        age: parseInt(age),
+        phone,
+        address,
+        email,
+        emergency_contact,
+        referral_source,
+        priority_level: priority_level || "Medium",
+        reason_for_referral,
+        additional_notes,
+        submitted_date: new Date(),
+        status: "pending",
       },
     });
 
-    return NextResponse.json({ referral }, { status: 201 });
+    return NextResponse.json(referral, { status: 201 });
   } catch (err) {
     console.error("POST /api/referrals error:", err);
     return NextResponse.json({ error: "Failed to create referral" }, { status: 500 });
