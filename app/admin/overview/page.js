@@ -132,7 +132,8 @@ const DetailedMetricsModal = ({ onClose }) => {
 
     return (
         // Modal container with a semi-transparent background
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+
             {/* Modal content */}
             <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl">
                  <div className="flex justify-between items-center mb-4">
@@ -171,7 +172,7 @@ const fullAuditLogData = [
  */
 const AuditLogModal = ({ onClose }) => {
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+       <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl h-3/4 overflow-y-auto">
                  <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-bold text-gray-800">Full Audit Log</h2>
