@@ -80,8 +80,18 @@ export default function ReferralTrackingPage() {
     useEffect(() => {
         const getReferrals = async () => {
             const res = await fetch("/api/referrals");
-            const data = await res.json();
-            setReferrals(data);
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setReferrals(data);
+                } else {
+                    console.error("Fetched data is not an array:", data);
+                    setReferrals([]); // Set to empty array to prevent crash
+                }
+            } else {
+                console.error("Failed to fetch referrals:", res.status, res.statusText);
+                setReferrals([]); // Set to empty array to prevent crash
+            }
         };
         getReferrals();
     }, []);

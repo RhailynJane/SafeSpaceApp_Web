@@ -1,15 +1,39 @@
-
+// app/api/referrals/[id]/timeline/route.js
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request, { params }) {
-  // In a real application, you would fetch the timeline from the database
-  // based on the referral ID (params.id).
-  const timelineData = [
-      { status: 'SUBMITTED', created_at: '2025-08-10 09:30:00', actor: 'admin@safespace.com', note: 'Referral submitted via OCR processing from fax document', icon: 'ClockIcon' },
-      { status: 'PENDING', created_at: '2025-08-10 09:31:00', actor: 'System', note: 'Referral queued for team leader review', icon: 'ClockIcon' },
-      { status: 'IN REVIEW', created_at: '2025-08-10 10:00:00', actor: 'Eric Young', note: 'Team leader reviewing referral details', icon: 'EyeIcon' },
-      { status: 'ACCEPTED', created_at: '2025-08-10 10:05:00', actor: 'Eric Young', note: 'Referral accepted and assigned to support worker', icon: 'CheckCircleIcon' },
-  ];
+  try {
+    const { id } = params;
+    
+    const timeline = await prisma.timeline.findMany({
+      where: {
+        referralId: Number(id)
+      },
+      orderBy: {
+        createdAt: 'asc'
+      }
+    });
 
-  return NextResponse.json(timelineData);
+    // Transform to match your UI expectations
+    const timelineData = timeline.map(entry => ({
+      status: entry.message.includes('submitted') ? 'SUBMITTED' : 
+              entry.message.includes('Pending') ? 'PENDING' :
+              entry.message.includes('Accepted') ? 'ACCEPTED' :
+              entry.message.includes('Rejected') ? 'REJECTED' : 'IN REVIEW',
+      created_at: entry.createdAt.toISOString(),
+      note: entry.message,
+      icon: entry.message.includes('submitted') ? 'ClockIcon' :
+            entry.message.includes('Accepted') ? 'CheckCircleIcon' :
+            entry.message.includes('Rejected') ? 'XCircleIcon' : 'EyeIcon'
+    }));
+
+    return NextResponse.json(timelineData);
+  } catch (error) {
+    console.error('Error fetching timeline:', error);
+    return NextResponse.json({ 
+      error: 'Failed to fetch timeline',
+      details: error.message 
+    }, { status: 500 });
+  }
 }

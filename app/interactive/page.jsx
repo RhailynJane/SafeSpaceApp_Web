@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth, useUser } from "@clerk/nextjs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -36,9 +37,28 @@ import ViewReportModal from "@/components/reports/ViewReportModal"
 import jsPDF from "jspdf"
 
 
-export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
-  const [referrals, setReferrals] = useState([]);
-  const [loading, setLoading] = useState(false);
+function InteractiveDashboardContent({ userRole = "support-worker", userName = "User" }) {
+  const [referrals, setReferrals] = useState([])
+
+  useEffect(() => {
+    const fetchReferrals = async () => {
+      const res = await fetch("/api/referrals");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setReferrals(data);
+        } else {
+          console.error("Fetched data is not an array:", data);
+          setReferrals([]);
+        }
+      } else {
+        console.error("Failed to fetch referrals:", res.status, res.statusText);
+        setReferrals([]);
+      }
+    };
+    fetchReferrals();
+  }, []);
+
   const [clients] = useState([
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
     { id: 2, name: "Bob Johnson", status: "Active", lastSession: "2024-01-08", riskLevel: "Medium" },
@@ -128,50 +148,59 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
   const [selectedNote, setSelectedNote] = useState(null)
 
 
-  //  Fetch referrals from backend 
-  useEffect(() => {
-    const fetchReferrals = async () => {
-      try {
-        setLoading(true)
-        const res = await fetch("/api/referrals")
-        if (!res.ok) throw new Error("Failed to fetch referrals")
-        const data = await res.json()
-        setReferrals(data)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    if (userRole === "team-leader") fetchReferrals()
-  }, [userRole])
-
-  // ---------------- Referral Actions ----------------
-  const handleReferralStatusUpdate = async (id, status) => {
-    try {
-      const res = await fetch(`/api/referrals/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          processedBy: userName,
-        }),
-      })
-      if (!res.ok) throw new Error("Failed to update referral")
-      const updatedReferral = await res.json()
-      setReferrals(prev =>
-        prev.map(ref => (ref.id === id ? updatedReferral : ref))
+  // Handler for updating referral status
+  const handleReferralStatusUpdate = (referralId, updatedReferral) => {
+    setReferrals((prevReferrals) =>
+      prevReferrals.map((ref) =>
+        ref.id === referralId ? updatedReferral : ref
       )
-    } catch (err) {
-      console.error(err)
-      alert("Error updating referral")
-    }
+    );
+  };
+
+  const handleAcceptReferral = (id) => {
+    setReferrals((prev) =>
+      prev.map((ref) =>
+        ref.id === id
+          ? {
+            ...ref,
+            status: "Approved",
+            processedDate: new Date().toISOString().split("T")[0],
+            processedBy: userName,
+          }
+          : ref,
+      ),
+    )
   }
 
-  const handleAcceptReferral = (id) => handleReferralStatusUpdate(id, "accepted")
-  const handleDeclineReferral = (id) => handleReferralStatusUpdate(id, "declined")
-  const handleRequestMoreInfo = (id) => handleReferralStatusUpdate(id, "more-info-requested")
+  const handleDeclineReferral = (id) => {
+    setReferrals((prev) =>
+      prev.map((ref) =>
+        ref.id === id
+          ? {
+            ...ref,
+            status: "Rejected",
+            processedDate: new Date().toISOString().split("T")[0],
+            processedBy: userName,
+          }
+          : ref,
+      ),
+    )
+  }
 
+  const handleRequestMoreInfo = (id) => {
+    setReferrals((prev) =>
+      prev.map((ref) =>
+        ref.id === id
+          ? {
+            ...ref,
+            status: "More Info Requested",
+            processedDate: new Date().toISOString().split("T")[0],
+            processedBy: userName,
+          }
+          : ref,
+      ),
+    )
+  }
 
   const openModal = (modalName, item = null) => {
     setSelectedNote(item)
@@ -212,56 +241,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
         
 
 
-        {/* Referrals */}
-        {userRole === "team-leader" && (
-          <TabsContent value="Referrals" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Client Referrals</CardTitle>
-                <CardDescription>Review and manage incoming client referrals</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <p>Loading referrals...</p>
-                ) : (
-                  <div className="space-y-4">
-                    {referrals.map(referral => (
-                      <div key={referral.id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 className="font-semibold">{referral.client_name}</h3>
-                            <p className="text-sm text-gray-600">
-                              Age: {referral.age} • Source: {referral.referral_source}
-                            </p>
-                          </div>
-                          <Badge variant={referral.priority_level === "High" ? "destructive" : "default"}>
-                            {referral.priority_level} Priority
-                          </Badge>
-                        </div>
-                        <p className="text-sm mb-3">{referral.reason_for_referral}</p>
-                        {referral.status === "pending" ? (
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleAcceptReferral(referral.id)}>
-                              <CheckCircle className="h-4 w-4 mr-1" /> Accept
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDeclineReferral(referral.id)}>
-                              <XCircle className="h-4 w-4 mr-1" /> Decline
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleRequestMoreInfo(referral.id)}>
-                              <Info className="h-4 w-4 mr-1" /> More Info
-                            </Button>
-                          </div>
-                        ) : (
-                          <Badge variant="secondary">{referral.status}</Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
+        
 
         {/* Overview */}
         <TabsContent value="Overview" className="space-y-6">
@@ -276,7 +256,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
           <TabsContent value="Referrals" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Referral Management</h2>
-              <Badge variant="outline">{referrals.filter((r) => r.status === "pending").length} Pending</Badge>
+              <Badge variant="outline">{referrals.filter((r) => r.status === "Pending").length} Pending</Badge>
             </div>
 
             <div className="grid gap-6">
@@ -287,51 +267,24 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {referrals
-                    .filter((r) => r.status === "pending")
-                    .sort((a, b) => {
-                      // Sort by priority: Critical > High > Medium > Low
-                      const priorityOrder = { "Critical": 4, "High": 3, "Medium": 2, "Low": 1 };
-                      return priorityOrder[b.priority] - priorityOrder[a.priority];
-                    })
+                    .filter((r) => r.status === "Pending")
                     .map((referral) => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
                           <div className="space-y-2">
-                            <h3 className="font-semibold text-lg">{referral.clientName}</h3>
+                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                               <div>Age: {referral.age}</div>
-                              <div>
-                                Priority:{" "}
-                                <Badge
-                                  variant={
-                                    referral.priority === "Critical"
-                                      ? "destructive"
-                                      : referral.priority === "High"
-                                        ? "default"
-                                        : referral.priority === "Medium"
-                                          ? "secondary"
-                                          : "outline"
-                                  }
-                                  className={
-                                    referral.priority === "Critical"
-                                      ? "bg-red-600 text-white animate-pulse"
-                                      : referral.priority === "High"
-                                        ? "bg-orange-500 text-white"
-                                        : ""
-                                  }
-                                >
-                                  {referral.priority} Priority
-                                </Badge>
-                              </div>
-                              <div>Source: {referral.referralSource}</div>
-                              <div>Submitted: {referral.submittedDate}</div>
+                              
+                              <div>Source: {referral.referral_source}</div>
+                              <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
                             </div>
                           </div>
                         </div>
 
                         <div className="space-y-2">
                           <h4 className="font-medium">Reason for Referral:</h4>
-                          <p className="text-sm text-gray-700">{referral.reason}</p>
+                          <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
                         </div>
 
                         <div className="space-y-2">
@@ -339,27 +292,27 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                             <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4" />
-                              {referral.contactInfo.phone}
+                              {referral.phone}
                             </div>
                             <div className="flex items-center gap-2">
                               <Mail className="h-4 w-4" />
-                              {referral.contactInfo.email}
+                              {referral.email}
                             </div>
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4" />
-                              {referral.contactInfo.address}
+                              {referral.address}
                             </div>
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4" />
-                              {referral.contactInfo.emergencyContact}
+                              {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}
                             </div>
                           </div>
                         </div>
 
-                        {referral.additionalNotes && (
+                        {referral.additional_notes && (
                           <div className="space-y-2">
                             <h4 className="font-medium">Additional Notes:</h4>
-                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additionalNotes}</p>
+                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
                           </div>
                         )}
 
@@ -370,7 +323,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                         />
                       </div>
                     ))}
-                  {referrals.filter((r) => r.status === "pending").length === 0 && (
+                  {referrals.filter((r) => r.status === "Pending").length === 0 && (
                     <div className="text-center py-8 text-gray-500">
                       <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
                       <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
@@ -389,24 +342,24 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 <CardContent>
                   <div className="space-y-3">
                     {referrals
-                      .filter((r) => r.status !== "pending")
+                      .filter((r) => r.status !== "Pending")
                       .map((referral) => (
                         <div key={referral.id} className="flex items-center justify-between p-3 border rounded">
                           <div>
-                            <p className="font-medium">{referral.clientName}</p>
-                            <p className="text-sm text-gray-600">Processed on {referral.processedDate}</p>
+                            <p className="font-medium">{referral.client_first_name} {referral.client_last_name}</p>
+                            <p className="text-sm text-gray-600">Processed on {new Date(referral.processed_date).toLocaleDateString()}</p>
                           </div>
                           <Badge
                             variant={
-                              referral.status === "accepted"
+                              referral.status === "Approved"
                                 ? "default"
-                                : referral.status === "declined"
+                                : referral.status === "Rejected"
                                   ? "destructive"
                                   : "secondary"
                             }
                             className={
-                              referral.status === "accepted" ? "bg-green-600" :
-                                referral.status === "more-info-requested" ? "bg-orange-100 text-orange-800" : ""
+                              referral.status === "Approved" ? "bg-green-600" :
+                                referral.status === "More Info Requested" ? "bg-orange-100 text-orange-800" : ""
                             }
                           >
                             {referral.status.replace("-", " ")}
@@ -890,6 +843,27 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
       
     </main>
   );
+}
+
+// Page wrapper: follow the same landing-page client-side pattern — read Clerk user and normalize role
+export default function InteractiveDashboard() {
+  const { isSignedIn } = useAuth();
+  const { user } = useUser();
+
+  const rawRole = user?.publicMetadata?.role;
+  const normalizeRole = (r) => {
+    if (!r) return null;
+    const splitCamel = r.replace(/([a-z])([A-Z])/g, "$1_$2");
+    return splitCamel.toLowerCase().replace(/[\s-]+/g, "_");
+  };
+
+  const normalized = normalizeRole(rawRole);
+  // convert to hyphen style used inside the dashboard code (team-leader / support-worker)
+  const userRole = normalized ? normalized.replace(/_/g, "-") : "support-worker";
+  const userName = user?.fullName ?? "User";
+
+  // Render the interactive dashboard with mock data when no user is signed in, and with real user data when available
+  return <InteractiveDashboardContent userRole={userRole} userName={userName} />;
 }
   
 

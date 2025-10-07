@@ -1,51 +1,59 @@
-// app/api/referrals/route.js
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const { sessionClaims } = auth();
-    const role = sessionClaims?.metadata?.role;
-    if (role !== "admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    const { userId } = auth();
+    const user = await currentUser();
+
+    if (!user || user.publicMetadata.role !== "admin") {
+      return new Response("Forbidden", { status: 403 });
     }
 
-    // NOTE: Requires a `Referral` model in Prisma schema
     const referrals = await prisma.referral.findMany({
-      orderBy: { createdAt: "desc" },
+      orderBy: { created_at: "desc" },
     });
 
-    return NextResponse.json({ referrals });
-  } catch (err) {
-    console.error("GET /api/referrals error:", err);
-    return NextResponse.json({ error: "Failed to fetch referrals" }, { status: 500 });
+    return Response.json(referrals);
+  } catch (error) {
+    console.error("Error fetching referrals:", error);
+    return new Response("Internal Server Error", { status: 500 });
   }
 }
 
 export async function POST(req) {
   try {
-    const { sessionClaims, userId } = auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { userId } = auth();
+    const user = await currentUser();
 
-    const body = await req.json();
-    // Example body fields: { clientName, notes, referredById (clerkUserId) }
-    const { clientName, notes } = body;
+    if (!user || user.publicMetadata.role !== "admin") {
+      return new Response("Forbidden", { status: 403 });
+    }
 
-    if (!clientName) return NextResponse.json({ error: "Missing clientName" }, { status: 400 });
+    const data = await req.json();
 
-    // Create referral associated with the current user
     const referral = await prisma.referral.create({
       data: {
-        clientName,
-        notes,
-        createdByClerkUserId: userId,
+        client_first_name: data.client_first_name,
+        client_last_name: data.client_last_name,
+        age: data.age ? parseInt(data.age) : null,
+        phone: data.phone,
+        address: data.address,
+        email: data.email,
+        emergency_first_name: data.emergency_first_name,
+        emergency_last_name: data.emergency_last_name,
+        emergency_phone: data.emergency_phone,
+        referral_source: data.referral_source || "Unknown",
+        reason_for_referral: data.reason_for_referral || "",
+        additional_notes: data.additional_notes || "",
+        submitted_date: new Date(),
+        status: "Pending",
       },
     });
 
-    return NextResponse.json({ referral }, { status: 201 });
-  } catch (err) {
-    console.error("POST /api/referrals error:", err);
-    return NextResponse.json({ error: "Failed to create referral" }, { status: 500 });
+    return Response.json(referral, { status: 201 });
+  } catch (error) {
+    console.error("Error creating referral:", error);
+    return new Response("Internal Server Error", { status: 500 });
   }
 }

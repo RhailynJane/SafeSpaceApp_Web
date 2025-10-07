@@ -14,14 +14,22 @@ model User {
   first_name    String
   last_name     String
   email         String   @unique
-
-  // Proper relation with Role
-  role_id       Int
-  role          Role     @relation(fields: [role_id], references: [id])
-
+  role          String   
   last_login    DateTime?
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
+
+  clients              Client[]
+  // appointments         Appointment[]
+  // notes                Note[]
+  // crisis_events_initiator CrisisEvent[] @relation("Initiator")
+  // crisis_events_supervisor CrisisEvent[] @relation("Supervisor")
+  // reports              Report[]
+  // safety_plans         SafetyPlan[]
+  // mood_journals        MoodJournal[]
+  // mood_entries         MoodEntry[]
+  // audit_logs           AuditLog[]
+  processed_referrals  Referral[]    @relation("ProcessedByUser")
 
   @@map("users")
 }
@@ -30,9 +38,6 @@ model Role {
   id          Int     @id @default(autoincrement())
   role_name   String  @unique
   description String?
-
-  // Users belonging to this role
-  users       User[]
 
   @@map("roles")
 }
@@ -67,3 +72,88 @@ model RiskLevel {
 
   @@map("risk_levels")
 }
+
+model Client {
+  id                      Int      @id @default(autoincrement())
+  client_id               Int?     @unique
+  client_first_name       String
+  client_last_name        String
+  status                  String?
+  last_session_date       DateTime?
+  risk_level              String?
+  phone                   String?
+  email                   String?
+  address                 String?
+  emergency_contact_name  String?
+  emergency_contact_phone String?
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  user_id                 Int?
+  user                    User?    @relation(fields: [user_id], references: [id])
+
+  // appointments            Appointment[]
+  // notes                   Note[]
+  // crisis_events           CrisisEvent[]
+
+  referrals               Referral[] @relation("ClientReferrals")
+  // safety_plans            SafetyPlan[]
+
+  @@map("clients")
+}
+
+model Referral {
+  id                   Int       @id @default(autoincrement())
+  client_id            Int?
+  client_first_name    String
+  client_last_name     String
+  age                  Int?
+  phone                String?
+  address              String?
+  email                String?
+  emergency_first_name String?
+  emergency_last_name  String?
+  emergency_phone      String?
+  referral_source      String
+  reason_for_referral  String
+  additional_notes     String?
+  submitted_date       DateTime?
+  status               String @default("Pending")
+  processed_date       DateTime?
+  processed_by_user_id Int?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  processed_by         User?     @relation("ProcessedByUser", fields: [processed_by_user_id], references: [id])
+  client               Client?   @relation("ClientReferrals", fields: [client_id], references: [id])
+
+  timeline             Timeline[]
+
+  @@map("referrals")
+}
+
+model Timeline {
+  id          Int       @id @default(autoincrement())
+  referralId  Int
+  message     String
+  createdAt   DateTime  @default(now())
+
+  referral    Referral  @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@map("referral_timeline")
+}
+
+// All other models below kept commented (unchanged)
+
+// model Appointment { ... }
+// model Note { ... }
+// model CrisisEvent { ... }
+// model SafetyPlan { ... }
+// model Report { ... }
+// model MoodJournal { ... }
+// model MoodEntry { ... }
+// model MoodFactor { ... }
+// model SystemMetric { ... }
+// model AuditLog { ... }
+// model SystemAlert { ... }
+// enum mood_enum { ... }

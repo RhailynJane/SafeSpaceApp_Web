@@ -3,10 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(req, { params }) {
-  try {
-    const { id } = params;
-    const referral = await prisma.referral.findUnique({ where: { id: Number(id) } });
+const referral = await prisma.referral.findUnique({ where: { id } });
     if (!referral) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ referral });
   } catch (err) {
@@ -22,7 +19,7 @@ export async function PATCH(req, { params }) {
     const user = await currentUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const referral = await prisma.referral.findUnique({ where: { id: Number(id) } });
+    const referral = await prisma.referral.findUnique({ where: { id } });
     if (!referral) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // allow update if admin or owner
@@ -34,7 +31,7 @@ export async function PATCH(req, { params }) {
 
     const body = await req.json();
     const updated = await prisma.referral.update({
-      where: { id: Number(id) },
+      where: { id },
       data: body,
     });
 
@@ -52,7 +49,7 @@ export async function DELETE(req, { params }) {
     const user = await currentUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const referral = await prisma.referral.findUnique({ where: { id: Number(id) } });
+    const referral = await prisma.referral.findUnique({ where: { id } });
     if (!referral) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const isAdmin = sessionClaims?.metadata?.role === "admin";
@@ -61,7 +58,7 @@ export async function DELETE(req, { params }) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    await prisma.referral.delete({ where: { id: Number(id) } });
+    await prisma.referral.delete({ where: { id } });
     return NextResponse.json({ message: "Deleted" });
   } catch (err) {
     console.error("DELETE /api/referrals/[id] error:", err);
