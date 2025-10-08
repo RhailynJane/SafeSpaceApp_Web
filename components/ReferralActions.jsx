@@ -1,3 +1,11 @@
+// -----------------------------------------------------------------------------
+// File: ReferralActions.jsx
+// Description: Handles Accept / Decline / Request Info actions for client referrals.
+// References: 
+//   - ChatGPT (GPT-5), OpenAI, assisted in writing descriptive code comments and docstrings.
+// Also helped in resolving error encountered while updating status of referral.
+// -----------------------------------------------------------------------------
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,64 +21,110 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, Info, MessageCircle, Clock } from "lucide-react";
 
+// -----------------------------------------------------------------------------
+// Component: ReferralActions
+// Props:
+//   - referral: the referral record object containing client and status info
+//   - onStatusUpdate: callback function to update referral status in parent component
+//   - userRole: defines who is performing the action (default: team-leader)
+// -----------------------------------------------------------------------------
 const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" }) => {
+
+  // --- UI state variables for dialog visibility and button processing ---
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showNotesDialog, setShowNotesDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [selectedAction, setSelectedAction] = useState(null);
-  const [actionNotes, setActionNotes] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Only show actions if user has permission and referral is pending
-  if (userRole !== "team-leader" || referral.status !== "pending") {
+  // --- Logic state variables for action and note management ---
+  const [selectedAction, setSelectedAction] = useState(null);  // e.g. "accepted", "declined"
+  const [actionNotes, setActionNotes] = useState("");          // user-entered note for "request info"
+  const [isProcessing, setIsProcessing] = useState(false);     // loading spinner indicator
+
+  // --- Hide all action buttons if referral is not in "Pending" status ---
+  if (referral.status !== "Pending") {
     return null;
   }
 
+  // ---------------------------------------------------------------------------
+  // handleActionClick(action)
+  // Handles button click events for Accept, Decline, or Request Info actions.
+  // Opens either confirmation or notes dialog based on selected action.
+  // ---------------------------------------------------------------------------
   const handleActionClick = (action) => {
     setSelectedAction(action);
     if (action === "more-info-requested") {
-      setShowNotesDialog(true);
+      setShowNotesDialog(true); // open notes modal for more info
     } else {
-      setShowConfirmDialog(true);
+      setShowConfirmDialog(true); // open confirm modal for accept/decline
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // handleConfirmAction()
+  // Sends PATCH request to backend to update referral status.
+  // Includes proper error handling, loading state, and UI updates.
+  // ---------------------------------------------------------------------------
   const handleConfirmAction = async () => {
-    setIsProcessing(true);
-    
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const updatedReferral = {
-        ...referral,
-        status: selectedAction,
-        processedDate: new Date().toISOString().split("T")[0],
-        processedBy: "Current User", // This should come from auth context
-        ...(actionNotes && { notes: actionNotes })
-      };
+    // ✅ Ensure selected action is valid
+    if (!selectedAction || !["accepted", "declined", "more-info-requested"].includes(selectedAction)) {
+      alert("Please select a valid action: Accept, Decline, or Request Info.");
+      return;
+    }
 
-      // Call the parent component's update function
-      if (onStatusUpdate) {
-        onStatusUpdate(referral.id, updatedReferral);
+    setIsProcessing(true);
+    try {
+      // --- API call to update referral status ---
+      const res = await fetch(`/api/referrals/${referral.id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: selectedAction, note: actionNotes }),
+      });
+
+      // --- Handle HTTP errors ---
+      if (!res.ok) {
+        let errorMessage = "Failed to update referral due to a server error.";
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          errorMessage = res.statusText;
+        }
+        throw new Error(errorMessage);
       }
 
+      // --- Parse updated referral from API response ---
+      const updatedReferral = await res.json();
+
+      // --- Notify parent component of status update ---
+      onStatusUpdate?.(referral.id, updatedReferral);
+
+      // --- Close modals and open success dialog ---
       setShowConfirmDialog(false);
       setShowNotesDialog(false);
       setShowSuccessDialog(true);
+
     } catch (error) {
-      console.error("Failed to update referral:", error);
+      console.error("Error updating referral:", error);
+      alert(`Error: ${error.message}`);
     } finally {
       setIsProcessing(false);
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // handleNotesSubmit()
+  // Triggers confirmation step when user submits note in "Request Info" dialog.
+  // ---------------------------------------------------------------------------
   const handleNotesSubmit = () => {
     if (actionNotes.trim()) {
       handleConfirmAction();
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // resetState()
+  // Resets all dialog and action states after closing or completing actions.
+  // ---------------------------------------------------------------------------
   const resetState = () => {
     setSelectedAction(null);
     setActionNotes("");
@@ -79,15 +133,19 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     setShowSuccessDialog(false);
   };
 
+  // ---------------------------------------------------------------------------
+  // getActionConfig(action)
+  // Returns UI configuration (label, color, icon, description) for each action type.
+  // ---------------------------------------------------------------------------
   const getActionConfig = (action) => {
     switch (action) {
       case "accepted":
         return {
-          label: "Submit to Team Leader",
+          label: "Accept",
           icon: CheckCircle,
           variant: "default",
-          className: "bg-green-600 hover:bg-green-700",
-          description: "Submit this referral to the team leader for review and assignment"
+          className: "bg-teal-600 hover:bg-teal-700",
+          description: "Accept this referral assigning to available support worker"
         };
       case "declined":
         return {
@@ -102,7 +160,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
           label: "Request Info",
           icon: Info,
           variant: "outline",
-          className: "border-orange-300 text-orange-700 hover:bg-orange-50",
+          className: "border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-100",
           description: "Request additional information before processing"
         };
       default:
@@ -116,9 +174,13 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // JSX: User Interface Section
+  // Renders buttons and corresponding modals for confirmation, notes, and success.
+  // ---------------------------------------------------------------------------
   return (
     <>
-      {/* Action Buttons */}
+      {/* ------------------------ Action Buttons ------------------------ */}
       <div className="flex gap-2 pt-4 border-t">
         {["accepted", "declined", "more-info-requested"].map((action) => {
           const config = getActionConfig(action);
@@ -140,7 +202,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
         })}
       </div>
 
-      {/* Confirmation Dialog */}
+      {/* ------------------------ Confirmation Dialog ------------------------ */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -149,13 +211,15 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
             </DialogTitle>
             <DialogDescription>
               Are you sure you want to {selectedAction?.toLowerCase()} the referral for{" "}
-              <strong>{referral.clientName}</strong>?
+              <strong>{referral.client_first_name} {referral.client_last_name}</strong>?
               <br />
               <span className="text-sm text-gray-600 mt-2 block">
                 {getActionConfig(selectedAction)?.description}
               </span>
             </DialogDescription>
           </DialogHeader>
+
+          {/* Footer buttons for confirmation or cancel */}
           <DialogFooter>
             <Button variant="outline" onClick={resetState} disabled={isProcessing}>
               Cancel
@@ -183,16 +247,18 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
         </DialogContent>
       </Dialog>
 
-      {/* Notes Dialog for More Info Requests */}
+      {/* ------------------------ Notes Dialog (Request Info) ------------------------ */}
       <Dialog open={showNotesDialog} onOpenChange={setShowNotesDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Request Additional Information</DialogTitle>
             <DialogDescription>
               Please specify what additional information is needed for{" "}
-              <strong>{referral.clientName}</strong>'s referral.
+              <strong>{referral.client_first_name} {referral.client_last_name}</strong>'s referral.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Textarea input for the note */}
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="notes">Information Needed</Label>
@@ -208,6 +274,8 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
               This message will be sent to the referral source.
             </div>
           </div>
+
+          {/* Footer buttons for submitting note or cancel */}
           <DialogFooter>
             <Button variant="outline" onClick={resetState} disabled={isProcessing}>
               Cancel
@@ -233,7 +301,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
         </DialogContent>
       </Dialog>
 
-      {/* Success Dialog */}
+      {/* ------------------------ Success Dialog ------------------------ */}
       <Dialog open={showSuccessDialog} onOpenChange={(open) => !open && resetState()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -242,10 +310,12 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
               Action Completed Successfully
             </DialogTitle>
             <DialogDescription>
-              The referral for <strong>{referral.clientName}</strong> has been{" "}
+              The referral for <strong>{referral.client_first_name} {referral.client_last_name}</strong> has been{" "}
               {selectedAction?.replace("-", " ")} successfully.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Display referral result badge */}
           <div className="flex items-center justify-center py-4">
             <Badge 
               className={
@@ -259,6 +329,8 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
               {selectedAction?.replace("-", " ").toUpperCase()}
             </Badge>
           </div>
+
+          {/* Footer Close button */}
           <DialogFooter>
             <Button onClick={resetState} className="w-full">
               Close
@@ -270,4 +342,5 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
   );
 };
 
+// Export the component for use in parent pages (e.g., admin dashboard)
 export default ReferralActions;
