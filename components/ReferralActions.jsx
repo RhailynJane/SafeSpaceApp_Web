@@ -65,7 +65,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
   // Includes proper error handling, loading state, and UI updates.
   // ---------------------------------------------------------------------------
   const handleConfirmAction = async () => {
-    // ✅ Ensure selected action is valid
+    //  Ensure selected action is valid
     if (!selectedAction || !["accepted", "declined", "more-info-requested"].includes(selectedAction)) {
       alert("Please select a valid action: Accept, Decline, or Request Info.");
       return;
@@ -109,7 +109,21 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     } finally {
       setIsProcessing(false);
     }
-  };
+
+    const updatedReferral = await res.json();
+    onStatusUpdate?.(referral.id, updatedReferral);
+
+    setShowConfirmDialog(false);
+    setShowNotesDialog(false);
+    setShowSuccessDialog(true);
+  } catch (error) {
+    console.error("Error updating referral:", error);
+    alert(`Error: ${error.message}`);
+  } finally {
+    setIsProcessing(false);
+  }
+};
+
 
   // ---------------------------------------------------------------------------
   // handleNotesSubmit()
