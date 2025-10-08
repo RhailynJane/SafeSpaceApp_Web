@@ -4,6 +4,7 @@ CREATE TABLE users (
     first_name VARCHAR(255) NOT NULL,
     last_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    clerk_user_id VARCHAR(255) UNIQUE,
     role VARCHAR(50) NOT NULL, -- e.g., 'admin', 'team-leader', 'support-worker', 'patient'
     password_hash VARCHAR(255), -- For storing hashed passwords
     last_login TIMESTAMP,
