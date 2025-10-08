@@ -1,30 +1,49 @@
+// middleware.ts
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
-const isAdminRoute = createRouteMatcher([
-  '/admin(.*)',
-]);
+const isAdminRoute = createRouteMatcher(['/admin(.*)']);
+const isDashboardRoute = createRouteMatcher(['/dashboard(.*)', '/interactive(.*)']);
+const isApiRoute = createRouteMatcher(['/api(.*)']);
 
-const isDashboardRoute = createRouteMatcher([
-  '/dashboard(.*)',
-]);
+export default clerkMiddleware(async (auth, req) => {
+  // ✅ Protect API routes
+  if (isApiRoute(req)) {
+    await auth.protect();
+  }
 
-export default clerkMiddleware((auth, req) => {
   if (isDashboardRoute(req)) {
-    auth().protect();
+    await auth.protect();
   }
 
   if (isAdminRoute(req)) {
-    const { sessionClaims } = auth();
-
-    if (sessionClaims?.metadata?.role !== 'admin') {
+    const { sessionClaims } = await auth();
+    
+    // FIXED: Changed from metadata.role to publicMetadata.role
+    const role = sessionClaims?.publicMetadata?.role;
+    
+    if (role !== 'admin') {
       const homeUrl = new URL('/', req.url);
       return NextResponse.redirect(homeUrl);
     }
-    auth().protect();
+
+    // Redirect from /admin to /admin/overview
+const path = req.nextUrl.pathname.replace(/\/$/, '');
+if (path === '/admin') {
+  const overviewUrl = new URL('/admin/overview', req.url);
+  return NextResponse.redirect(overviewUrl);
+}
+
+
+    await auth.protect();
   }
 });
 
 export const config = {
-  matcher: ['/((?!.*\..*|_next).*)', '/', '/(api|trpc)(.*)'],
+  matcher: [
+    '/((?!.*\..*|_next).*)',
+    '/api/:path*',
+  ],
 };
+
+

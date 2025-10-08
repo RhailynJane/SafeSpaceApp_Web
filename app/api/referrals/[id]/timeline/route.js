@@ -1,31 +1,29 @@
-// app/api/referrals/[id]/timeline/route.js
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params; // FIXED: Await params
     
     const timeline = await prisma.timeline.findMany({
       where: {
-        referralId: Number(id)
+        referral_id: Number(id)
       },
       orderBy: {
-        createdAt: 'asc'
+        created_at: 'asc'
       }
     });
 
-    // Transform to match your UI expectations
     const timelineData = timeline.map(entry => ({
       status: entry.message.includes('submitted') ? 'SUBMITTED' : 
               entry.message.includes('Pending') ? 'PENDING' :
               entry.message.includes('Accepted') ? 'ACCEPTED' :
-              entry.message.includes('Rejected') ? 'REJECTED' : 'IN REVIEW',
-      created_at: entry.createdAt.toISOString(),
+              entry.message.includes('Declined') ? 'REJECTED' : 'IN REVIEW',
+      created_at: entry.created_at.toISOString(),
       note: entry.message,
       icon: entry.message.includes('submitted') ? 'ClockIcon' :
             entry.message.includes('Accepted') ? 'CheckCircleIcon' :
-            entry.message.includes('Rejected') ? 'XCircleIcon' : 'EyeIcon'
+            entry.message.includes('Declined') ? 'XCircleIcon' : 'EyeIcon'
     }));
 
     return NextResponse.json(timelineData);

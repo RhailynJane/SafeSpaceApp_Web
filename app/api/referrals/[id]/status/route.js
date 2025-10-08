@@ -1,62 +1,76 @@
-// app/api/referrals/[id]/status/route.js
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
-export async function PUT(request, { params }) {
+export async function PATCH(req, { params }) {
   try {
     const { id } = params;
-    const { userId } = auth();
     
+    const body = await req.json();
+    const { status, note } = body;
+    
+    const { userId } = await auth();
+
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const user = await currentUser();
-    const { status, note } = await request.json();
+    const role = user?.publicMetadata?.role;
+    
+    const allowedRoles = ["admin", "team_leader"];
 
-    // Get the database user ID
-    const dbUser = await prisma.user.findUnique({
-      where: { clerk_user_id: userId }
-    });
-
-    if (!dbUser) {
-      return NextResponse.json({ error: "User not found in database" }, { status: 404 });
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json({ 
+        error: "Forbidden - Team Leader or Admin access required",
+        yourRole: role 
+      }, { status: 403 });
     }
 
-    // Update the referral
-    const updated = await prisma.referral.update({
-      where: { id: Number(id) },
+    // Map frontend status to database status
+    const statusMap = {
+      "accepted": "Accepted",
+      "declined": "Declined",
+      "more-info-requested": "More Info Requested"
+    };
+
+    const dbStatus = statusMap[status] || status;
+
+    console.log("Updating referral:", { id, status, dbStatus, note });
+
+    // Update referral
+    const updatedReferral = await prisma.referral.update({
+      where: { id: parseInt(id) },
       data: {
-        status,
+        status: dbStatus,
         processed_date: new Date(),
-        processed_by_user_id: dbUser.id,
       },
-      include: {
-        processed_by: {
-          select: {
-            first_name: true,
-            last_name: true,
-            email: true,
-          }
-        }
-      }
     });
 
-    // Create timeline entry
+    // Create timeline event using connect
+    const timelineMessage = note 
+      ? `${dbStatus} by ${role}: ${note}`
+      : `Status updated to ${dbStatus} by ${role}`;
+      
     await prisma.timeline.create({
       data: {
-        referralId: Number(id),
-        message: note || `Status changed to ${status} by ${dbUser.first_name} ${dbUser.last_name}`,
-      }
+        referral_id: parseInt(id),
+        message: timelineMessage,
+      },
     });
 
-    return NextResponse.json(updated);
+    console.log("✅ Referral updated successfully");
+
+    return NextResponse.json(updatedReferral, { status: 200 });
   } catch (error) {
-    console.error('Error updating referral status:', error);
-    return NextResponse.json({ 
-      message: 'Error updating referral status',
-      error: error.message 
-    }, { status: 500 });
+    console.error("Error updating referral status:", error);
+    
+    return NextResponse.json(
+      { 
+        message: "Error updating referral status", 
+        error: error.message,
+      },
+      { status: 500 }
+    );
   }
 }

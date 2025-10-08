@@ -37,7 +37,7 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800">Submit Referral to Team Leader for {referral.client_name}</h2>
+                    <h2 class="text-xl font-bold text-gray-800">Submit Referral to Team Leader for {referral.client_first_name} {referral.client_last_name}</h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon /></button>
                 </div>
                 <form className="space-y-4" onSubmit={handleSubmit}>
@@ -146,7 +146,7 @@ export default function ReferralIntakePage() {
         const res = await fetch(`/api/referrals/${modal.data.id}`,{
         method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'Pending', processed_by_user_id: therapistId }),
+            body: JSON.stringify({ status: 'Accepted', processed_by_user_id: therapistId }),
         });
         if (res.ok) {
             setReferrals(referrals.filter(r => r.id !== modal.data.id));

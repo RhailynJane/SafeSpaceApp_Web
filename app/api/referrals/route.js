@@ -1,33 +1,66 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const { userId } = auth();
-    const user = await currentUser();
+    const { userId } = await auth();
 
-    if (!user || user.publicMetadata.role !== "admin") {
-      return new Response("Forbidden", { status: 403 });
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Get fresh user data from Clerk
+    const user = await currentUser();
+    const role = user?.publicMetadata?.role;
+
+    console.log("API Auth check:", { userId, role });
+    console.log("Full publicMetadata:", user?.publicMetadata);
+
+    const allowedRoles = ["admin", "team_leader"];
+    if (!allowedRoles.includes(role)) {
+      console.log("Access denied. Expected: admin or team_leader, Got:", role);
+      return NextResponse.json({ 
+        error: "Forbidden - Team Leader or Admin access required",
+        yourRole: role,
+        publicMetadata: user?.publicMetadata
+      }, { status: 403 });
+    }
+
+    console.log("✅ Access granted for role:", role);
 
     const referrals = await prisma.referral.findMany({
       orderBy: { created_at: "desc" },
     });
 
-    return Response.json(referrals);
+    return NextResponse.json(referrals, { status: 200 });
   } catch (error) {
     console.error("Error fetching referrals:", error);
-    return new Response("Internal Server Error", { status: 500 });
+    return NextResponse.json(
+      { message: "Error fetching referrals", error: error.message },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(req) {
   try {
-    const { userId } = auth();
-    const user = await currentUser();
+    const { userId } = await auth();
 
-    if (!user || user.publicMetadata.role !== "admin") {
-      return new Response("Forbidden", { status: 403 });
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get fresh user data from Clerk
+    const user = await currentUser();
+    const role = user?.publicMetadata?.role;
+
+    // Only admin can create referrals
+    if (role !== "admin") {
+      return NextResponse.json({ 
+        error: "Forbidden - Admin access required",
+        yourRole: role 
+      }, { status: 403 });
     }
 
     const data = await req.json();
@@ -51,9 +84,12 @@ export async function POST(req) {
       },
     });
 
-    return Response.json(referral, { status: 201 });
+    return NextResponse.json(referral, { status: 201 });
   } catch (error) {
     console.error("Error creating referral:", error);
-    return new Response("Internal Server Error", { status: 500 });
+    return NextResponse.json(
+      { message: "Error creating referral", error: error.message },
+      { status: 500 }
+    );
   }
 }

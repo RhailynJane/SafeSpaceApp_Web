@@ -21,8 +21,8 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
   const [actionNotes, setActionNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Only show actions if user has permission and referral is pending
-  if (userRole !== "team-leader" || referral.status !== "pending") {
+  // Only show actions if referral is pending
+  if (referral.status !== "Pending") {
     return null;
   }
 
@@ -36,34 +36,47 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
   };
 
   const handleConfirmAction = async () => {
-    setIsProcessing(true);
-    
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const updatedReferral = {
-        ...referral,
-        status: selectedAction,
-        processedDate: new Date().toISOString().split("T")[0],
-        processedBy: "Current User", // This should come from auth context
-        ...(actionNotes && { notes: actionNotes })
-      };
+  // ✅ Prevent submission without a valid action
+  if (!selectedAction || !["accepted", "declined", "more-info-requested"].includes(selectedAction)) {
+    alert("Please select a valid action: Accept, Decline, or Request Info.");
+    return;
+  }
 
-      // Call the parent component's update function
-      if (onStatusUpdate) {
-        onStatusUpdate(referral.id, updatedReferral);
+  setIsProcessing(true);
+  try {
+    const res = await fetch(`/api/referrals/${referral.id}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status: selectedAction, note: actionNotes }),
+    });
+
+    if (!res.ok) {
+      let errorMessage = "Failed to update referral due to a server error.";
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (e) {
+        errorMessage = res.statusText;
       }
-
-      setShowConfirmDialog(false);
-      setShowNotesDialog(false);
-      setShowSuccessDialog(true);
-    } catch (error) {
-      console.error("Failed to update referral:", error);
-    } finally {
-      setIsProcessing(false);
+      throw new Error(errorMessage);
     }
-  };
+
+    const updatedReferral = await res.json();
+    onStatusUpdate?.(referral.id, updatedReferral);
+
+    setShowConfirmDialog(false);
+    setShowNotesDialog(false);
+    setShowSuccessDialog(true);
+  } catch (error) {
+    console.error("Error updating referral:", error);
+    alert(`Error: ${error.message}`);
+  } finally {
+    setIsProcessing(false);
+  }
+};
+
 
   const handleNotesSubmit = () => {
     if (actionNotes.trim()) {
@@ -83,11 +96,11 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     switch (action) {
       case "accepted":
         return {
-          label: "Submit to Team Leader",
+          label: "Accept",
           icon: CheckCircle,
           variant: "default",
-          className: "bg-green-600 hover:bg-green-700",
-          description: "Submit this referral to the team leader for review and assignment"
+          className: "bg-teal-600 hover:bg-teal-700",
+          description: "accept this referral assigning to available support worker"
         };
       case "declined":
         return {
@@ -102,7 +115,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
           label: "Request Info",
           icon: Info,
           variant: "outline",
-          className: "border-orange-300 text-orange-700 hover:bg-orange-50",
+          className: "border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-100",
           description: "Request additional information before processing"
         };
       default:
@@ -149,7 +162,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
             </DialogTitle>
             <DialogDescription>
               Are you sure you want to {selectedAction?.toLowerCase()} the referral for{" "}
-              <strong>{referral.clientName}</strong>?
+              <strong>{referral.client_first_name} {referral.client_last_name}</strong>?
               <br />
               <span className="text-sm text-gray-600 mt-2 block">
                 {getActionConfig(selectedAction)?.description}
@@ -190,7 +203,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
             <DialogTitle>Request Additional Information</DialogTitle>
             <DialogDescription>
               Please specify what additional information is needed for{" "}
-              <strong>{referral.clientName}</strong>'s referral.
+              <strong>{referral.client_first_name} {referral.client_last_name}</strong>'s referral.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -242,7 +255,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
               Action Completed Successfully
             </DialogTitle>
             <DialogDescription>
-              The referral for <strong>{referral.clientName}</strong> has been{" "}
+              The referral for <strong>{referral.client_first_name} {referral.client_last_name}</strong> has been{" "}
               {selectedAction?.replace("-", " ")} successfully.
             </DialogDescription>
           </DialogHeader>

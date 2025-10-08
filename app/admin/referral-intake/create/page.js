@@ -1,8 +1,18 @@
 'use client';
+
+// REFERENCE:
+// This "Create Referral" page was documented with guidance from ChatGPT (OpenAI GPT-5)
+// Prompt -"add explanatory comments for each line of code."
+// Purpose: Provides an admin-facing form to collect client referral information,
+// upload documents, and submit data to the backend (/api/referrals).
+
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Field, TextArea } from '@/components/ui/form-elements'; // Reusable input components
 
-// --- ICONS ---
+// --- ICON COMPONENTS ---
+// These are small SVG-based React components used for decorative icons in the UI.
+
 const UserIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
     viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -25,25 +35,28 @@ const UploadIcon = () => (
 const FileIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
     viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-    strokeLinecap="round" strokeLinejoin="round"
-    className="text-blue-500">
+    strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
     <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
     <polyline points="13 2 13 9 20 9" />
   </svg>
 );
 
 // --- SUCCESS MODAL ---
+// Displays after successful form submission
 const SubmissionSuccessModal = ({ onClose }) => {
   const router = useRouter();
   const handleClose = () => {
-    onClose();
-    router.push('/admin/referral-intake');
+    onClose(); // close modal
+    router.push('/admin/referral-intake'); // redirect to referral intake dashboard
   };
+
   return (
-    <div className="fixed inset-0 bg-white/20 backdrop-blur-2xl  flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-white/20 backdrop-blur-2xl flex items-center justify-center z-50 p-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Referral Submitted</h2>
-        <p className="text-gray-600 mb-8">Referral submitted successfully to team leaders!</p>
+        <p className="text-gray-600 mb-8">
+          Referral submitted successfully to team leaders!
+        </p>
         <button
           onClick={handleClose}
           className="w-full bg-teal-600 text-white font-semibold py-3 rounded-lg hover:bg-teal-700 transition-colors"
@@ -55,8 +68,10 @@ const SubmissionSuccessModal = ({ onClose }) => {
   );
 };
 
-// --- MAIN PAGE ---
+// --- MAIN COMPONENT ---
+// This is the main page for creating a new referral.
 export default function CreateReferralPage() {
+  // State variables to store form data, uploaded file, and UI states
   const [formData, setFormData] = useState({
     client_first_name: '',
     client_last_name: '',
@@ -72,46 +87,59 @@ export default function CreateReferralPage() {
     reason_for_referral: '',
     additional_notes: '',
   });
-  const [fileName, setFileName] = useState(null);
-  const [consentGiven, setConsentGiven] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
+  const [fileName, setFileName] = useState(null); // For displaying uploaded file name
+  const [consentGiven, setConsentGiven] = useState(false); // Checkbox validation
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // Controls modal visibility
+
+  // --- Handle File Upload ---
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFileName(e.target.files[0].name);
+      setFileName(e.target.files[0].name); // store uploaded file name
     }
   };
 
+  // --- Handle Input Changes ---
   const handleChange = (e) => {
     const { id, value } = e.target;
+    // Update the specific form field dynamically
     setFormData((prevData) => ({
       ...prevData,
       [id]: value,
     }));
   };
 
+  // --- Handle Form Submission ---
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Validate consent checkbox
     if (!consentGiven) {
       alert('Please confirm consent before submitting.');
       return;
     }
 
+    // Basic validation for required fields
     if (!formData.client_first_name || !formData.client_last_name) {
       alert('Please provide client first and last name');
       return;
     }
 
+    // Send POST request to backend API (/api/referrals)
     const res = await fetch('/api/referrals', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...formData, client_id: parseInt(formData.client_id) || null, }),
+      body: JSON.stringify({
+        ...formData,
+        client_id: parseInt(formData.client_id) || null, // if existing client ID is entered
+      }),
     });
 
+    // Show success modal on success
     if (res.ok) setShowSuccessModal(true);
   };
 
+  // --- Clear Form Fields ---
   const handleClearForm = () => {
     setFileName(null);
     setConsentGiven(false);
@@ -130,35 +158,42 @@ export default function CreateReferralPage() {
       reason_for_referral: '',
       additional_notes: '',
     });
-    document.getElementById("referral-form").reset();
+    document.getElementById('referral-form').reset(); // also clears the HTML form fields
   };
 
+  // --- RENDER ---
   return (
     <>
+      {/* Outer container */}
       <div className="bg-white rounded-2xl shadow-lg max-w-2xl mx-auto flex flex-col h-[90vh]">
+        
         {/* Sticky Header */}
         <div className="sticky top-0 bg-white p-6 border-b border-gray-200 z-10 text-center">
           <div className="inline-flex items-center justify-center bg-gray-100 rounded-full p-3 mb-2">
             <UserIcon />
           </div>
           <h1 className="text-xl font-bold text-gray-800">Referral Intake System</h1>
-          <p className="text-gray-500 text-sm">Upload fax documents or manually input referral details</p>
+          <p className="text-gray-500 text-sm">
+            Upload fax documents or manually input referral details
+          </p>
         </div>
 
-        {/* Scrollable Form Body */}
+        {/* Scrollable form body */}
         <form
           id="referral-form"
           onSubmit={handleSubmit}
           className="flex-1 overflow-y-auto px-6 py-6 space-y-6"
         >
-          {/* File Upload */}
+          {/* File Upload Section */}
           <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
             {fileName ? (
+              // If file is uploaded, show its name
               <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg max-w-xs mx-auto">
                 <FileIcon />
                 <span className="text-blue-700 font-medium">{fileName}</span>
               </div>
             ) : (
+              // Otherwise, show upload prompt
               <>
                 <UploadIcon />
                 <p className="mt-2 text-gray-600">Upload fax document or referral form</p>
@@ -171,12 +206,14 @@ export default function CreateReferralPage() {
             </label>
           </div>
 
-          {/* All Form Fields */}
+          {/* All Input Fields */}
           <div className="space-y-6">
-            <Field label="Client ID" id="client_id" value={formData.client_id} onChange={handleChange} placeholder="Enter client Id if it is existing in system" />
+            <Field label="Client ID" id="client_id" value={formData.client_id} onChange={handleChange} placeholder="Enter client Id if it exists in system" />
             <Field label="Client First Name" id="client_first_name" value={formData.client_first_name} onChange={handleChange} placeholder="Enter client's first name" />
             <Field label="Client Last Name" id="client_last_name" value={formData.client_last_name} onChange={handleChange} placeholder="Enter client's last name" />
             <Field label="Age" id="age" value={formData.age} onChange={handleChange} placeholder="Enter age" />
+
+            {/* Gender dropdown */}
             <div>
               <label className="font-semibold text-gray-700">Gender</label>
               <select
@@ -191,14 +228,17 @@ export default function CreateReferralPage() {
                 <option value="Other">Other</option>
               </select>
             </div>
+
             <Field label="Phone" id="phone" value={formData.phone} onChange={handleChange} placeholder="(555) 123-4567" />
             <Field label="Address" id="address" value={formData.address} onChange={handleChange} placeholder="123 Main St, City, State ZIP" />
             <Field label="Email" id="email" type="email" value={formData.email} onChange={handleChange} placeholder="client@gmail.com" />
+
+            {/* Emergency contact details */}
             <Field label="Emergency Contact First Name" id="emergency_first_name" value={formData.emergency_first_name} onChange={handleChange} placeholder="Enter emergency contact's first name" />
             <Field label="Emergency Contact Last Name" id="emergency_last_name" value={formData.emergency_last_name} onChange={handleChange} placeholder="Enter emergency contact's last name" />
             <Field label="Emergency Contact Phone" id="emergency_phone" value={formData.emergency_phone} onChange={handleChange} placeholder="(555) 123-4567" />
 
-            {/* Referral Source Dropdown */}
+            {/* Referral source dropdown */}
             <div>
               <label className="font-semibold text-gray-700">Referral Source</label>
               <select
@@ -208,18 +248,19 @@ export default function CreateReferralPage() {
                 className="w-full mt-1 p-3 border border-gray-300 rounded-lg bg-white"
               >
                 <option value="">Select referral source...</option>
-                <option value="Self">Self</option>
-                <option value="Family Member">Family Member</option>
-                <option value="Healthcare Provider">Healthcare Provider</option>
-                <option value="School Counselor">School Counselor</option>
+                <option value="Forensic Psychiatric center">Forensic Psychiatric center</option>
+                <option value="Out patient Service">Out patient Service</option>
+                <option value="Mental Health Rehabilitation Program">Mental Health Rehabilitation Program</option>
+                <option value="Mental Health And Addiction Center">Mental Health And Addiction Center</option>
                 <option value="Other">Other</option>
               </select>
             </div>
 
+            {/* Textarea fields for notes */}
             <TextArea label="Reason for Referral" id="reason_for_referral" value={formData.reason_for_referral} onChange={handleChange} placeholder="Describe the client's needs and reason for referral" />
             <TextArea label="Additional Notes" id="additional_notes" value={formData.additional_notes} onChange={handleChange} placeholder="Any additional information or special considerations" />
 
-            {/* Consent Section */}
+            {/* Consent Checkbox */}
             <div className="flex items-start gap-3">
               <input
                 type="checkbox"
@@ -254,9 +295,8 @@ export default function CreateReferralPage() {
         </div>
       </div>
 
+      {/* Success Modal (conditionally rendered) */}
       {showSuccessModal && <SubmissionSuccessModal onClose={() => setShowSuccessModal(false)} />}
     </>
   );
 }
-
-import { Field, TextArea } from '@/components/ui/form-elements';
