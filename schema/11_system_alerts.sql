@@ -6,3 +6,4 @@ CREATE TABLE system_alerts (
     type VARCHAR(50) NOT NULL, -- e.g., 'success', 'warning', 'error'
     is_read BOOLEAN NOT NULL DEFAULT FALSE
 );
+

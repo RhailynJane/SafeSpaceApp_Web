@@ -1,72 +1,82 @@
+// app/api/webhooks/clerk/route.ts
+import { NextResponse } from "next/server";
+import { verifyWebhook } from "@clerk/nextjs/webhooks";
+import { prisma } from "@/lib/prisma";
 
-import { Webhook } from 'svix';
-import { headers } from 'next/headers';
-import { NextResponse } from 'next/server';
-import pool from '@/lib/db';
+/**
+ * Verified webhook endpoint for Clerk.
+ * - Expects Clerk's Svix-signed webhook headers.
+ * - Subscribes to user.created, user.updated, user.deleted events.
+ *
+ * Add CLERK_WEBHOOK_SECRET to your .env.local (value shown when creating webhook in Clerk).
+ */
 
 export async function POST(req) {
-  // Get the headers
-  const headerPayload = headers();
-  const svix_id = headerPayload.get("svix-id");
-  const svix_timestamp = headerPayload.get("svix-timestamp");
-  const svix_signature = headerPayload.get("svix-signature");
-
-  // If there are no headers, error out
-  if (!svix_id || !svix_timestamp || !svix_signature) {
-    return new Response('Error occured -- no svix headers', {
-      status: 400
-    })
+  const signingSecret = process.env.CLERK_WEBHOOK_SECRET;
+  if (!signingSecret) {
+    console.error("CLERK_WEBHOOK_SECRET not set");
+    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
   }
 
-  // Get the body
-  const payload = await req.json()
-  const body = JSON.stringify(payload);
-
-  // Get the webhook secret from environment variables
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
-
-  if (!WEBHOOK_SECRET) {
-    throw new Error('Please add CLERK_WEBHOOK_SECRET from Clerk Dashboard to .env or .env.local')
-  }
-
-  // Create a new Svix instance with your secret.
-  const wh = new Webhook(WEBHOOK_SECRET);
-
+  // verifyWebhook will validate signature and parse JSON body safely
   let evt;
-
-  // Verify the payload with the headers
   try {
-    evt = wh.verify(body, {
-      "svix-id": svix_id,
-      "svix-timestamp": svix_timestamp,
-      "svix-signature": svix_signature,
-    })
+    evt = await verifyWebhook(req, { signingSecret });
   } catch (err) {
-    console.error('Error verifying webhook:', err);
-    return new Response('Error occured', {
-      status: 400
-    })
+    console.error("Failed to verify Clerk webhook:", err);
+    return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
   }
 
-  // Get the ID and type
-  const { id } = evt.data;
-  const eventType = evt.type;
+  try {
+    const eventType = evt.type; // e.g. "user.created", "user.updated", "user.deleted"
+    const data = evt.data;
 
-  if (eventType === 'user.created') {
-    const { email_addresses, first_name, last_name } = evt.data;
-    const email = email_addresses[0].email_address;
+    if (eventType === "user.created" || eventType === "user.updated") {
+      const clerkId = data.id;
+      // Determine a robust email - Clerk payload can vary; check common fields
+      const email = data.primary_email_address?.email || data.email_addresses?.[0]?.email || data.email || null;
+      const firstName = data.first_name || data.firstName || null;
+      const lastName = data.last_name || data.lastName || null;
 
-    try {
-      await pool.query(
-        'INSERT INTO users (first_name, last_name, email, role, status) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING',
-        [first_name, last_name, email, 'patient', 'Active']
-      );
-      return NextResponse.json({ message: 'User created' }, { status: 201 });
-    } catch (error) {
-      console.error('Error creating user:', error);
-      return NextResponse.json({ message: 'Error creating user' }, { status: 500 });
+      // Find the default role (e.g., 'support_worker')
+      const roleName = data.public_metadata?.role || "support_worker";
+      const role = await prisma.role.findUnique({
+        where: { role_name: roleName },
+      });
+
+      if (!role) {
+        console.error(`Role '${roleName}' not found.`);
+        return NextResponse.json({ error: `Role not configured` }, { status: 500 });
+      }
+
+      await prisma.user.upsert({
+        where: { clerk_user_id: clerkId },
+        update: {
+          email: email ?? undefined,
+          first_name: firstName ?? undefined,
+          last_name: lastName ?? undefined,
+        },
+        create: {
+          clerk_user_id: clerkId,
+          email: email ?? "",
+          first_name: firstName ?? "",
+          last_name: lastName ?? "",
+          role_id: role.id,
+        },
+      });
+    } else if (eventType === "user.deleted") {
+      const clerkId = data.id;
+      // You may prefer soft-delete; currently doing hard delete
+      await prisma.user.deleteMany({ where: { clerk_user_id: clerkId } });
+    } else {
+      // ignore other events or implement handling if needed
+      console.log("Ignored Clerk event:", eventType);
     }
-  }
 
-  return new Response('', { status: 200 })
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Error processing Clerk webhook:", err);
+    // Return 500 so Clerk will retry (helpful if DB temporarily down)
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
 }
