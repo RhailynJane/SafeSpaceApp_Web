@@ -1,23 +1,24 @@
-import { auth } from "@clerk/nextjs/server";
-import pool from "@/lib/db";
+// app/api/referrals/mine/route.js
+// (Return referrals for the currently authenticated user.)
+import { currentUser } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const { userId } = auth();
-    if (!userId) return new Response("Unauthorized", { status: 401 });
+    const user = await currentUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const result = await pool.query(
-      `SELECT r.id, r.details, r.status, r.created_at, u.name AS created_by
-       FROM referrals r
-       JOIN users u ON r.created_by = u.id
-       WHERE r.assigned_to = (SELECT id FROM users WHERE clerk_user_id = $1)`,
-      [userId]
-    );
+    const clerkUserId = user.id;
 
-    return new Response(JSON.stringify(result.rows), { status: 200 });
+    const referrals = await prisma.referral.findMany({
+      where: { createdByClerkUserId: clerkUserId },
+      orderBy: { createdAt: "desc" },
+    });
 
+    return NextResponse.json({ referrals });
   } catch (err) {
-    console.error("Error fetching referrals:", err);
-    return new Response("Server error", { status: 500 });
+    console.error("GET /api/referrals/mine error:", err);
+    return NextResponse.json({ error: "Failed to fetch referrals" }, { status: 500 });
   }
 }

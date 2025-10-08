@@ -1,12 +1,22 @@
 'use client';
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
+
+/**
+ * AdminNav component provides a navigation bar for the admin dashboard.
+ * It dynamically highlights the currently active link based on the current URL path.
+ */
 export default function AdminNav() {
+    // usePathname is a Next.js hook that returns the current URL's pathname.
+    // This is used to determine which navigation link is currently active.
     const pathname = usePathname();
     const router = useRouter();
 
+    // Defines the navigation links for the admin dashboard.
+    // Each object contains a 'name' for display and an 'href' for the navigation path.
     const navLinks = [
         { name: 'Overview', href: '/admin/overview' },
         { name: 'Users', href: '/admin/users' },
@@ -17,21 +27,26 @@ export default function AdminNav() {
         { name: 'Reports & Analytics', href: '/admin/reports-analytics' },
     ];
 
-    const handleTabChange = (value) => {
-        router.push(value);
-    };
+    // Map pathname to the active tab name. Default to 'Overview' when no match.
+    const active = navLinks.find(l => pathname?.startsWith(l.href))?.name ?? 'Overview';
 
     return (
-        <nav className="w-full px-6 pt-6">
-            <Tabs value={pathname} onValueChange={handleTabChange} className="w-full">
-                <TabsList className="grid w-full grid-cols-7 bg-gray-100 p-1 rounded-full">
-                    {navLinks.map((link) => (
-                        <TabsTrigger key={link.name} value={link.href} className="rounded-full">
-                            {link.name}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-            </Tabs>
+        <nav className="w-full">
+            <div className="mx-auto w-full max-w-screen-xl">
+                <Tabs value={active} onValueChange={(val) => {
+                    const link = navLinks.find(l => l.name === val);
+                    if (link) router.push(link.href);
+                }}>
+                    {/* Use same TabsList/grid classes as the interactive page so appearance matches */}
+                    <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+                        {navLinks.map((link) => (
+                            <TabsTrigger key={link.name} value={link.name} className="text-xs">
+                                {link.name}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                </Tabs>
+            </div>
         </nav>
     );
 }

@@ -8,6 +8,6 @@ CREATE TABLE reports (
     generated_by_user_id INTEGER, -- Foreign Key to users table
     data_json JSONB, -- For storing structured report data
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     FOREIGN KEY (generated_by_user_id) REFERENCES users(id)
 );

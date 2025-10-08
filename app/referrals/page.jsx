@@ -255,20 +255,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
   }
 
   // Arrow (Helper) function: Map priority to badge colors - return tailwind class string
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "Critical":
-        return "bg-red-100 text-red-800 border-red-200"
-      case "High":
-        return "bg-orange-100 text-orange-800 border-orange-200"
-      case "Medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200"
-      case "Low":
-        return "bg-green-100 text-green-800 border-green-200"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200"
-    }
-  }
+  // NOTE: priority display removed per admin UI requirements
 
   // filters the full list of referrals based on text search, status filter and priority filter
   const filteredReferrals = trackedReferrals.filter((referral) => {
@@ -381,7 +368,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
                 />
               </div>
             </div>
-            <div className="flex gap-2">
+              <div className="flex gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-40">
                   <Filter className="h-4 w-4 mr-2" />
@@ -399,19 +386,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
                   <SelectItem value="info-requested">Info Requested</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="Critical">Critical</SelectItem>
-                  <SelectItem value="High">High</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Low">Low</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* priority filter removed - admin view should not show priority */}
             </div>
           </div>
 
@@ -422,8 +397,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
                 <div className="flex items-start justify-between">
                   <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-semibold text-lg">{referral.clientName}</h3>
-                      <Badge className={getPriorityColor(referral.priority)}>{referral.priority}</Badge>
+                      <h3 className="font-semibold text-lg">{(referral.client_first_name || referral.client_first_name === "") ? `${referral.client_first_name} ${referral.client_last_name || ''}`.trim() : referral.clientName}</h3>
                       <Badge className={getStatusColor(referral.currentStatus)}>
                         <div className="flex items-center gap-1">
                           {getStatusIcon(referral.currentStatus)}
@@ -502,9 +476,9 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
 
       {/* Referral Details Modal */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Referral Timeline - {selectedReferral?.clientName}</DialogTitle>
+            <DialogTitle>Referral Timeline - {(selectedReferral?.client_first_name || selectedReferral?.client_first_name === "") ? `${selectedReferral.client_first_name} ${selectedReferral.client_last_name || ''}`.trim() : selectedReferral?.clientName}</DialogTitle>
             <DialogDescription>Complete status history and processing timeline</DialogDescription>
           </DialogHeader>
 
@@ -514,7 +488,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
               <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Client</p>
-                  <p className="font-semibold">{selectedReferral.clientName}</p>
+                  <p className="font-semibold">{(selectedReferral.client_first_name || selectedReferral.client_first_name === "") ? `${selectedReferral.client_first_name} ${selectedReferral.client_last_name || ''}`.trim() : selectedReferral.clientName}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-600">Current Status</p>
@@ -522,10 +496,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
                     {selectedReferral.currentStatus.replace("-", " ").toUpperCase()}
                   </Badge>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Priority</p>
-                  <Badge className={getPriorityColor(selectedReferral.priority)}>{selectedReferral.priority}</Badge>
-                </div>
+                {/* Priority removed from admin referral details */}
                 <div>
                   <p className="text-sm font-medium text-gray-600">Referral Source</p>
                   <p>{selectedReferral.referralSource}</p>

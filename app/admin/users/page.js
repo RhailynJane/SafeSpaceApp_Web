@@ -105,7 +105,8 @@ export default function UsersPage() {
         return (
             user.first_name.toLowerCase().includes(lowercasedQuery) ||
             user.last_name.toLowerCase().includes(lowercasedQuery) ||
-            user.email.toLowerCase().includes(lowercasedQuery)
+            user.email.toLowerCase().includes(lowercasedQuery) ||
+            user.role.toLowerCase().includes(lowercasedQuery)
         );
     }) : [];
 
@@ -173,7 +174,7 @@ export default function UsersPage() {
                     <table className="min-w-full">
                         <thead>
                             <tr className="border-b border-gray-200">
-                                {['ID', 'First Name', 'Last Name', 'Email Address', 'Last Login', 'Created At', 'Status', ''].map(header => (
+                                {['ID', 'First Name', 'Last Name', 'Email Address', 'Role', 'Last Login', 'Created At', 'Status', ''].map(header => (
                                     <th key={header} className="px-6 py-3 text-left text-xs font-bold text-teal-800 uppercase tracking-wider bg-teal-50">{header}</th>
                                 ))}
                             </tr>
@@ -185,6 +186,7 @@ export default function UsersPage() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.first_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.last_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.last_login}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.created_at}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -198,7 +200,7 @@ export default function UsersPage() {
                                         {/* The action menu dropdown, conditionally rendered */}
                                         {activeActionMenu === user.id && (
                                             <div className="absolute right-8 top-full mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-xl z-10">
-                                                <button onClick={() => router.push(`/users/${user.id}/edit`)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit User</button>
+                                                <button onClick={() => router.push(`/admin/users/${user.id}/edit`)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit User</button>
                                                 <button onClick={() => handleDeleteClick(user)} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete User</button>
                                             </div>
                                         )}

@@ -17,9 +17,17 @@ export default function ViewReportModal({ report, open, onClose }) {
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4 max-h-96 overflow-y-auto p-2 bg-gray-50 border rounded">
-          {/* Replace with actual report content */}
           {report.data ? (
-            <pre className="text-sm text-gray-700">{JSON.stringify(report.data, null, 2)}</pre>
+            <table className="w-full text-sm text-left border-collapse">
+              <tbody>
+                {Object.entries(report.data).map(([key, value]) => (
+                  <tr key={key} className="border-b last:border-b-0">
+                    <td className="py-2 px-4 font-medium capitalize text-gray-700">{key.replace(/_/g, ' ')}</td>
+                    <td className="py-2 px-4 text-gray-900">{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <p className="text-gray-600 text-sm">No preview available</p>
           )}
