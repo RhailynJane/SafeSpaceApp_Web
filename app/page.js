@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, useSignIn, useUser, useClerk } from "@clerk/nextjs";
+import { useAuth, useSignIn, useUser } from "@clerk/nextjs";
 import {
   Card,
   CardContent,
@@ -22,7 +22,7 @@ export default function SafespacePlatform() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const { user } = useUser();
 
-  // ✅ Handle Login
+  // Handle Login
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!isLoaded) return;
@@ -47,7 +47,7 @@ export default function SafespacePlatform() {
     }
   };
 
-  // ✅ Redirect if already signed in
+  // Redirect if already signed in
   useEffect(() => {
     if (isSignedIn && user) {
       // Normalize role strings from Clerk to handle variants like
@@ -74,7 +74,7 @@ export default function SafespacePlatform() {
     }
   }, [isSignedIn, user, router]);
 
-  // ✅ Render
+  //  Render
   return (
     <div className="min-h-screen bg-gray-50">
 

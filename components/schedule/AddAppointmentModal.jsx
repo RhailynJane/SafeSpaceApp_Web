@@ -1,6 +1,10 @@
-"use client";
+"use client"; 
+// This directive tells Next.js that this file runs on the client side (browser) 
+// and can use hooks like useState or event handlers.
 
 import { useState } from "react";
+// React hook for managing state variables in a functional component.
+
 import {
   Dialog,
   DialogTrigger,
@@ -10,32 +14,56 @@ import {
   DialogDescription,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+// Importing reusable dialog (modal) components from your UI library (shadcn/ui).
+// These handle opening, closing, and content of the modal.
 
+import { Button } from "@/components/ui/button"; // Button component (styled)
+import { Input } from "@/components/ui/input"; // Input component for text fields
+import { Label } from "@/components/ui/label"; // Label for form fields
+import { 
+  Select, 
+  SelectTrigger, 
+  SelectValue, 
+  SelectContent, 
+  SelectItem 
+} from "@/components/ui/select"; 
+// Dropdown (Select) components for choosing options.
+
+
+// Main component definition
 export default function AddAppointmentModal({ onAdd }) {
-  const [open, setOpen] = useState(false);
-  const [time, setTime] = useState("");
-  const [client, setClient] = useState("");
-  const [type, setType] = useState("Individual Session");
-  const [duration, setDuration] = useState("50 min");
-  const [details, setDetails] = useState("");
+  // Props:
+  // - onAdd: a function passed from the parent component that handles adding a new appointment.
 
+  // State variables to manage form input values and dialog visibility.
+  const [open, setOpen] = useState(false);            // Controls whether the modal is open
+  const [time, setTime] = useState("");               // Stores appointment time
+  const [client, setClient] = useState("");           // Stores client name
+  const [type, setType] = useState("Individual Session"); // Stores session type
+  const [duration, setDuration] = useState("50 min"); // Stores session duration
+  const [details, setDetails] = useState("");         // Stores appointment details
+
+  // Function to handle form submission
   const handleSubmit = (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevents the default browser reload behavior on form submission
+
+    // Create a new appointment object with form data
     const newAppointment = {
-      id: Date.now(), // simple unique id
+      id: Date.now(), // Simple unique ID based on the current timestamp
       time,
       client,
       type,
       duration,
       details,
     };
+
+    // Call the parent function to add the new appointment to the list
     onAdd(newAppointment);
+
+    // Close the modal after submission
     setOpen(false);
-    // Reset form
+
+    // Reset form fields back to their initial values
     setTime("");
     setClient("");
     setType("Individual Session");
@@ -44,16 +72,26 @@ export default function AddAppointmentModal({ onAdd }) {
   };
 
   return (
+    // Dialog (modal) wrapper
     <Dialog open={open} onOpenChange={setOpen}>
+      {/* Button that opens the modal */}
       <DialogTrigger asChild>
         <Button variant="default">Add Appointment</Button>
       </DialogTrigger>
+
+      {/* Modal content area */}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
-          <DialogDescription>Fill in the details for the new appointment.</DialogDescription>
+          <DialogDescription>
+            Fill in the details for the new appointment.
+          </DialogDescription>
         </DialogHeader>
+
+        {/* Appointment form */}
         <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
+          
+          {/* Client name input field */}
           <div className="grid gap-2">
             <Label htmlFor="client">Client Name</Label>
             <Input
@@ -65,6 +103,7 @@ export default function AddAppointmentModal({ onAdd }) {
             />
           </div>
 
+          {/* Time input field */}
           <div className="grid gap-2">
             <Label htmlFor="time">Time</Label>
             <Input
@@ -76,6 +115,7 @@ export default function AddAppointmentModal({ onAdd }) {
             />
           </div>
 
+          {/* Dropdown to select session type */}
           <div className="grid gap-2">
             <Label htmlFor="type">Session Type</Label>
             <Select value={type} onValueChange={(val) => setType(val)}>
@@ -90,6 +130,7 @@ export default function AddAppointmentModal({ onAdd }) {
             </Select>
           </div>
 
+          {/* Duration input field */}
           <div className="grid gap-2">
             <Label htmlFor="duration">Duration</Label>
             <Input
@@ -101,6 +142,7 @@ export default function AddAppointmentModal({ onAdd }) {
             />
           </div>
 
+          {/* Details input field */}
           <div className="grid gap-2">
             <Label htmlFor="details">Details</Label>
             <Input
@@ -112,10 +154,14 @@ export default function AddAppointmentModal({ onAdd }) {
             />
           </div>
 
+          {/* Form action buttons */}
           <div className="flex justify-end gap-2 mt-4">
+            {/* Cancel button that closes the dialog without submitting */}
             <DialogClose asChild>
               <Button type="button" variant="outline">Cancel</Button>
             </DialogClose>
+            
+            {/* Submit button that triggers handleSubmit */}
             <Button type="submit">Add</Button>
           </div>
         </form>

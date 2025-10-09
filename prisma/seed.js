@@ -60,35 +60,50 @@ async function main() {
   const adminRole = await prisma.role.findUnique({ where: { role_name: "admin" } });
   const teamLeaderRole = await prisma.role.findUnique({ where: { role_name: "team_leader" } });
   const supportRole = await prisma.role.findUnique({ where: { role_name: "support_worker" } });
+  const therapistRole = await prisma.role.findUnique({ where: { role_name: "therapist" } });
   const patientRole = await prisma.role.findUnique({ where: { role_name: "patient" } });
 
   await prisma.user.createMany({
     data: [
+      // Admin User
       {
         first_name: "admin",
         last_name: "safespace",
-        email: "admin@test.com",
+        email: "adminsafespace@gmail.com",
         role_id: adminRole.id,
-        clerk_user_id: "user_33QgZSox3HWVj7cOFzajyUeU7E1"
+        clerk_user_id: "user_2fPzL6R4wQ8vJ7cOFzajyUeU7E1"
       },
+      // Team Leader User
       {
         first_name: "Team",
         last_name: "Leader",
-        email: "leader@safespace.com",
+        email: "teamleader@gmail.com",
         role_id: teamLeaderRole.id,
-        clerk_user_id : "user_33PRgCqGjVTq2tqnT3B5sShV2FF"
+        clerk_user_id : "user_2fPRgCqGjVTq2tqnT3B5sShV2FF"
       },
+      // Support Worker User
       {
         first_name: "Support",
         last_name: "Worker",
-        email: "support@safespace.com",
+        email: "supportworker@gmail.com",
         role_id: supportRole.id,
+        clerk_user_id: "user_2fPSgCqGjVTq2tqnT3B5sShV2FF"
       },
+      // Therapist User
+      {
+        first_name: "Therapist",
+        last_name: "User",
+        email: "therapist@gmail.com",
+        role_id: therapistRole.id,
+        clerk_user_id: "user_2fPTgCqGjVTq2tqnT3B5sShV2FF"
+      },
+      // Patient User
       {
         first_name: "John",
         last_name: "Doe",
-        email: "patient@safespace.com",
+        email: "patient@gmail.com",
         role_id: patientRole.id,
+        clerk_user_id: "user_2fPUgCqGjVTq2tqnT3B5sShV2FF"
       },
     ],
     skipDuplicates: true,
