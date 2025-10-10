@@ -1,27 +1,28 @@
-// schema.prisma
+// tells prisma to generate the Prisma Client
 generator client {
   provider = "prisma-client-js"
 }
 
+// defines the database connection
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id            Int      @id @default(autoincrement())
-  clerk_user_id String?  @unique
-  first_name    String
-  last_name     String
-  email         String   @unique
-
-  // Proper relation with Role
-  role_id       Int
-  role          Role     @relation(fields: [role_id], references: [id])
-
-  last_login    DateTime?
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id                  Int        @id @default(autoincrement())
+  clerk_user_id       String?    @unique
+  first_name          String
+  last_name           String
+  email               String     @unique
+  last_login          DateTime?
+  created_at          DateTime   @default(now())
+  updated_at          DateTime   @updatedAt
+  role_id             Int
+  role                Role       @relation(fields: [role_id], references: [id])
+  clients             Client[]
+  notes               Note[]     @relation("AuthoredNotes")
+  processed_referrals Referral[] @relation("ProcessedByUser")
 
   @@map("users")
 }
@@ -30,8 +31,6 @@ model Role {
   id          Int     @id @default(autoincrement())
   role_name   String  @unique
   description String?
-
-  // Users belonging to this role
   users       User[]
 
   @@map("roles")
@@ -46,8 +45,8 @@ model PriorityLevel {
 }
 
 model ReferralStatus {
-  id          Int    @id @default(autoincrement())
-  status_name String @unique
+  id          Int     @id @default(autoincrement())
+  status_name String  @unique
   description String?
 
   @@map("referral_statuses")
@@ -61,9 +60,88 @@ model SessionType {
 }
 
 model RiskLevel {
-  id          Int    @id @default(autoincrement())
-  level_name  String @unique
+  id          Int     @id @default(autoincrement())
+  level_name  String  @unique
   description String?
 
   @@map("risk_levels")
+}
+
+model Client {
+  id                      Int        @id @default(autoincrement())
+  client_id               Int?       @unique
+  client_first_name       String
+  client_last_name        String
+  status                  String?
+  last_session_date       DateTime?
+  risk_level              String?
+  phone                   String?
+  email                   String?    @unique
+  address                 String?
+  emergency_contact_name  String?
+  emergency_contact_phone String?
+  created_at              DateTime   @default(now())
+  updated_at              DateTime   @updatedAt
+  user_id                 Int?
+  user                    User?      @relation(fields: [user_id], references: [id])
+  notes                   Note[]
+  referrals               Referral[] @relation("ClientReferrals")
+
+  @@map("clients")
+}
+
+model Referral {
+  id                   Int        @id @default(autoincrement())
+  client_id            Int?
+  client_first_name    String
+  client_last_name     String
+  age                  Int?
+  phone                String?
+  address              String?
+  email                String?
+  emergency_first_name String?
+  emergency_last_name  String?
+  emergency_phone      String?
+  referral_source      String
+  reason_for_referral  String
+  additional_notes     String?
+  submitted_date       DateTime?
+  status               String     @default("Pending")
+  processed_date       DateTime?
+  processed_by_user_id Int?
+  created_at           DateTime   @default(now())
+  updated_at           DateTime   @updatedAt
+  referral_timeline    Timeline[]
+  client               Client?    @relation("ClientReferrals", fields: [client_id], references: [id])
+  processed_by         User?      @relation("ProcessedByUser", fields: [processed_by_user_id], references: [id])
+
+  @@map("referrals")
+}
+
+model Timeline {
+  id         Int      @id @default(autoincrement())
+  referralId Int
+  message    String
+  createdAt  DateTime @default(now())
+  referrals  Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@map("referral_timeline")
+}
+
+model Note {
+  id               Int      @id @default(autoincrement())
+  client_id        Int
+  author_user_id   Int
+  note_date        DateTime @db.Date
+  session_type     String?
+  duration_minutes Int?
+  summary          String?
+  detailed_notes   String?
+  risk_assessment  String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  author           User     @relation("AuthoredNotes", fields: [author_user_id], references: [id])
+  client           Client   @relation(fields: [client_id], references: [id])
+
+  @@map("notes")
 }
