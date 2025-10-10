@@ -157,6 +157,7 @@ async function main() {
   // --- Create sample notes ---
   await prisma.note.createMany({
     data: [
+      // Admin User
       {
         client_id: client1.id,
         author_user_id: supportWorkerUser.id,
@@ -166,6 +167,7 @@ async function main() {
         detailed_notes: "Client reported feeling overwhelmed at work. We practiced mindfulness exercises.",
         risk_assessment: "Low",
       },
+      // Team Leader User
       {
         client_id: client2.id,
         author_user_id: teamLeaderUser.id,
@@ -175,6 +177,7 @@ async function main() {
         detailed_notes: "Client is seeking support for depression and relationship issues.",
         risk_assessment: "Medium",
       },
+      // Support Worker User
       {
         client_id: client1.id,
         author_user_id: supportWorkerUser.id,
@@ -202,6 +205,15 @@ async function main() {
         status: "Pending",
         submitted_date: new Date("2024-10-01"),
       },
+      // Therapist User
+      {
+        first_name: "Therapist",
+        last_name: "User",
+        email: "therapist@gmail.com",
+        role_id: therapistRole.id,
+        clerk_user_id: "user_2fPTgCqGjVTq2tqnT3B5sShV2FF"
+      },
+      // Patient User
       {
         client_id: client2.id,
         client_first_name: client2.client_first_name,
@@ -232,12 +244,12 @@ async function main() {
     skipDuplicates: true,
   });
 
-  console.log("✅ Database seeded successfully!");
+  console.log(" Database seeded successfully!");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Seed error:", e);
+    console.error(" Seed error:", e);
     process.exit(1);
   })
   .finally(async () => {

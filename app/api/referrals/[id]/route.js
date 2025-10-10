@@ -36,7 +36,7 @@ export async function GET(req, { params }) {
  * PATCH /api/referrals/[id]
  * =====================
  * Update a referral record by ID.
- * Only the admin and team leader is authorized to perform this action.
+ * Only the referral creator or an admin is authorized to perform this action.
  */
 export async function PATCH(req, { params }) {
   try {
@@ -57,7 +57,7 @@ export async function PATCH(req, { params }) {
     const isAdmin = role === "admin";             // True if user is an admin
     const isOwner = referral.createdByClerkUserId === user.id; // True if the referral was created by this user
     
-    // Only allow admin or teamleader to update
+    // Only allow admin or owner to update
     if (!isAdmin && !isOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

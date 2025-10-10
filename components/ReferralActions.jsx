@@ -109,7 +109,6 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     } finally {
       setIsProcessing(false);
     }
-  };
 
   // ---------------------------------------------------------------------------
   // handleNotesSubmit()
