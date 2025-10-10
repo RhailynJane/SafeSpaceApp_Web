@@ -1,10 +1,11 @@
 'use client';
 
 // REFERENCE:
-// This "Create Referral" page was documented with guidance from ChatGPT (OpenAI GPT-5)
-// Prompt -"add explanatory comments for each line of code."
-// Purpose: Provides an admin-facing form to collect client referral information,
-// upload documents, and submit data to the backend (/api/referrals).
+// GEMini Code Assist Agent / Gemini-Pro-2
+// Create the referral intake file upload, what event handlers are needed. how to make it upload an attach to the referral
+// Refactor code so Javascript is organized and above the div 
+// Fix syntax please
+
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
