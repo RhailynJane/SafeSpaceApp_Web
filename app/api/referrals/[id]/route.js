@@ -65,6 +65,11 @@ export async function PATCH(req, { params }) {
     // Parse the request body for updated data
     const body = await req.json();
 
+    // Ensure `processed_by_user_id` is an integer if it exists
+    if (body.processed_by_user_id) {
+      body.processed_by_user_id = parseInt(body.processed_by_user_id, 10);
+    }
+
     // Update the referral record in the database
     const updated = await prisma.referral.update({
       where: { id: parseInt(id) },

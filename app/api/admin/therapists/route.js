@@ -8,7 +8,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     // Query via Prisma - assumes 'users' table maps to a Prisma model (User)
-    const therapists = await prisma.$queryRaw`SELECT id, first_name, last_name FROM users WHERE role = 'therapist'`;
+    const therapists = await prisma.$queryRaw`SELECT id, first_name, last_name, email FROM users WHERE role IN ('therapist', 'team_leader', 'support_worker')`;
     return NextResponse.json(therapists);
   } catch (error) {
     // If there is an error during the database query, log the error to the console.

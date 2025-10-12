@@ -74,6 +74,7 @@ const SubmissionSuccessModal = ({ onClose }) => {
 export default function CreateReferralPage() {
   // State variables to store form data, uploaded file, and UI states
   const [formData, setFormData] = useState({
+    client_id: '',
     client_first_name: '',
     client_last_name: '',
     age: '',

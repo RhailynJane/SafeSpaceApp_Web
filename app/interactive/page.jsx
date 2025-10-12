@@ -3,7 +3,7 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -40,67 +40,24 @@ import jsPDF from "jspdf"
 
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
-  const [referrals, setReferrals] = useState([
-    {
-      id: "1",
-      clientName: "Sarah Johnson",
-      age: 28,
-      referralSource: "Community Health Center",
-      reason: "Anxiety and depression following job loss",
-      priority: "High",
-      submittedDate: "2024-01-15",
-      status: "pending",
-      contactInfo: {
-        phone: "(555) 123-4567",
-        email: "sarah.j@email.com",
-        address: "123 Main St, City, State 12345",
-        emergencyContact: "John Johnson (Brother) - (555) 987-6543",
-      },
-      additionalNotes: "Client has expressed suicidal ideation. Immediate assessment recommended.",
-      submittedBy: "Admin User",
-    },
-    {
-      id: "2",
-      clientName: "Michael Chen",
-      age: 35,
-      referralSource: "Primary Care Physician",
-      reason: "PTSD symptoms after car accident",
-      priority: "Medium",
-      submittedDate: "2024-01-14",
-      status: "accepted",
-      contactInfo: {
-        phone: "(555) 234-5678",
-        email: "m.chen@email.com",
-        address: "456 Oak Ave, City, State 12345",
-        emergencyContact: "Lisa Chen (Wife) - (555) 876-5432",
-      },
-      additionalNotes: "Client is motivated for treatment. Has good family support.",
-      submittedBy: "Admin User",
-      processedDate: "2024-01-14",
-      processedBy: "Team Leader",
-    },
+  const [referrals, setReferrals] = useState([]);
 
+  useEffect(() => {
+    const fetchReferrals = async () => {
+      try {
+        const response = await fetch('/api/referrals/mine');
+        if (!response.ok) {
+          throw new Error('Failed to fetch referrals');
+        }
+        const data = await response.json();
+        setReferrals(data.referrals);
+      } catch (error) {
+        console.error("Error fetching referrals:", error);
+      }
+    };
 
-    {
-      id: "3",
-      clientName: "Emma Davis",
-      age: 42,
-      referralSource: "Hospital Emergency Department",
-      reason: "Crisis intervention needed for severe depression",
-      priority: "Critical",
-      submittedDate: "2024-01-16",
-      status: "pending",
-      contactInfo: {
-        phone: "(555) 345-6789",
-        email: "emma.davis@email.com",
-        address: "789 Pine St, City, State 12345",
-        emergencyContact: "Robert Davis (Husband) - (555) 654-3210",
-      },
-      additionalNotes: "Patient was brought in after suicide attempt. Requires immediate attention.",
-      submittedBy: "ER Social Worker",
-    },
-
-  ])
+    fetchReferrals();
+  }, []);
 
   const [clients] = useState([
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
@@ -156,8 +113,8 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
   }
 
   const tabs = userRole === "team-leader"
-    ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
-    : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"]
+    ? ["Overview", "Referrals", "Clients", "Reports", "Schedule", "Notes", "Crisis", "Tracking"]
+    : ["Overview", "Referrals", "Clients", "Reports", "Schedule", "Notes", "Crisis"]
 
   // Modal state management
   const [modals, setModals] = useState({
@@ -259,7 +216,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
       <Tabs defaultValue="Overview" className="space-y-6">
 
-        <TabsList className={`grid w-full ${userRole === "team-leader" ? "grid-cols-4 lg:grid-cols-8" : "grid-cols-3 lg:grid-cols-6"}`}>
+        <TabsList className={`grid w-full ${userRole === "team-leader" ? "grid-cols-4 lg:grid-cols-8" : "grid-cols-3 lg:grid-cols-7"}`}>
           {tabs.map(tab => <TabsTrigger key={tab} value={tab} className="text-xs">{tab}</TabsTrigger>)}
         </TabsList>
 
@@ -274,8 +231,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
         </TabsContent>
 
-        {userRole === "team-leader" && (
-          <TabsContent value="Referrals" className="space-y-6">
+        <TabsContent value="Referrals" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Referral Management</h2>
               <Badge variant="outline">{referrals.filter((r) => r.status === "pending").length} Pending</Badge>
@@ -290,50 +246,22 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 <CardContent className="space-y-4">
                   {referrals
                     .filter((r) => r.status === "pending")
-                    .sort((a, b) => {
-                      // Sort by priority: Critical > High > Medium > Low
-                      const priorityOrder = { "Critical": 4, "High": 3, "Medium": 2, "Low": 1 };
-                      return priorityOrder[b.priority] - priorityOrder[a.priority];
-                    })
                     .map((referral) => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
                           <div className="space-y-2">
-                            <h3 className="font-semibold text-lg">{referral.clientName}</h3>
+                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                               <div>Age: {referral.age}</div>
-                              <div>
-                                Priority:{" "}
-                                <Badge
-                                  variant={
-                                    referral.priority === "Critical"
-                                      ? "destructive"
-                                      : referral.priority === "High"
-                                        ? "default"
-                                        : referral.priority === "Medium"
-                                          ? "secondary"
-                                          : "outline"
-                                  }
-                                  className={
-                                    referral.priority === "Critical"
-                                      ? "bg-red-600 text-white animate-pulse"
-                                      : referral.priority === "High"
-                                        ? "bg-orange-500 text-white"
-                                        : ""
-                                  }
-                                >
-                                  {referral.priority} Priority
-                                </Badge>
-                              </div>
-                              <div>Source: {referral.referralSource}</div>
-                              <div>Submitted: {referral.submittedDate}</div>
+                              <div>Source: {referral.referral_source}</div>
+                              <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
                             </div>
                           </div>
                         </div>
 
                         <div className="space-y-2">
                           <h4 className="font-medium">Reason for Referral:</h4>
-                          <p className="text-sm text-gray-700">{referral.reason}</p>
+                          <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
                         </div>
 
                         <div className="space-y-2">
@@ -341,27 +269,27 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                             <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4" />
-                              {referral.contactInfo.phone}
+                              {referral.phone}
                             </div>
                             <div className="flex items-center gap-2">
                               <Mail className="h-4 w-4" />
-                              {referral.contactInfo.email}
+                              {referral.email}
                             </div>
                             <div className="flex items-center gap-2">
                               <MapPin className="h-4 w-4" />
-                              {referral.contactInfo.address}
+                              {referral.address}
                             </div>
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4" />
-                              {referral.contactInfo.emergencyContact}
+                              {referral.emergency_first_name} {referral.emergency_last_name}
                             </div>
                           </div>
                         </div>
 
-                        {referral.additionalNotes && (
+                        {referral.additional_notes && (
                           <div className="space-y-2">
                             <h4 className="font-medium">Additional Notes:</h4>
-                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additionalNotes}</p>
+                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
                           </div>
                         )}
 
@@ -395,8 +323,8 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       .map((referral) => (
                         <div key={referral.id} className="flex items-center justify-between p-3 border rounded">
                           <div>
-                            <p className="font-medium">{referral.clientName}</p>
-                            <p className="text-sm text-gray-600">Processed on {referral.processedDate}</p>
+                            <p className="font-medium">{referral.client_first_name} {referral.client_last_name}</p>
+                            <p className="text-sm text-gray-600">{referral.processed_date ? `Processed on ${new Date(referral.processed_date).toLocaleDateString()}` : ''}</p>
                           </div>
                           <Badge
                             variant={
@@ -420,9 +348,6 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
               </Card>
             </div>
           </TabsContent>
-        )}
-
-
         <TabsContent value="Clients" className="space-y-6">
           <Card>
             <CardHeader>
