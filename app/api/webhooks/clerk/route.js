@@ -39,13 +39,14 @@ export async function POST(req) {
       const lastName = data.last_name || data.lastName || null;
 
       // Find the default role (e.g., 'support_worker')
-      const defaultRole = await prisma.role.findUnique({
-        where: { role_name: "support_worker" },
+      const roleName = data.public_metadata?.role || "support_worker";
+      const role = await prisma.role.findUnique({
+        where: { role_name: roleName },
       });
 
-      if (!defaultRole) {
-        console.error("Default role 'support_worker' not found.");
-        return NextResponse.json({ error: "Default role not configured" }, { status: 500 });
+      if (!role) {
+        console.error(`Role '${roleName}' not found.`);
+        return NextResponse.json({ error: `Role not configured` }, { status: 500 });
       }
 
       await prisma.user.upsert({
@@ -60,12 +61,12 @@ export async function POST(req) {
           email: email ?? "",
           first_name: firstName ?? "",
           last_name: lastName ?? "",
-          role_id: defaultRole.id,
+          role_id: role.id,
         },
       });
     } else if (eventType === "user.deleted") {
       const clerkId = data.id;
-      // You may prefer soft-delete; currently doing hard delete
+      // currently doing hard delete
       await prisma.user.deleteMany({ where: { clerk_user_id: clerkId } });
     } else {
       // ignore other events or implement handling if needed

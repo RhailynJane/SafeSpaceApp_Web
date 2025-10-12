@@ -12,7 +12,7 @@
  * to maintain data consistency between the two systems.
  */
 import { getAuth } from "@clerk/nextjs/server";
-import pool from "@/lib/db";
+import { prisma } from '@/lib/prisma';
 
 export async function POST(req) {
   console.log('Create-user endpoint called');
@@ -50,7 +50,7 @@ export async function POST(req) {
     console.error("Error verifying admin status:", error);
     return new Response(JSON.stringify({ error: "Internal server error during admin verification" }), { status: 500 });
   }
-  
+
   // Parse the request body to get the new user's details.
   const body = await req.json();
   const { firstName, lastName, email, role, password } = body;
@@ -80,7 +80,7 @@ export async function POST(req) {
       console.error('Clerk API error response:', JSON.stringify(errorBody, null, 2));
       return new Response(JSON.stringify({ error: "Clerk user creation failed", details: errorBody }), { status: 500 });
     }
-    
+
     createdClerkUser = await clerkResp.json();
     console.log('Successfully created user in Clerk:', JSON.stringify(createdClerkUser, null, 2));
 
@@ -100,12 +100,17 @@ export async function POST(req) {
   // 4) Insert the new user into the Postgres database
   try {
     // Now that the user is created in Clerk, create a corresponding record in the local database.
-    const insertRes = await pool.query(
-      `INSERT INTO users (first_name, last_name, email, role, clerk_user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [firstName, lastName, email, role, clerkUserId]
-    );
-    console.log('Successfully inserted user into database:', insertRes.rows[0]);
-    return new Response(JSON.stringify({ ok: true, user: insertRes.rows[0] }), { status: 200 });
+    const created = await prisma.user.create({
+      data: {
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        role: role,
+        clerk_user_id: clerkUserId,
+      },
+    });
+    console.log('Successfully inserted user into database:', created);
+    return new Response(JSON.stringify({ ok: true, user: created }), { status: 200 });
   } catch (e) {
     console.error('Database insertion failed after successful Clerk user creation. Rolling back...');
     console.error('Error details:', e);
@@ -113,13 +118,13 @@ export async function POST(req) {
     // CRITICAL: If the database insert fails, delete the orphaned user from Clerk to prevent data inconsistencies.
     // This is a rollback mechanism.
     await fetch(`https://api.clerk.com/v1/users/${clerkUserId}`, {
-        method: "DELETE",
-        headers: {
-            Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
-        },
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
+      },
     });
     console.log(`Orphaned user ${clerkUserId} successfully deleted from Clerk.`);
-    
+
     return new Response(JSON.stringify({ error: "Database insertion failed", details: e.message }), { status: 500 });
   }
 }
