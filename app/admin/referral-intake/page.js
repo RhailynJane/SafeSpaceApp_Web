@@ -146,7 +146,7 @@ export default function ReferralIntakePage() {
         const res = await fetch(`/api/referrals/${modal.data.id}`,{
         method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'Accepted', processed_by_user_id: therapistId, processed_date: new Date().toISOString() }),
+            body: JSON.stringify({ processed_by_user_id: therapistId }),
         });
         if (res.ok) {
             setReferrals(referrals.filter(r => r.id !== modal.data.id));

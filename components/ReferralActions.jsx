@@ -74,11 +74,16 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
   setIsProcessing(true);
   try {
     // --- API call to update referral status ---
-    const res = await fetch(`/api/referrals/${referral.id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: selectedAction, note: actionNotes }),
-    });
+      const body = { status: selectedAction, note: actionNotes };
+      if (selectedAction === "accepted") {
+        body.processed_date = new Date().toISOString();
+      }
+
+      const res = await fetch(`/api/referrals/${referral.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
     // --- Handle HTTP errors ---
     if (!res.ok) {

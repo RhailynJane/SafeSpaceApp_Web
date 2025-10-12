@@ -245,7 +245,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {referrals
-                    .filter((r) => r.status === "pending")
+                    .filter((r) => r.status.toLowerCase() === "pending")
                     .map((referral) => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
@@ -319,7 +319,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 <CardContent>
                   <div className="space-y-3">
                     {referrals
-                      .filter((r) => r.status !== "pending")
+                      .filter((r) => r.status.toLowerCase() !== "pending")
                       .map((referral) => (
                         <div key={referral.id} className="flex items-center justify-between p-3 border rounded">
                           <div>
