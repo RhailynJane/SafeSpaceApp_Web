@@ -38,7 +38,8 @@ export default function AuditCompliancePage() {
         const getAuditEvents = async () => {
             const res = await fetch('/api/admin/audit-logs');
             const data = await res.json();
-            setAuditEvents(data);
+            // The API returns the data in a property named after the variable in the route, in this case 'logs'.
+            setAuditEvents(data.logs || []);
         };
         getAuditEvents();
     }, []);

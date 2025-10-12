@@ -251,7 +251,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                         <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                           <div className="flex items-start justify-between">
                             <div className="space-y-2">
-                              <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                              <h3 className="font-semibold text-lg capitalize">{referral.client_first_name} {referral.client_last_name}</h3>
                               <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                                 <div>Age: {referral.age}</div>
                                 <div>Source: {referral.referral_source}</div>
@@ -323,7 +323,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                       .map((referral) => (
                         <div key={referral.id} className="flex items-center justify-between p-3 border rounded">
                           <div>
-                            <p className="font-medium">{referral.client_first_name} {referral.client_last_name}</p>
+                            <p className="font-medium capitalize">{referral.client_first_name} {referral.client_last_name}</p>
                             <p className="text-sm text-gray-600">{referral.processed_date ? `Processed on ${new Date(referral.processed_date).toLocaleDateString()}` : ''}</p>
                           </div>
                           <Badge
