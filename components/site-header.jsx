@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useClerk, useAuth, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -17,43 +16,13 @@ function getInitials(name) {
   return (first + last || first || "SS").toUpperCase();
 }
 
-export default function SiteHeader() {
-  const { isSignedIn } = useAuth();
-  const { user } = useUser();
-  const isAuthenticated = !!isSignedIn;
-  const userName = user?.fullName ?? null;
+export default function SiteHeader({
+  isAuthenticated = false,
+  userName = null,
+  onSignOut,
+}) {
   const [notificationModal, setNotificationModal] = useState(false);
   const router = useRouter();
-  const [signOutLoading, setSignOutLoading] = useState(false);
-  const clerk = useClerk();
-
-  const handleSignOutClick = async () => {
-    setSignOutLoading(true);
-    console.debug("Sign out clicked: attempting clerk.signOut");
-    try {
-      if (clerk && typeof clerk.signOut === "function") {
-        // try to sign out via Clerk client which will also handle redirect
-        await clerk.signOut({ redirectUrl: "/" });
-        console.debug("clerk.signOut completed");
-        return;
-      } else {
-        console.debug("clerk.signOut not available on clerk client", clerk);
-      }
-    } catch (err) {
-      console.error("clerk.signOut failed:", err);
-    }
-
-    // Fallback: navigate to login page
-    console.debug("Falling back to router.push('/') for sign-out");
-    try {
-      router.push("/");
-    } catch (err) {
-      console.error("router.push failed during sign-out fallback:", err);
-    } finally {
-      setSignOutLoading(false);
-    }
-  };
-  // clerk client usage removed; prefer SignOutButton for reliable sign-out
 
 
   // Sample notifications 
@@ -114,10 +83,10 @@ export default function SiteHeader() {
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        <div className="flex h-14 items-center justify-between px-2 sm:px-3 lg:px-5">
+        <div className="flex h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
-          <div className="flex items-center gap-2 ml-[-16px]">
-            <img src="/images/logo.png" alt="SafeSpace Logo" className="h-10 w-10 " />
+          <div className="flex items-center gap-2">
+            <img src="/images/logo.png" alt="SafeSpace Logo" className="h-10 w-10" />
             <span className="text-lg font-bold">
               <span className="text-teal-600">Safe</span>
               <span className="text-gray-900">Space</span>
@@ -169,14 +138,12 @@ export default function SiteHeader() {
 
                 <Button
                   variant="ghost"
+                  onClick={onSignOut}
                   className="gap-2"
                   aria-label="Sign out"
-                  onClick={handleSignOutClick}
                 >
                   <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {signOutLoading ? "Signing out..." : "Sign out"}
-                  </span>
+                  <span className="hidden sm:inline">Sign out</span>
                 </Button>
 
 

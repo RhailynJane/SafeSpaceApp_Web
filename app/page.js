@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, useSignIn, useUser } from "@clerk/nextjs";
+import { useAuth, useSignIn, useUser, useClerk } from "@clerk/nextjs";
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import SiteHeader from "@/components/site-header";
 
 export default function SafespacePlatform() {
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
@@ -22,7 +23,7 @@ export default function SafespacePlatform() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const { user } = useUser();
 
-  // Handle Login
+  // ✅ Handle Login
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!isLoaded) return;
@@ -47,41 +48,31 @@ export default function SafespacePlatform() {
     }
   };
 
-  // Redirect if already signed in
+  // ✅ Redirect if already signed in
   useEffect(() => {
     if (isSignedIn && user) {
-      // Normalize role strings from Clerk to handle variants like
-      // 'team_leader', 'team-leader', 'teamLeader', 'team leader', etc.
-      const rawRole = user.publicMetadata?.role;
-
-      // Code written with assistance of Chatgpt - to resove variant strings issue
-      const normalizeRole = (r) => {
-        if (!r) return null;
-        // convert camelCase to snake_case, replace spaces/hyphens with underscores
-        const splitCamel = r.replace(/([a-z])([A-Z])/g, "$1_$2");
-        return splitCamel.toLowerCase().replace(/[\s-]+/g, "_");
-      };
-
-      const role = normalizeRole(rawRole);
-      console.debug("Signed in user role (raw):", rawRole, "normalized:", role);
-
-      if (role === "admin") {
-        router.push("/admin/overview");
-      } else if (role === "team_leader" || role === "support_worker") {
-        // team leaders and support workers land on the interactive dashboard
-        router.push("/interactive");
-      } else {
-        console.log("Signed in but no recognized role assigned in Clerk metadata", rawRole);
+      const role = user.publicMetadata?.role;
+      switch (role) {
+        case "admin":
+          router.push("/admin/overview");
+          break;
+        case "team_leader":
+        case "support_worker":
+          router.push("/dashboard");
+          break;
+        default:
+          console.log("Signed in but no role assigned in Clerk metadata");
       }
     }
   }, [isSignedIn, user, router]);
 
-  //  Render
+  // ✅ Render
   return (
     <div className="min-h-screen bg-gray-50">
+      <SiteHeader isAuthenticated={isSignedIn} userName={user?.fullName ?? null} />
 
       {!isSignedIn && (
-  <section className="flex min-h-[calc(100vh-56px)] items-start justify-center pt-8 bg-gradient-to-br from-teal-50 to-green-100 p-4">
+        <section className="flex min-h-[calc(100vh-56px)] items-center justify-center bg-gradient-to-br from-teal-50 to-green-100 p-4">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-600">

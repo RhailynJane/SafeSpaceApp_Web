@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -6,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit,Plus } from "lucide-react"
-import { useUser } from "@clerk/nextjs";
 
 //main React functional component - receive userRole as prop
 export function DashboardOverview({ userRole }) {
@@ -223,20 +221,10 @@ export function DashboardOverview({ userRole }) {
               <span className="text-sm font-medium">Generate Reports</span>
             </Button>
           </div>
-        </CardContent>
+        </CardContent>d
       </Card>
     </div>
   )
-}
-
-
-// Default page export: wrap the dashboard overview and supply the user's role
-export default function DashboardPage() {
-  const { user } = useUser();
-  const rawRole = user?.publicMetadata?.role ?? null;
-  // Normalize roles from Clerk (accept underscores or hyphens)
-  const userRole = rawRole ? rawRole.replace(/_/g, "-") : null;
-  return <DashboardOverview userRole={userRole} />;
 }
 
 
@@ -296,5 +284,4 @@ const getStatusColor = (status) => {
       return "bg-gray-400 text-white"
   }
 }
-
 

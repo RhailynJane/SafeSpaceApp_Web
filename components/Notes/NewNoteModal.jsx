@@ -9,20 +9,34 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { FileText } from "lucide-react"
 
-export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) {
+export default function NewNoteModal({ isOpen, onClose, clients = [] }) {
   const [formData, setFormData] = useState({
-    client_id: '',
-    session_type: '',
-    note_date: new Date().toISOString().split('T')[0],
-    duration_minutes: '',
+    client: '',
+    sessionType: '',
+    date: new Date().toISOString().split('T')[0],
+    duration: '',
     summary: '',
-    detailed_notes: '',
-    risk_assessment: ''
-  });
+    detailedNotes: '',
+    nextSteps: '',
+    riskLevel: ''
+  })
 
   const handleSave = () => {
-    onSave(formData);
-  };
+    // Handle save logic here
+    console.log('Saving note:', formData)
+    onClose()
+    // Reset form
+    setFormData({
+      client: '',
+      sessionType: '',
+      date: new Date().toISOString().split('T')[0],
+      duration: '',
+      summary: '',
+      detailedNotes: '',
+      nextSteps: '',
+      riskLevel: ''
+    })
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -36,24 +50,25 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
             Document a new client session
           </DialogDescription>
         </DialogHeader>
+        {/* added scrollview - code assisted by ChatGPT*/}
         <div className="flex-1 overflow-y-auto pr-2 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Client</Label>
-              <Select value={formData.client_id} onValueChange={(value) => setFormData(prev => ({...prev, client_id: parseInt(value)}))}>
+              <Select value={formData.client} onValueChange={(value) => setFormData(prev => ({...prev, client: value}))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
                 <SelectContent>
                   {clients.map(client => (
-                    <SelectItem key={client.id} value={client.id.toString()}>{client.client_first_name} {client.client_last_name}</SelectItem>
+                    <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Session Type</Label>
-              <Select value={formData.session_type} onValueChange={(value) => setFormData(prev => ({...prev, session_type: value}))}>
+              <Select value={formData.sessionType} onValueChange={(value) => setFormData(prev => ({...prev, sessionType: value}))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
@@ -71,8 +86,8 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
               <Label>Date</Label>
               <Input 
                 type="date" 
-                value={formData.note_date}
-                onChange={(e) => setFormData(prev => ({...prev, note_date: e.target.value}))}
+                value={formData.date}
+                onChange={(e) => setFormData(prev => ({...prev, date: e.target.value}))}
               />
             </div>
             <div className="space-y-2">
@@ -80,8 +95,8 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
               <Input 
                 type="number" 
                 placeholder="50" 
-                value={formData.duration_minutes}
-                onChange={(e) => setFormData(prev => ({...prev, duration_minutes: parseInt(e.target.value)}))}
+                value={formData.duration}
+                onChange={(e) => setFormData(prev => ({...prev, duration: e.target.value}))}
               />
             </div>
           </div>
@@ -99,8 +114,8 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
             <Textarea 
               placeholder="Detailed session notes..." 
               className="min-h-20 resize-none"
-              value={formData.detailed_notes}
-              onChange={(e) => setFormData(prev => ({...prev, detailed_notes: e.target.value}))}
+              value={formData.detailedNotes}
+              onChange={(e) => setFormData(prev => ({...prev, detailedNotes: e.target.value}))}
             />
           </div>
           <div className="space-y-2">
@@ -108,13 +123,13 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
             <Textarea 
               placeholder="Follow-up actions, homework, next appointment..."
               className="min-h-16 resize-none"
-              value={formData.next_steps}
-              onChange={(e) => setFormData(prev => ({...prev, next_steps: e.target.value}))}
+              value={formData.nextSteps}
+              onChange={(e) => setFormData(prev => ({...prev, nextSteps: e.target.value}))}
             />
           </div>
           <div className="space-y-2">
             <Label>Risk Assessment</Label>
-            <Select value={formData.risk_assessment} onValueChange={(value) => setFormData(prev => ({...prev, risk_assessment: value}))}>
+            <Select value={formData.riskLevel} onValueChange={(value) => setFormData(prev => ({...prev, riskLevel: value}))}>
               <SelectTrigger>
                 <SelectValue placeholder="Current risk level" />
               </SelectTrigger>

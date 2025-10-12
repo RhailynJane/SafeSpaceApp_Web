@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed" : "node prisma/seed.js"
   },
   "dependencies": {
     "@clerk/backend": "^2.16.0",
