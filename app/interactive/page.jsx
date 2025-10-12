@@ -244,70 +244,70 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                   <CardDescription>Review and process new client referrals</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {referrals
-                    .filter((r) => r.status.toLowerCase() === "pending")
-                    .map((referral) => (
-                      <div key={referral.id} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex items-start justify-between">
+                  {referrals.filter((r) => r.status.toLowerCase() === "pending").length > 0 ? (
+                    referrals
+                      .filter((r) => r.status.toLowerCase() === "pending")
+                      .map((referral) => (
+                        <div key={referral.id} className="border rounded-lg p-4 space-y-4">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                <div>Age: {referral.age}</div>
+                                <div>Source: {referral.referral_source}</div>
+                                <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
+                              </div>
+                            </div>
+                          </div>
+
                           <div className="space-y-2">
-                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                              <div>Age: {referral.age}</div>
-                              <div>Source: {referral.referral_source}</div>
-                              <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
-                            </div>
+                            <h4 className="font-medium">Reason for Referral:</h4>
+                            <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
                           </div>
-                        </div>
 
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Reason for Referral:</h4>
-                          <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Contact Information:</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                            <div className="flex items-center gap-2">
-                              <Phone className="h-4 w-4" />
-                              {referral.phone}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Mail className="h-4 w-4" />
-                              {referral.email}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              {referral.address}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              {referral.emergency_first_name} {referral.emergency_last_name}
-                            </div>
-                          </div>
-                        </div>
-
-                        {referral.additional_notes && (
                           <div className="space-y-2">
-                            <h4 className="font-medium">Additional Notes:</h4>
-                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
+                            <h4 className="font-medium">Contact Information:</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4" />
+                                {referral.phone}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-4 w-4" />
+                                {referral.email}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4" />
+                                {referral.address}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4" />
+                                {referral.emergency_first_name} {referral.emergency_last_name}
+                              </div>
+                            </div>
                           </div>
-                        )}
 
-                        <ReferralActions
-                          referral={referral}
-                          onStatusUpdate={handleReferralStatusUpdate}
-                          userRole={userRole}
-                        />
-                      </div>
-                    ))}
-                  {referrals.filter((r) => r.status === "pending").length === 0 && (
+                          {referral.additional_notes && (
+                            <div className="space-y-2">
+                              <h4 className="font-medium">Additional Notes:</h4>
+                              <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
+                            </div>
+                          )}
+
+                          <ReferralActions
+                            referral={referral}
+                            onStatusUpdate={handleReferralStatusUpdate}
+                            userRole={userRole}
+                          />
+                        </div>
+                      ))
+                  ) : (
                     <div className="text-center py-8 text-gray-500">
                       <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
                       <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
                       <p className="text-sm">All referrals have been processed.</p>
                     </div>
                   )}
-
                 </CardContent>
               </Card>
 
