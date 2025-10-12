@@ -4,6 +4,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useUser } from "@clerk/nextjs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -39,7 +40,11 @@ import ViewReportModal from "@/components/reports/ViewReportModal"
 import jsPDF from "jspdf"
 
 
-export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
+export default function InteractiveDashboard() {
+  const { user } = useUser();
+  const userName = user?.firstName || "User";
+  const rawRole = user?.publicMetadata?.role;
+  const userRole = rawRole ? rawRole.replace(/_/g, "-") : "support-worker";
   const [referrals, setReferrals] = useState([]);
 
   useEffect(() => {
@@ -114,7 +119,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
   const tabs = userRole === "team-leader"
     ? ["Overview", "Referrals", "Clients", "Reports", "Schedule", "Notes", "Crisis", "Tracking"]
-    : ["Overview", "Referrals", "Clients", "Reports", "Schedule", "Notes", "Crisis"]
+    : ["Overview", "Clients", "Reports", "Schedule", "Notes", "Crisis"]
 
   // Modal state management
   const [modals, setModals] = useState({
@@ -231,7 +236,8 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
         </TabsContent>
 
-        <TabsContent value="Referrals" className="space-y-6">
+        {userRole === "team-leader" && (
+          <TabsContent value="Referrals" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Referral Management</h2>
               <Badge variant="outline">{referrals.filter((r) => r.status === "pending").length} Pending</Badge>
@@ -347,38 +353,29 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-        <TabsContent value="Clients" className="space-y-6">
+                    </TabsContent>
+                  )}
+          
+                  <TabsContent value="Clients" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Client Management</CardTitle>
-              <CardDescription>Manage your active clients and their information</CardDescription>
+              <CardTitle>My Assigned Clients</CardTitle>
+              <CardDescription>Clients assigned to you for intake and support</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {clients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg">
+                {referrals.map((referral) => (
+                  <div key={referral.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div>
-                      <h3 className="font-semibold">{client.name}</h3>
-                      <p className="text-sm text-gray-600">Last session: {client.lastSession}</p>
+                      <h3 className="font-semibold capitalize">{referral.client_first_name} {referral.client_last_name}</h3>
+                      <p className="text-sm text-gray-600">Referred on: {new Date(referral.submitted_date).toLocaleDateString()}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          client.riskLevel === "High"
-                            ? "destructive"
-                            : client.riskLevel === "Medium"
-                              ? "default"
-                              : "secondary"
-                        }
-                      >
-                        {client.riskLevel} Risk
-                      </Badge>
-                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
-                        {client.status}
+                      <Badge variant={referral.status === "Accepted" ? "default" : "secondary"}>
+                        {referral.status}
                       </Badge>
                     </div>
-                    <ClientActionButtons client={client} />
+                    <ClientActionButtons client={referral} />
                   </div>
                 ))}
               </div>
