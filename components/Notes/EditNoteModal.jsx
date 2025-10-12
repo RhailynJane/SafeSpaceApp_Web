@@ -9,42 +9,38 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import { Edit } from "lucide-react"
 
-export default function EditNoteModal({ isOpen, onClose, note }) {
+export default function EditNoteModal({ isOpen, onClose, note, onSave }) {
   const [formData, setFormData] = useState({
-    client: '',
-    sessionType: 'individual',
-    date: '',
-    duration: '50',
+    client_id: '',
+    session_type: '',
+    note_date: '',
+    duration_minutes: '',
     summary: '',
-    detailedNotes: '',
-    nextSteps: '',
-    riskLevel: 'low'
-  })
+    detailed_notes: '',
+    risk_assessment: ''
+  });
 
   // Update form data when note changes
   useEffect(() => {
     if (note) {
       setFormData({
-        client: note.client || '',
-        sessionType: note.type === 'Individual Session' ? 'individual' : 
-                    note.type === 'Group Therapy' ? 'group' : 'assessment',
-        date: note.date || '',
-        duration: '50',
+        id: note.id,
+        client_id: note.client_id,
+        session_type: note.session_type || '',
+        note_date: note.note_date ? new Date(note.note_date).toISOString().split('T')[0] : '',
+        duration_minutes: note.duration_minutes || '',
         summary: note.summary || '',
-        detailedNotes: note.detailedNotes || 'Client demonstrated better understanding of cognitive behavioral techniques discussed in previous sessions. Reported decreased frequency of panic attacks from daily to 2-3 times per week.',
-        nextSteps: note.nextSteps || 'Continue with weekly sessions. Assign anxiety management homework.',
-        riskLevel: 'low'
-      })
+        detailed_notes: note.detailed_notes || '',
+        risk_assessment: note.risk_assessment || ''
+      });
     }
-  }, [note])
+  }, [note]);
 
   const handleSave = () => {
-    // Handle save logic here
-    console.log('Saving edited note:', formData)
-    onClose()
-  }
+    onSave(formData);
+  };
 
-  if (!note) return null
+  if (!note) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -60,7 +56,7 @@ export default function EditNoteModal({ isOpen, onClose, note }) {
             <div className="space-y-2">
               <Label>Client</Label>
               <Input 
-                value={formData.client} 
+                value={note.client ? `${note.client.client_first_name} ${note.client.client_last_name}` : ''} 
                 disabled 
                 className="bg-gray-50"
               />
@@ -68,8 +64,8 @@ export default function EditNoteModal({ isOpen, onClose, note }) {
             <div className="space-y-2">
               <Label>Session Type</Label>
               <Select 
-                value={formData.sessionType} 
-                onValueChange={(value) => setFormData(prev => ({...prev, sessionType: value}))}
+                value={formData.session_type} 
+                onValueChange={(value) => setFormData(prev => ({...prev, session_type: value}))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -88,16 +84,16 @@ export default function EditNoteModal({ isOpen, onClose, note }) {
               <Label>Date</Label>
               <Input 
                 type="date" 
-                value={formData.date}
-                onChange={(e) => setFormData(prev => ({...prev, date: e.target.value}))}
+                value={formData.note_date}
+                onChange={(e) => setFormData(prev => ({...prev, note_date: e.target.value}))}
               />
             </div>
             <div className="space-y-2">
               <Label>Duration (minutes)</Label>
               <Input 
                 type="number" 
-                value={formData.duration}
-                onChange={(e) => setFormData(prev => ({...prev, duration: e.target.value}))}
+                value={formData.duration_minutes}
+                onChange={(e) => setFormData(prev => ({...prev, duration_minutes: parseInt(e.target.value)}))}
               />
             </div>
           </div>
@@ -113,23 +109,23 @@ export default function EditNoteModal({ isOpen, onClose, note }) {
             <Label>Detailed Notes</Label>
             <Textarea 
               className="min-h-20 resize-none"
-              value={formData.detailedNotes}
-              onChange={(e) => setFormData(prev => ({...prev, detailedNotes: e.target.value}))}
+              value={formData.detailed_notes}
+              onChange={(e) => setFormData(prev => ({...prev, detailed_notes: e.target.value}))}
             />
           </div>
           <div className="space-y-2">
             <Label>Next Steps / Action Items</Label>
             <Textarea 
               className="min-h-16 resize-none"
-              value={formData.nextSteps}
-              onChange={(e) => setFormData(prev => ({...prev, nextSteps: e.target.value}))}
+              value={formData.next_steps}
+              onChange={(e) => setFormData(prev => ({...prev, next_steps: e.target.value}))}
             />
           </div>
           <div className="space-y-2">
             <Label>Risk Assessment</Label>
             <Select 
-              value={formData.riskLevel} 
-              onValueChange={(value) => setFormData(prev => ({...prev, riskLevel: value}))}
+              value={formData.risk_assessment} 
+              onValueChange={(value) => setFormData(prev => ({...prev, risk_assessment: value}))}
             >
               <SelectTrigger>
                 <SelectValue />
