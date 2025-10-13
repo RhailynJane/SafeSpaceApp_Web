@@ -3,7 +3,7 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -40,6 +40,11 @@ import jsPDF from "jspdf"
 
 
 export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
+  // State for controlling schedule modals
+  const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [isCalendarModalOpen, setCalendarModalOpen] = useState(false);
+  const [selectedAvailability, setSelectedAvailability] = useState(null);
+
   const [referrals, setReferrals] = useState([
     {
       id: "1",
@@ -125,6 +130,14 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
   const handleAddAppointment = (newAppointment) => {
     setSchedule(prevSchedule => [...prevSchedule, newAppointment])
   }
+
+  // When an availability slot is selected, open the AddAppointmentModal with pre-filled data
+  useEffect(() => {
+    if (selectedAvailability) {
+      // This will trigger the AddAppointmentModal to open with the selected slot's data
+      // The modal's internal logic will need to handle this.
+    }
+  }, [selectedAvailability]);
 
   // Generate reports
   const generateReport = () => {
@@ -473,19 +486,30 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             </CardHeader>
             <CardContent>
               {/* Action Buttons */}
-              <div className="flex gap-2 mb-4">
-                <AddAppointmentModal onAdd={handleAddAppointment} />
+              <div className="flex flex-wrap gap-2 mb-4">
+                <AddAppointmentModal
+                  onAdd={handleAddAppointment}
+                  prefilledSlot={selectedAvailability}
+                  onClose={() => setSelectedAvailability(null)}
+                />
                 <ViewAvailabilityModal
+                  isOpen={isAvailabilityModalOpen}
+                  onOpenChange={setAvailabilityModalOpen}
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
                     { day: "Friday", time: "9:00 AM - 11:00 AM" },
                   ]}
+                  onSelect={setSelectedAvailability}
                 />
-                <ViewCalendarModal schedule={schedule} />
+                <ViewCalendarModal 
+                  isOpen={isCalendarModalOpen}
+                  onOpenChange={setCalendarModalOpen}
+                />
               </div>
 
               {/* Schedule List */}
+
               <div className="space-y-4">
                 {schedule.length > 0 ? (
                   schedule.map((appt) => (

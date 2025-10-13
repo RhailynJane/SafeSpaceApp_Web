@@ -16,9 +16,12 @@ model User {
   last_login          DateTime?
   created_at          DateTime   @default(now())
   updated_at          DateTime   @updatedAt
-  role                String
+  role_id             Int?
+  role                Role?      @relation(fields: [role_id], references: [id])
   clients             Client[]
   notes               Note[]     @relation("AuthoredNotes")
+  therapistSessions   Session[]  @relation("TherapistSessions")
+  patientSessions     Session[]  @relation("PatientSessions")
   processed_referrals Referral[] @relation("ProcessedByUser")
 
   @@map("users")
@@ -28,6 +31,7 @@ model Role {
   id          Int     @id @default(autoincrement())
   role_name   String  @unique
   description String?
+  users       User[]
 
   @@map("roles")
 }
@@ -51,6 +55,7 @@ model ReferralStatus {
 model SessionType {
   id        Int    @id @default(autoincrement())
   type_name String @unique
+  sessions  Session[]
 
   @@map("session_types")
 }
@@ -140,4 +145,22 @@ model Note {
   client           Client   @relation(fields: [client_id], references: [id])
 
   @@map("notes")
+}
+
+model Session {
+  id              Int         @id @default(autoincrement())
+  title           String
+  start_time      DateTime
+  end_time        DateTime
+  therapist_id    Int
+  therapist       User        @relation("TherapistSessions", fields: [therapist_id], references: [id])
+  patient_id      Int
+  patient         User        @relation("PatientSessions", fields: [patient_id], references: [id])
+  session_type_id Int
+  sessionType     SessionType @relation(fields: [session_type_id], references: [id])
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("sessions")
 }
