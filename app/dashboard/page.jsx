@@ -88,142 +88,146 @@ export function DashboardOverview({ userRole }) {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Notifications */}
-        <Card className="bg-teal-50 border-teal-200">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Recent Notifications</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-3 rounded-lg border ${
-                  notification.priority === "high"
-                    ? "bg-red-50 border-red-200"
-                    : "bg-white border-gray-200"
-                }`}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column */}
+        <div className="lg:col-span-2">
+          <Card className="bg-teal-50 border-teal-200 h-full">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-semibold">Recent Notifications</CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
               >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`p-1 rounded ${
-                      notification.priority === "high"
-                        ? "bg-red-100 text-red-600"
-                        : "bg-teal-100 text-teal-600"
-                    }`}
-                  >
-                    {getNotificationIcon(notification.type)}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                <Eye className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded-lg border ${
+                    notification.priority === "high"
+                      ? "bg-red-50 border-red-200"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`p-1 rounded ${
+                        notification.priority === "high"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-teal-100 text-teal-600"
+                      }`}
+                    >
+                      {getNotificationIcon(notification.type)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Today's Schedule */}
-        <Card className="bg-teal-50 border-teal-200">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {todaySchedule.map((appointment) => (
-              <div
-                key={appointment.id}
-                className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
+        {/* Right Column */}
+        <div className="space-y-6">
+          <Card className="bg-teal-50 border-teal-200">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-teal-700">
-                      {appointment.clientName
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </span>
+                <Plus className="h-4 w-4 mr-1" />
+                Add
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {todaySchedule.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-teal-700">
+                        {appointment.clientName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{appointment.clientName}</p>
+                      <p className="text-sm text-gray-600">{appointment.type}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{appointment.clientName}</p>
-                    <p className="text-sm text-gray-600">{appointment.type}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900">{appointment.time}</span>
+                    <Badge className={getStatusColor(appointment.status)}>
+                      {appointment.status}
+                    </Badge>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">{appointment.time}</span>
-                  <Badge className={getStatusColor(appointment.status)}>
-                    {appointment.status}
-                  </Badge>
-                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Button
+                  variant="outline"
+                  className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+                >
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <Edit className="h-6 w-6 text-orange-600" />
+                  </div>
+                  <span className="text-sm font-medium">Case Notes</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+                >
+                  <div className="p-2 bg-teal-100 rounded-lg">
+                    <Users className="h-6 w-6 text-teal-600" />
+                  </div>
+                  <span className="text-sm font-medium">View Clients</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+                >
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Calendar className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <span className="text-sm font-medium">Manage Schedule</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+                >
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <BarChart3 className="h-6 w-6 text-green-600" />
+                  </div>
+                  <span className="text-sm font-medium">Generate Reports</span>
+                </Button>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-      {/* Quick Actions - interactive takes to another pages*/}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Edit className="h-6 w-6 text-orange-600" />
-              </div>
-              <span className="text-sm font-medium">Case Notes</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-teal-100 rounded-lg">
-                <Users className="h-6 w-6 text-teal-600" />
-              </div>
-              <span className="text-sm font-medium">View Clients</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium">Manage Schedule</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BarChart3 className="h-6 w-6 text-green-600" />
-              </div>
-              <span className="text-sm font-medium">Generate Reports</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

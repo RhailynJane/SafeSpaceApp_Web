@@ -74,11 +74,18 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
   setIsProcessing(true);
   try {
     // --- API call to update referral status ---
-    const res = await fetch(`/api/referrals/${referral.id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: selectedAction, note: actionNotes }),
-    });
+      let body = { status: selectedAction };
+      if (selectedAction === "accepted") {
+        body.processed_date = new Date().toISOString();
+      } else if (selectedAction === "more-info-requested") {
+        body.additional_notes = actionNotes;
+      }
+
+      const res = await fetch(`/api/referrals/${referral.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
     // --- Handle HTTP errors ---
     if (!res.ok) {
@@ -93,7 +100,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     }
 
     // --- Parse updated referral from API response ---
-    const updatedReferral = await res.json();
+    const { referral: updatedReferral } = await res.json();
 
     // --- Notify parent component of status update ---
     onStatusUpdate?.(referral.id, updatedReferral);

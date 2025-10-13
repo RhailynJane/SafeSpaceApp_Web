@@ -57,12 +57,6 @@ async function main() {
   });
 
   // --- Create sample users (linked to roles) ---
-  const adminRole = await prisma.role.findUnique({ where: { role_name: "admin" } });
-  const teamLeaderRole = await prisma.role.findUnique({ where: { role_name: "team_leader" } });
-  const supportRole = await prisma.role.findUnique({ where: { role_name: "support_worker" } });
-  const therapistRole = await prisma.role.findUnique({ where: { role_name: "therapist" } });
-  const patientRole = await prisma.role.findUnique({ where: { role_name: "patient" } });
-
   await prisma.user.createMany({
     data: [
       // Admin User
@@ -70,7 +64,7 @@ async function main() {
         first_name: "admin",
         last_name: "safespace",
         email: "adminsafespace@gmail.com",
-        role_id: adminRole.id,
+        role: "admin",
         clerk_user_id: "user_2fPzL6R4wQ8vJ7cOFzajyUeU7E1"
       },
       // Team Leader User
@@ -78,7 +72,7 @@ async function main() {
         first_name: "Team",
         last_name: "Leader",
         email: "teamleader@gmail.com",
-        role_id: teamLeaderRole.id,
+        role: "team_leader",
         clerk_user_id : "user_2fPRgCqGjVTq2tqnT3B5sShV2FF"
       },
       // Support Worker User
@@ -86,7 +80,7 @@ async function main() {
         first_name: "Support",
         last_name: "Worker",
         email: "supportworker@gmail.com",
-        role_id: supportRole.id,
+        role: "support_worker",
         clerk_user_id: "user_2fPSgCqGjVTq2tqnT3B5sShV2FF"
       },
       // Therapist User
@@ -94,7 +88,7 @@ async function main() {
         first_name: "Therapist",
         last_name: "User",
         email: "therapist@gmail.com",
-        role_id: therapistRole.id,
+        role: "therapist",
         clerk_user_id: "user_2fPTgCqGjVTq2tqnT3B5sShV2FF"
       },
       // Patient User
@@ -102,7 +96,7 @@ async function main() {
         first_name: "John",
         last_name: "Doe",
         email: "patient@gmail.com",
-        role_id: patientRole.id,
+        role: "patient",
         clerk_user_id: "user_2fPUgCqGjVTq2tqnT3B5sShV2FF"
       },
     ],
