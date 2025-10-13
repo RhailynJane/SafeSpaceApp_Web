@@ -27,21 +27,21 @@ export default function ViewNoteModal({ isOpen, onClose, onEdit, note }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Client</Label>
-              <p className="text-sm font-medium">{note.client}</p>
+              <p className="text-sm font-medium">{note.client.client_first_name} {note.client.client_last_name}</p>
             </div>
             <div>
               <Label>Session Type</Label>
-              <p className="text-sm font-medium">{note.type}</p>
+              <p className="text-sm font-medium">{note.session_type}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label>Date</Label>
-              <p className="text-sm font-medium">{note.date}</p>
+              <p className="text-sm font-medium">{new Date(note.note_date).toLocaleDateString()}</p>
             </div>
             <div>
               <Label>Duration</Label>
-              <p className="text-sm font-medium">50 minutes</p>
+              <p className="text-sm font-medium">{note.duration_minutes ? `${note.duration_minutes} minutes` : 'N/A'}</p>
             </div>
           </div>
           <div>
@@ -53,20 +53,18 @@ export default function ViewNoteModal({ isOpen, onClose, onEdit, note }) {
           <div>
             <Label>Detailed Notes</Label>
             <p className="text-sm bg-gray-50 p-3 rounded min-h-24">
-              {note.detailedNotes || `Client demonstrated better understanding of cognitive behavioral techniques discussed in previous sessions. 
-              Reported decreased frequency of panic attacks from daily to 2-3 times per week. Homework completion was good.
-              Client expressed feeling more hopeful about recovery process.`}
+              {note.detailed_notes || 'No detailed notes provided.'}
             </p>
           </div>
           <div>
             <Label>Next Steps</Label>
             <p className="text-sm bg-gray-50 p-3 rounded">
-              {note.nextSteps || "Continue with weekly sessions. Assign anxiety management homework. Schedule follow-up in 1 week."}
+              {note.next_steps || 'No next steps provided.'}
             </p>
           </div>
           <div>
             <Label>Risk Assessment</Label>
-            <Badge variant="secondary">Low Risk</Badge>
+            <Badge variant="secondary">{note.risk_assessment || 'N/A'}</Badge>
           </div>
         </div>
         <DialogFooter>
