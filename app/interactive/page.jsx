@@ -42,13 +42,14 @@ import jsPDF from "jspdf"
 
 export default function InteractiveDashboard() {
   const { user } = useUser();
-  const userName = user?.firstName || "User";
+  const userName = user?.firstName ? user.firstName.charAt(0).toUpperCase() + user.firstName.slice(1) : "User";
   const rawRole = user?.publicMetadata?.role;
   const userRole = rawRole ? rawRole.replace(/_/g, "-") : "support-worker";
   const [referrals, setReferrals] = useState([]);
 
   useEffect(() => {
     const fetchReferrals = async () => {
+      if (!user) return; // Don't fetch until user is loaded
       try {
         const response = await fetch('/api/referrals/mine');
         if (!response.ok) {
@@ -62,7 +63,7 @@ export default function InteractiveDashboard() {
     };
 
     fetchReferrals();
-  }, []);
+  }, [user]);
 
   const [clients] = useState([
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
