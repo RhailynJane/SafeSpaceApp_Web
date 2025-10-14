@@ -53,9 +53,23 @@ export async function PATCH(req, { params }) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     // Find the local user record to get their integer ID
-    const localUser = await prisma.user.findUnique({ where: { clerk_user_id: user.id } });
+    let localUser = await prisma.user.findUnique({ where: { clerk_user_id: user.id } });
     if (!localUser) {
-      return NextResponse.json({ error: "User not found in local database" }, { status: 404 });
+      // User not found, let's try to create them
+      try {
+        localUser = await prisma.user.create({
+          data: {
+            clerk_user_id: user.id,
+            email: user.emailAddresses[0].emailAddress,
+            first_name: user.firstName,
+            last_name: user.lastName,
+            role: user.publicMetadata.role,
+          },
+        });
+      } catch (e) {
+        console.error("Failed to create user in local database during referral update:", e);
+        return NextResponse.json({ error: "User not found in local database and could not be created." }, { status: 500 });
+      }
     }
 
     // Check the role of the logged-in user
@@ -73,7 +87,11 @@ export async function PATCH(req, { params }) {
 
     // Ensure `processed_by_user_id` is an integer if it exists
     if (body.processed_by_user_id) {
-      body.processed_by_user_id = parseInt(body.processed_by_user_id, 10);
+      const parsedId = parseInt(body.processed_by_user_id, 10);
+      if (isNaN(parsedId)) {
+        return NextResponse.json({ error: "Invalid processed_by_user_id" }, { status: 400 });
+      }
+      body.processed_by_user_id = parsedId;
     }
 
     // Update the referral record in the database

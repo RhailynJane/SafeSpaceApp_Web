@@ -143,14 +143,26 @@ export default function ReferralIntakePage() {
     const closeModal = () => setModal({ type: null, data: null });
 
     const handleAcceptReferral = async (therapistId) => {
-        const res = await fetch(`/api/referrals/${modal.data.id}`,{
-        method: 'PATCH',
+        if (!therapistId) {
+            alert("Please select a Team Leader.");
+            return;
+        }
+        const res = await fetch(`/api/referrals/${modal.data.id}`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ processed_by_user_id: therapistId }),
+            body: JSON.stringify({
+                processed_by_user_id: therapistId,
+                status: 'in-review'
+            }),
         });
         if (res.ok) {
-            setReferrals(referrals.filter(r => r.id !== modal.data.id));
+            setReferrals(referrals.map(r =>
+                r.id === modal.data.id ? { ...r, status: 'in-review' } : r
+            ));
             closeModal();
+        } else {
+            const errorData = await res.json();
+            alert(`Failed to assign referral: ${errorData.error || 'Unknown error'}`);
         }
     };
 

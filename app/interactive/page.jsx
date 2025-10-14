@@ -23,7 +23,7 @@ import {
 import { ReferralStatusTracker } from "../referrals/page.jsx"
 import { DashboardOverview } from "../dashboard/page.jsx"
 import ClientActionButtons from "@/components/ClientActionButtons.jsx"
-import ReferralActions from "@/components/ReferralActions.jsx"
+import TeamLeaderReferralActions from "@/components/TeamLeaderReferralActions.jsx";
 import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
 import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
 import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
@@ -46,24 +46,37 @@ export default function InteractiveDashboard() {
   const rawRole = user?.publicMetadata?.role;
   const userRole = rawRole ? rawRole.replace(/_/g, "-") : "support-worker";
   const [referrals, setReferrals] = useState([]);
+  const [supportWorkers, setSupportWorkers] = useState([]);
+
+  const toTitleCase = (str) => {
+    return str.replace(/-/g, ' ').replace(
+      /\w\S*/g,
+      (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    );
+  };
 
   useEffect(() => {
-    const fetchReferrals = async () => {
-      if (!user) return; // Don't fetch until user is loaded
+    const fetchData = async () => {
+      if (!user) return;
       try {
-        const response = await fetch('/api/referrals/mine');
-        if (!response.ok) {
-          throw new Error('Failed to fetch referrals');
+        const referralsResponse = await fetch('/api/referrals/mine');
+        if (!referralsResponse.ok) throw new Error('Failed to fetch referrals');
+        const referralsData = await referralsResponse.json();
+        setReferrals(referralsData.referrals);
+
+        if (userRole === 'team-leader') {
+          const supportWorkersResponse = await fetch('/api/support-workers');
+          if (!supportWorkersResponse.ok) throw new Error('Failed to fetch support workers');
+          const supportWorkersData = await supportWorkersResponse.json();
+          setSupportWorkers(supportWorkersData);
         }
-        const data = await response.json();
-        setReferrals(data.referrals);
       } catch (error) {
-        console.error("Error fetching referrals:", error);
+        console.error("Error fetching data:", error);
       }
     };
 
-    fetchReferrals();
-  }, [user]);
+    fetchData();
+  }, [user, userRole]);
 
   const [clients] = useState([
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
@@ -203,6 +216,50 @@ export default function InteractiveDashboard() {
     setSelectedNote(null)
   }
 
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case "submitted":
+      case "pending":
+        return <Clock className="h-4 w-4 text-yellow-600" />
+      case "in-review":
+        return <Eye className="h-4 w-4 text-blue-600" />
+      case "accepted":
+      case "assigned":
+      case "in-progress":
+        return <CheckCircle className="h-4 w-4 text-green-600" />
+      case "declined":
+        return <XCircle className="h-4 w-4 text-red-600" />
+      case "info-requested":
+        return <AlertCircle className="h-4 w-4 text-orange-600" />
+      case "completed":
+        return <CheckCircle className="h-4 w-4 text-teal-600" />
+      default:
+        return <Clock className="h-4 w-4 text-gray-600" />
+    }
+  }
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "submitted":
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
+      case "in-review":
+        return "bg-blue-100 text-blue-800"
+      case "accepted":
+      case "assigned":
+      case "in-progress":
+        return "bg-green-100 text-green-800"
+      case "declined":
+        return "bg-red-100 text-red-800"
+      case "info-requested":
+        return "bg-orange-100 text-orange-800"
+      case "completed":
+        return "bg-teal-100 text-teal-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
   if (userRole === "admin") {
     return <AdminDashboard />
   }
@@ -251,14 +308,15 @@ export default function InteractiveDashboard() {
                   <CardDescription>Review and process new client referrals</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {referrals.filter((r) => r.status.toLowerCase() === "pending").length > 0 ? (
+                  {referrals.filter((r) => r.status.toLowerCase() === "pending" || r.status.toLowerCase() === "in-review").length > 0 ? (
                     referrals
-                      .filter((r) => r.status.toLowerCase() === "pending")
+                      .filter((r) => r.status.toLowerCase() === "pending" || r.status.toLowerCase() === "in-review")
                       .map((referral) => (
                         <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                           <div className="flex items-start justify-between">
                             <div className="space-y-2">
                               <h3 className="font-semibold text-lg capitalize">{referral.client_first_name} {referral.client_last_name}</h3>
+                              <Badge className={getStatusColor(referral.status)}><div className="flex items-center gap-1">{getStatusIcon(referral.status)}{toTitleCase(referral.status)}</div></Badge>
                               <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                                 <div>Age: {referral.age}</div>
                                 <div>Source: {referral.referral_source}</div>
@@ -301,10 +359,10 @@ export default function InteractiveDashboard() {
                             </div>
                           )}
 
-                          <ReferralActions
+                          <TeamLeaderReferralActions
                             referral={referral}
                             onStatusUpdate={handleReferralStatusUpdate}
-                            userRole={userRole}
+                            supportWorkers={supportWorkers}
                           />
                         </div>
                       ))
@@ -333,20 +391,8 @@ export default function InteractiveDashboard() {
                             <p className="font-medium capitalize">{referral.client_first_name} {referral.client_last_name}</p>
                             <p className="text-sm text-gray-600">{referral.processed_date ? `Processed on ${new Date(referral.processed_date).toLocaleDateString()}` : ''}</p>
                           </div>
-                          <Badge
-                            variant={
-                              referral.status === "accepted"
-                                ? "default"
-                                : referral.status === "declined"
-                                  ? "destructive"
-                                  : "secondary"
-                            }
-                            className={
-                              referral.status === "accepted" ? "bg-green-600" :
-                                referral.status === "more-info-requested" ? "bg-orange-100 text-orange-800" : ""
-                            }
-                          >
-                            {referral.status.replace("-", " ")}
+                                                    <Badge className={getStatusColor(referral.status)}>
+                            {toTitleCase(referral.status)}
                           </Badge>
                         </div>
                       ))}
@@ -372,8 +418,8 @@ export default function InteractiveDashboard() {
                       <p className="text-sm text-gray-600">Referred on: {new Date(referral.submitted_date).toLocaleDateString()}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant={referral.status === "Accepted" ? "default" : "secondary"}>
-                        {referral.status}
+                                            <Badge className={getStatusColor(referral.status)}>
+                        {toTitleCase(referral.status)}
                       </Badge>
                     </div>
                     <ClientActionButtons client={referral} />
