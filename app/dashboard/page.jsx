@@ -8,34 +8,10 @@ import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarCha
 import { useUser } from "@clerk/nextjs";
 
 //main React functional component - receive userRole as prop
-export function DashboardOverview({ userRole }) {
+export function DashboardOverview({ userRole, notifications = [] }) {
 
   //Calls a helper function that returns an array of dashboard metric objects based on the userRole.
   const metrics = getMetricsForRole(userRole)
-
-  const [notifications] = useState([
-    {
-      id: "1",
-      type: "referral",
-      title: "New client referral available",
-      time: "2 hours ago",
-      priority: "normal",
-    },
-    {
-      id: "2",
-      type: "appointment",
-      title: "Appointment reminder: John Doe at 10:30 AM",
-      time: "30 minutes ago",
-      priority: "normal",
-    },
-    {
-      id: "3",
-      type: "crisis",
-      title: "High-risk client flagged: Sarah Johnson",
-      time: "1 hour ago",
-      priority: "high",
-    },
-  ])
 
   const [todaySchedule] = useState([
     {
@@ -106,25 +82,17 @@ export function DashboardOverview({ userRole }) {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-3 rounded-lg border ${
-                    notification.priority === "high"
-                      ? "bg-red-50 border-red-200"
-                      : "bg-white border-gray-200"
-                  }`}
+                  className="p-3 rounded-lg border bg-white border-gray-200"
                 >
                   <div className="flex items-start gap-3">
                     <div
-                      className={`p-1 rounded ${
-                        notification.priority === "high"
-                          ? "bg-red-100 text-red-600"
-                          : "bg-teal-100 text-teal-600"
-                      }`}
+                      className="p-1 rounded bg-teal-100 text-teal-600"
                     >
-                      {getNotificationIcon(notification.type)}
+                      <FileText className="h-4 w-4" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                      <p className="text-sm font-medium text-gray-900">{notification.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">{new Date(notification.created_at).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>

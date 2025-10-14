@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useClerk, useAuth, useUser } from "@clerk/nextjs";
@@ -26,6 +26,25 @@ export default function SiteHeader() {
   const router = useRouter();
   const [signOutLoading, setSignOutLoading] = useState(false);
   const clerk = useClerk();
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await fetch('/api/notifications/mine');
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications(data.notifications);
+        }
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isAuthenticated]);
 
   const handleSignOutClick = async () => {
     setSignOutLoading(true);
@@ -53,46 +72,8 @@ export default function SiteHeader() {
       setSignOutLoading(false);
     }
   };
-  // clerk client usage removed; prefer SignOutButton for reliable sign-out
 
-
-  // Sample notifications 
-  const notifications = [
-    {
-      id: 1,
-      type: "urgent",
-      title: "High-Risk Client Alert",
-      message: "Carol Davis requires immediate attention - expressed suicidal ideation",
-      time: "5 minutes ago",
-      unread: true,
-    },
-    {
-      id: 2,
-      type: "referral",
-      title: "New Referral",
-      message: "Critical priority referral from Hospital Emergency Department",
-      time: "1 hour ago",
-      unread: true,
-    },
-    {
-      id: 3,
-      type: "appointment",
-      title: "Upcoming Appointment",
-      message: "Session with Alice Smith in 30 minutes",
-      time: "2 hours ago",
-      unread: false,
-    },
-    {
-      id: 4,
-      type: "system",
-      title: "Monthly Report Ready",
-      message: "Your monthly caseload summary has been generated",
-      time: "1 day ago",
-      unread: false,
-    },
-  ];
-
-  const unreadCount = notifications.filter(n => n.unread).length;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -110,6 +91,41 @@ export default function SiteHeader() {
   const handleProfileClick = () => {
     router.push('/profile');
   };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await fetch('/api/notifications/mark-as-read', { method: 'PATCH' });
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setNotificationModal(false);
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+    }
+  };
+
+  const timeAgo = (date) => {
+    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+    let interval = seconds / 31536000;
+    if (interval > 1) {
+      return Math.floor(interval) + " years ago";
+    }
+    interval = seconds / 2592000;
+    if (interval > 1) {
+      return Math.floor(interval) + " months ago";
+    }
+    interval = seconds / 86400;
+    if (interval > 1) {
+      return Math.floor(interval) + " days ago";
+    }
+    interval = seconds / 3600;
+    if (interval > 1) {
+      return Math.floor(interval) + " hours ago";
+    }
+    interval = seconds / 60;
+    if (interval > 1) {
+      return Math.floor(interval) + " minutes ago";
+    }
+    return Math.floor(seconds) + " seconds ago";
+  }
 
   return (
     <>
@@ -206,21 +222,21 @@ export default function SiteHeader() {
                 <div
                   key={notification.id}
                   className={`p-3 rounded-lg border ${
-                    notification.unread 
+                    !notification.is_read 
                       ? 'bg-blue-50 border-blue-200' 
                       : 'bg-gray-50 border-gray-200'
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">
-                      {getNotificationIcon(notification.type)}
+                      {getNotificationIcon('referral')}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-sm font-medium text-gray-900">
-                          {notification.title}
+                          New Referral
                         </p>
-                        {notification.unread && (
+                        {!notification.is_read && (
                           <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
                         )}
                       </div>
@@ -228,7 +244,7 @@ export default function SiteHeader() {
                         {notification.message}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {notification.time}
+                        {timeAgo(notification.created_at)}
                       </p>
                     </div>
                   </div>
@@ -247,10 +263,7 @@ export default function SiteHeader() {
             <Button 
               variant="outline" 
               className="w-full"
-              onClick={() => {
-                // Mark all as read logic here
-                setNotificationModal(false);
-              }}
+              onClick={handleMarkAllAsRead}
             >
               Mark all as read
             </Button>
@@ -258,5 +271,4 @@ export default function SiteHeader() {
         </DialogContent>
       </Dialog>
     </>
-  );
-}
+);}

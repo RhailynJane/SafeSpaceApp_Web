@@ -47,8 +47,10 @@ export default function InteractiveDashboard() {
   const userRole = rawRole ? rawRole.replace(/_/g, "-") : "support-worker";
   const [referrals, setReferrals] = useState([]);
   const [supportWorkers, setSupportWorkers] = useState([]);
+  const [notifications, setNotifications] = useState([]);
 
   const toTitleCase = (str) => {
+    if (!str) return '';
     return str.replace(/-/g, ' ').replace(
       /\w\S*/g,
       (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
@@ -70,6 +72,13 @@ export default function InteractiveDashboard() {
           const supportWorkersData = await supportWorkersResponse.json();
           setSupportWorkers(supportWorkersData);
         }
+
+        const notificationsResponse = await fetch('/api/notifications/mine');
+        if (notificationsResponse.ok) {
+          const notificationsData = await notificationsResponse.json();
+          setNotifications(notificationsData.notifications);
+        }
+
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -279,7 +288,7 @@ export default function InteractiveDashboard() {
 
       <Tabs defaultValue="Overview" className="space-y-6">
 
-        <TabsList className={`grid w-full ${userRole === "team-leader" ? "grid-cols-4 lg:grid-cols-8" : "grid-cols-3 lg:grid-cols-7"}`}>
+        <TabsList className={`grid w-full ${userRole === "team-leader" ? "grid-cols-4 lg:grid-cols-8" : "grid-cols-3 lg:grid-cols-6"}`}>
           {tabs.map(tab => <TabsTrigger key={tab} value={tab} className="text-xs">{tab}</TabsTrigger>)}
         </TabsList>
 
@@ -289,7 +298,7 @@ export default function InteractiveDashboard() {
         <TabsContent value="Overview" className="space-y-6">
 
 
-          <DashboardOverview userRole={userRole} />
+          <DashboardOverview userRole={userRole} notifications={notifications} />
 
 
         </TabsContent>
@@ -316,7 +325,7 @@ export default function InteractiveDashboard() {
                           <div className="flex items-start justify-between">
                             <div className="space-y-2">
                               <h3 className="font-semibold text-lg capitalize">{referral.client_first_name} {referral.client_last_name}</h3>
-                              <Badge className={getStatusColor(referral.status)}><div className="flex items-center gap-1">{getStatusIcon(referral.status)}{toTitleCase(referral.status)}</div></Badge>
+                                                            <Badge className={getStatusColor(referral.status)}><div className="flex items-center gap-1">{getStatusIcon(referral.status)}{toTitleCase(referral.status)}</div></Badge>
                               <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                                 <div>Age: {referral.age}</div>
                                 <div>Source: {referral.referral_source}</div>

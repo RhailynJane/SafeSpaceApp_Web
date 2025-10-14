@@ -38,7 +38,7 @@ const ApproveAndAssignModal = ({ referral, onClose, onConfirm, supportWorkers })
                             </SelectTrigger>
                             <SelectContent>
                                 {supportWorkers.map(worker => (
-                                <option key={worker.id} value={worker.id.toString()}>{worker.email}</option>
+                                <SelectItem key={worker.id} value={worker.id.toString()}>{worker.email}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -74,9 +74,9 @@ const TeamLeaderReferralActions = ({ referral, onStatusUpdate, supportWorkers })
       const res = await fetch(`/api/referrals/${referral.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            status: 'accepted', 
-            processed_by_user_id: parseInt(supportWorkerId, 10)
+        body: JSON.stringify({
+          status: 'assigned',
+          processed_by_user_id: parseInt(supportWorkerId, 10),
         }),
       });
 
@@ -85,9 +85,19 @@ const TeamLeaderReferralActions = ({ referral, onStatusUpdate, supportWorkers })
       }
 
       const { referral: updatedReferral } = await res.json();
+
+      // Create a notification for the support worker
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: parseInt(supportWorkerId, 10),
+          message: `You have a new referral: ${referral.client_first_name} ${referral.client_last_name}`,
+        }),
+      });
+
       onStatusUpdate?.(referral.id, updatedReferral);
-      closeModal();
-    } catch (error) {
+      closeModal();    } catch (error) {
       console.error("Error updating referral:", error);
       alert(`Error: ${error.message}`);
     } finally {

@@ -143,6 +143,7 @@ export default function ReferralIntakePage() {
     const closeModal = () => setModal({ type: null, data: null });
 
     const handleAcceptReferral = async (therapistId) => {
+        console.log("therapistId:", therapistId);
         if (!therapistId) {
             alert("Please select a Team Leader.");
             return;
@@ -156,6 +157,14 @@ export default function ReferralIntakePage() {
             }),
         });
         if (res.ok) {
+            await fetch('/api/notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: parseInt(therapistId, 10),
+                    message: `You have a new referral to review: ${modal.data.client_first_name} ${modal.data.client_last_name}`,
+                }),
+            });
             setReferrals(referrals.map(r =>
                 r.id === modal.data.id ? { ...r, status: 'in-review' } : r
             ));
