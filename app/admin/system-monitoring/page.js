@@ -16,7 +16,7 @@ export default function SystemMonitoringPage() {
         const getSystemAlerts = async () => {
             const res = await fetch('/api/admin/system-alerts');
             const data = await res.json();
-            setSystemAlerts(data);
+            setSystemAlerts(data.alerts || []);
         };
         getSystemAlerts();
     }, []);

@@ -309,11 +309,10 @@ export default function DashboardPage() {
               <div className="p-2 bg-green-100 rounded-lg">
                 <BarChart3 className="h-6 w-6 text-green-600" />
               </div>
-              <span className="text-sm font-medium">Generate Reports</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
