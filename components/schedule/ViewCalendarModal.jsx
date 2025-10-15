@@ -21,20 +21,29 @@ export default function ViewCalendarModal({ isOpen, onOpenChange }) {
     // Only fetch data if the modal is open AND the user is signed in.
     if (isOpen && isLoaded && isSignedIn) {
       const fetchSchedule = async () => {
-        try {
-          const response = await fetch("/api/schedule")
+        try {          
+          const response = await fetch("/api/appointments");
           if (!response.ok) {
             throw new Error("Failed to fetch schedule")
           }
-          const sessions = await response.json()
-          const formattedEvents = sessions.map(session => ({
-            id: session.id,
-            title: session.title || `${session.sessionType.type_name} with ${session.patient.first_name}`,
-            start: new Date(session.start_time),
-            end: new Date(session.end_time),
-            resource: session,
-          }))
-          setEvents(formattedEvents)
+          const appointments = await response.json();
+          const formattedEvents = appointments.map(appointment => {
+            const [hours, minutes] = appointment.time.split(':').map(Number);
+            const start = new Date(appointment.date);
+            start.setUTCHours(hours, minutes);
+
+            const durationMinutes = parseInt(appointment.duration) || 50;
+            const end = new Date(start.getTime() + durationMinutes * 60000);
+
+            return {
+              id: appointment.id,
+              title: `${appointment.clientName} - ${appointment.type}`,
+              start,
+              end,
+              resource: appointment,
+            };
+          });
+          setEvents(formattedEvents);
         } catch (error) {
           console.error("Error fetching schedule:", error)
           // Handle error display to the user

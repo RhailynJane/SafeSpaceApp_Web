@@ -164,3 +164,18 @@ model Session {
 
   @@map("sessions")
 }
+
+model Appointment {
+  id         String   @id @default(cuid())
+  clientName String
+  date       String
+  time       String
+  type       String?
+  duration   String?
+  status     String
+  details    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("appointments")
+}
