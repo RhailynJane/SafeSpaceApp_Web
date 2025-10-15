@@ -159,7 +159,7 @@ export function DashboardOverview({ userRole, notifications = [] }) {
                   <div className="p-2 bg-orange-100 rounded-lg">
                     <Edit className="h-6 w-6 text-orange-600" />
                   </div>
-                  <span className="text-sm font-medium">Case Notes</span>
+                  <span className="text-sm font-medium text-center whitespace-normal">Case Notes</span>
                 </Button>
 
                 <Button
@@ -169,7 +169,7 @@ export function DashboardOverview({ userRole, notifications = [] }) {
                   <div className="p-2 bg-teal-100 rounded-lg">
                     <Users className="h-6 w-6 text-teal-600" />
                   </div>
-                  <span className="text-sm font-medium">View Clients</span>
+                  <span className="text-sm font-medium text-center whitespace-normal">View Clients</span>
                 </Button>
 
                 <Button
@@ -179,7 +179,7 @@ export function DashboardOverview({ userRole, notifications = [] }) {
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <Calendar className="h-6 w-6 text-blue-600" />
                   </div>
-                  <span className="text-sm font-medium">Manage Schedule</span>
+                  <span className="text-sm font-medium text-center whitespace-normal">Manage Schedule</span>
                 </Button>
 
                 <Button
@@ -189,7 +189,7 @@ export function DashboardOverview({ userRole, notifications = [] }) {
                   <div className="p-2 bg-green-100 rounded-lg">
                     <BarChart3 className="h-6 w-6 text-green-600" />
                   </div>
-                  <span className="text-sm font-medium">Generate Reports</span>
+                  <span className="text-sm font-medium text-center whitespace-normal">Generate Reports</span>
                 </Button>
               </div>
             </CardContent>
