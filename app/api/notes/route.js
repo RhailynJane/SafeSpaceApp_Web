@@ -40,6 +40,7 @@ export async function GET(request) {
           summary: true,
           detailed_notes: true,
           risk_assessment: true,
+          next_steps: true,
           created_at: true,
           updated_at: true,
           client: {
@@ -70,6 +71,7 @@ export async function GET(request) {
           summary: true,
           detailed_notes: true,
           risk_assessment: true,
+          next_steps: true,
           created_at: true,
           updated_at: true,
           client: {
@@ -131,6 +133,7 @@ export async function POST(request) {
         summary: data.summary,
         detailed_notes: data.detailed_notes,
         risk_assessment: data.risk_assessment,
+        next_steps: data.next_steps,
       },
       select: {
         id: true,
@@ -141,6 +144,7 @@ export async function POST(request) {
         summary: true,
         detailed_notes: true,
         risk_assessment: true,
+        next_steps: true,
         created_at: true,
         updated_at: true,
         client: {

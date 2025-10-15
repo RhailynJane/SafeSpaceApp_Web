@@ -22,6 +22,7 @@ export async function GET(request, { params }) {
         summary: true,
         detailed_notes: true,
         risk_assessment: true,
+        next_steps: true,
         created_at: true,
         updated_at: true,
         client: {
@@ -85,6 +86,7 @@ export async function PUT(request, { params }) {
         summary: true,
         detailed_notes: true,
         risk_assessment: true,
+        next_steps: true,
         created_at: true,
         updated_at: true,
         client: {
