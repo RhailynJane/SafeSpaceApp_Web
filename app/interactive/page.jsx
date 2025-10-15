@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import { useSWRConfig } from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,15 +30,12 @@ import ViewReportModal from "@/components/reports/ViewReportModal";
 import jsPDF from "jspdf";
 
 function InteractiveDashboardContent({ userRole = "support-worker", userName = "User", getToken, defaultTab }) {
+  const { mutate } = useSWRConfig();
   const [referrals, setReferrals] = useState([]);
   const [clients, setClients] = useState([]);
   const [notes, setNotes] = useState([]);
   const [crisisEvents, setCrisisEvents] = useState([]);
-  const [schedule, setSchedule] = useState([
-    { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min", details: "Session on coping strategies.", date: "2024-09-16" },
-    { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min", details: "Focus on stress management.", date: "2024-09-16" },
-    { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min", details: "Initial assessment and intake.", date: "2024-09-16" },
-  ]);
+  const [schedule, setSchedule] = useState([]);
 
   const [reportType, setReportType] = useState("caseload");
   const [dateRange, setDateRange] = useState("month");
@@ -64,111 +62,106 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         return;
       }
 
-"use client"
+      // Always fetch clients and notes
+      const [clientRes, noteRes, crisisRes, appointmentRes] = await Promise.all([
+        fetch("/api/clients"),
+        fetch("/api/notes"),
+        fetch("/api/crisis-events"),
+        fetch("/api/appointments"),
+      ]);
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Input } from "@/components/ui/input.jsx"
-import { Textarea } from "@/components/ui/textarea.jsx"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import {
-  Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User,
-  FileText, BarChart3, AlertTriangle, Calendar, MessageSquare,
-  Edit, Eye, Download, Share2, Shield
-} from "lucide-react"
+      if (clientRes.ok) {
+        const clientData = await clientRes.json();
+        console.log("Fetched client data:", clientData);
+        setClients(Array.isArray(clientData) ? clientData : []);
+      } else {
+        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText);
+      }
 
-import { ReferralStatusTracker } from "../referrals/page.jsx"
-import { DashboardOverview } from "../dashboard/page.jsx"
-import ClientActionButtons from "@/components/ClientActionButtons.jsx"
-import ReferralActions from "@/components/ReferralActions.jsx"
-import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
-import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
-import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
-import EmergencyCallModal from "@/components/crisis/EmergencyCallModal.jsx"
-import CrisisHotlineModal from "@/components/crisis/CrisisHotlineModal.jsx"
-import ContactClientModal from "@/components/crisis/ContactClientModal.jsx"
-import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal.jsx"
-import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
-import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
-import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
-import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
-import ViewReportModal from "@/components/reports/ViewReportModal"
+      if (noteRes.ok) {
+        const noteData = await noteRes.json();
+        setNotes(Array.isArray(noteData) ? noteData : []);
+      } else {
+        console.error("Failed to fetch notes:", noteRes.status, noteRes.statusText);
+      }
 
-import jsPDF from "jspdf"
+      if (crisisRes.ok) {
+        const crisisData = await crisisRes.json();
+        setCrisisEvents(Array.isArray(crisisData) ? crisisData : []);
+      } else {
+        console.error("Failed to fetch crisis events:", crisisRes.status, crisisRes.statusText);
+      }
 
+      if (appointmentRes.ok) {
+        const appointmentData = await appointmentRes.json();
+        setSchedule(Array.isArray(appointmentData) ? appointmentData : []);
+      } else {
+        console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText);
+      }
 
-export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
-  // State for controlling schedule modals
-  const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
-  const [isCalendarModalOpen, setCalendarModalOpen] = useState(false);
-  const [selectedAvailability, setSelectedAvailability] = useState(null);
+      // Conditionally fetch referrals
+      if (userRole === "team-leader") {
+        const refRes = await fetch("/api/referrals");
+        if (refRes.ok) {
+          const refData = await refRes.json();
+          setReferrals(Array.isArray(refData) ? refData : []);
+        } else {
+          console.error("Failed to fetch referrals:", refRes.status, refRes.statusText);
+        }
+      }
 
-  const [referrals, setReferrals] = useState([
-    {
-      id: "1",
-      clientName: "Sarah Johnson",
-      age: 28,
-      referralSource: "Community Health Center",
-      reason: "Anxiety and depression following job loss",
-      priority: "High",
-      submittedDate: "2024-01-15",
-      status: "pending",
-      contactInfo: {
-        phone: "(555) 123-4567",
-        email: "sarah.j@email.com",
-        address: "123 Main St, City, State 12345",
-        emergencyContact: "John Johnson (Brother) - (555) 987-6543",
-      },
-      additionalNotes: "Client has expressed suicidal ideation. Immediate assessment recommended.",
-      submittedBy: "Admin User",
-    },
-    {
-      id: "2",
-      clientName: "Michael Chen",
-      age: 35,
-      referralSource: "Primary Care Physician",
-      reason: "PTSD symptoms after car accident",
-      priority: "Medium",
-      submittedDate: "2024-01-14",
-      status: "accepted",
-      contactInfo: {
-        phone: "(555) 234-5678",
-        email: "m.chen@email.com",
-        address: "456 Oak Ave, City, State 12345",
-        emergencyContact: "Lisa Chen (Wife) - (555) 876-5432",
-      },
-      additionalNotes: "Client is motivated for treatment. Has good family support.",
-      submittedBy: "Admin User",
-      processedDate: "2024-01-14",
-      processedBy: "Team Leader",
-    },
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setError("Failed to load data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken, userRole]);
 
 
-    {
-      id: "3",
-      clientName: "Emma Davis",
-      age: 42,
-      referralSource: "Hospital Emergency Department",
-      reason: "Crisis intervention needed for severe depression",
-      priority: "Critical",
-      submittedDate: "2024-01-16",
-      status: "pending",
-      contactInfo: {
-        phone: "(555) 345-6789",
-        email: "emma.davis@email.com",
-        address: "789 Pine St, City, State 12345",
-        emergencyContact: "Robert Davis (Husband) - (555) 654-3210",
-      },
-      additionalNotes: "Patient was brought in after suicide attempt. Requires immediate attention.",
-      submittedBy: "ER Social Worker",
-    },
+  const handleAddAppointment = (newAppointment) => {
+    setSchedule((prev) => [...prev, newAppointment]);
+    mutate("/api/dashboard");
+  };
+  const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
 
-  ])
+  const toTitleCase = (str) => {
+    if (!str) return '';
+    return str.replace(/-/g, ' ').replace(
+      /\w\S*/g,
+      (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+    );
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!user) return;
+      try {
+        const referralsResponse = await fetch('/api/referrals/mine');
+        if (!referralsResponse.ok) throw new Error('Failed to fetch referrals');
+        const referralsData = await referralsResponse.json();
+        setReferrals(referralsData.referrals);
+
+        if (userRole === 'team-leader') {
+          const supportWorkersResponse = await fetch('/api/support-workers');
+          if (!supportWorkersResponse.ok) throw new Error('Failed to fetch support workers');
+          const supportWorkersData = await supportWorkersResponse.json();
+          setSupportWorkers(supportWorkersData);
+        }
+
+        const notificationsResponse = await fetch('/api/notifications/mine');
+        if (notificationsResponse.ok) {
+          const notificationsData = await notificationsResponse.json();
+          setNotifications(notificationsData.notifications);
+        }
+
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+  }, [user, userRole]);
 
   const [clients] = useState([
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
@@ -286,11 +279,7 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
 
         {/* Overview Tab */}
         <TabsContent value="Overview" className="space-y-6">
-
-
-          <DashboardOverview userRole={userRole} notifications={notifications} />
-
-
+          <DashboardOverview userRole={userRole} clients={clients} onAdd={handleAddAppointment} />
         </TabsContent>
 
         {/* Referrals Tab - Team Leaders Only */}
@@ -392,6 +381,26 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                           </Badge>
 
                         </div>
+                        <div className="text-sm text-gray-600">
+                          Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                    {referrals.filter(r => r.status.toLowerCase() !== "pending").length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                        <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
+                        <p className="text-sm">Process a referral from the 'Pending' tab.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+        )}
+
+                        </div>
                       ))
                   ) : (
                     <div className="text-center py-8 text-gray-500">
@@ -438,18 +447,29 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {referrals.map((referral) => (
-                  <div key={referral.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-semibold capitalize">{referral.client_first_name} {referral.client_last_name}</h3>
-                      <p className="text-sm text-gray-600">Referred on: {new Date(referral.submitted_date).toLocaleDateString()}</p>
+                {clients.map((client) => (
+                  <div key={client.id} className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
+                        <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          className={client.risk_level === "High" ? "bg-red-200 text-red-800" : client.risk_level === "Medium" ? "bg-yellow-200 text-yellow-800" : "bg-teal-200 text-teal-800"}
+                        >
+                          {client.risk_level} Risk
+                        </Badge>
+                        <Badge
+                          className={client.status === "Active" ? "bg-green-200 text-green-800" : client.status === "Inactive" ? "bg-orange-200 text-orange-800" : "bg-gray-200 text-gray-800"}
+                        >
+                          {client.status}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                                            <Badge className={getStatusColor(referral.status)}>
-                        {toTitleCase(referral.status)}
-                      </Badge>
+                    <div className="mt-4">
+                      <ClientActionButtons client={client} />
                     </div>
-                    <ClientActionButtons client={referral} />
                   </div>
                 ))}
               </div>
@@ -469,12 +489,8 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
             </CardHeader>
             <CardContent>
               {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <AddAppointmentModal
-                  onAdd={handleAddAppointment}
-                  prefilledSlot={selectedAvailability}
-                  onClose={() => setSelectedAvailability(null)}
-                />
+              <div className="flex gap-2 mb-4">
+                <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} />
                 <ViewAvailabilityModal
                   isOpen={isAvailabilityModalOpen}
                   onOpenChange={setAvailabilityModalOpen}
@@ -499,9 +515,9 @@ export default function InteractiveDashboard({ userRole = "support-worker", user
                     <div key={appt.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-semibold">{appt.client}</h3>
+                          <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
                           <p className="text-sm text-gray-600">
-                            {appt.date} at {appt.time} • {appt.type} • {appt.duration}
+                            {new Date(appt.appointment_date).toLocaleDateString()} at {new Date(appt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
                           </p>
                           {appt.details && (
                             <p className="text-sm text-gray-500 mt-1">{appt.details}</p>

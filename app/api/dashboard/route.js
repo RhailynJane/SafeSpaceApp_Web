@@ -14,9 +14,11 @@ export async function GET() {
 
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const now = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(now.getDate() + 1);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 2);
 
     const [
       totalClients,
@@ -35,7 +37,7 @@ export async function GET() {
       prisma.appointment.findMany({
         where: {
           scheduled_by_user_id: dbUser.id,
-          appointment_date: { gte: now, lt: tomorrow },
+          appointment_date: { gte: today, lt: tomorrow },
         },
         include: { client: { select: { client_first_name: true, client_last_name: true } } },
         orderBy: { appointment_date: "asc" },
@@ -45,7 +47,7 @@ export async function GET() {
       prisma.crisisEvent.count({ where: { initiator_user_id: dbUser.id } }),
       dbUser.role.role_name === "team_leader" ? prisma.referral.count({ where: { status: "Pending" } }) : Promise.resolve(0),
       prisma.client.count({ where: { status: "Active" } }),
-      prisma.appointment.count({ where: { appointment_date: { gte: now, lt: tomorrow }, ...(dbUser.role.role_name === "team_leader" ? {} : { scheduled_by_user_id: dbUser.id }) } }),
+      prisma.appointment.count({ where: { appointment_date: { gte: today, lt: tomorrow }, ...(dbUser.role.role_name === "team_leader" ? {} : { scheduled_by_user_id: dbUser.id }) } }),
     ]);
 
     const metrics = { totalClients, totalNotes, totalAppointments, highRiskClients, crisisEvents, pendingReferrals, activeClients, todaysSessions };
@@ -55,7 +57,7 @@ export async function GET() {
     if (highRiskClients > 0) notifications.push({ id: crypto.randomUUID(), type: "crisis", message: `There are ${highRiskClients} high-risk clients that need monitoring.`, timestamp: new Date() });
     if (dbUser.role.role_name === "team_leader" && pendingReferrals > 0) notifications.push({ id: crypto.randomUUID(), type: "referral", message: `You have ${pendingReferrals} pending referrals awaiting review.`, timestamp: new Date() });
 
-    return NextResponse.json({ metrics, notifications, todaySchedule: upcomingAppointments, role: dbUser.role?.role_name || "unknown" });
+    return NextResponse.json({ metrics, notifications, upcomingAppointments, role: dbUser.role?.role_name || "unknown" });
   } catch (error) {
     console.error("Dashboard route error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

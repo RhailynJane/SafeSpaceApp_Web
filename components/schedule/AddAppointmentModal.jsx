@@ -1,10 +1,6 @@
-"use client"; 
-// This directive tells Next.js that this file runs on the client side (browser) 
-// and can use hooks like useState or event handlers.
+'use client';
 
-import { useState, useEffect } from "react";
-// React hook for managing state variables in a functional component.
-
+import { useState } from 'react';
 import {
   Dialog,
   DialogTrigger,
@@ -13,53 +9,82 @@ import {
   DialogTitle,
   DialogDescription,
   DialogClose,
-} from "@/components/ui/dialog";
-// Importing reusable dialog (modal) components from your UI library (shadcn/ui).
-// These handle opening, closing, and content of the modal.
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
 
-import { Button } from "@/components/ui/button"; // Button component (styled)
-import { Input } from "@/components/ui/input"; // Input component for text fields
-import { Label } from "@/components/ui/label"; // Label for form fields
-import { 
-  Select, 
-  SelectTrigger, 
-  SelectValue, 
-  SelectContent, 
-  SelectItem 
-} from "@/components/ui/select"; 
-import { Plus } from "lucide-react";
-// Dropdown (Select) components for choosing options.
+export default function AddAppointmentModal({ onAdd, clients = [] }) {
+  console.log("Clients in modal:", clients);
+  const [open, setOpen] = useState(false);
+  const [appointment_date, setAppointmentDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [appointment_time, setAppointmentTime] = useState("");
+  const [client_id, setClientId] = useState("");
+  const [type, setType] = useState("Individual Session");
+  const [duration, setDuration] = useState("50 min");
+  const [details, setDetails] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
 
-// Main component definition
-export default function AddAppointmentModal({ onAdd, prefilledSlot, onClose }) {
-  // Props:
-  // - onAdd: a function passed from the parent component that handles adding a new appointment.
-
-  // State variables to manage form input values and dialog visibility.
-  const [isOpen, setIsOpen] = useState(false);
-  const [newAppointment, setNewAppointment] = useState({
-    clientName: "",
-    date: "",
-    time: "",
-    duration: "50 min",
-  });
-
-  useEffect(() => {
-    if (prefilledSlot) {
-      setNewAppointment(prev => ({
-        ...prev,
-        date: prefilledSlot.date,
-        time: prefilledSlot.time,
-      }));
-      setIsOpen(true);
+    if (!client_id || !appointment_time || !appointment_date) {
+      setError("Please fill all required fields.");
+      return;
     }
   }, [prefilledSlot]);
 
-  const handleOpenChange = (open) => {
-    setIsOpen(open);
-    if (!open && onClose) {
-      onClose();
+    try {
+      setLoading(true);
+
+      const formData = {
+        client_id,
+        appointment_date,
+        appointment_time,
+        type,
+        duration,
+        details,
+      };
+
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to add appointment");
+      }
+
+      const created = await res.json();
+
+      if (onAdd) onAdd(created);
+
+      setClientId("");
+      setAppointmentTime("");
+      setAppointmentDate(new Date().toISOString().split("T")[0]);
+      setType("Individual Session");
+      setDuration("50 min");
+      setDetails("");
+      setOpen(false);
+    } catch (err) {
+      console.error("Add appointment error:", err);
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,12 +128,28 @@ export default function AddAppointmentModal({ onAdd, prefilledSlot, onClose }) {
           
           {/* Client name input field */}
           <div className="grid gap-2">
-            <Label htmlFor="clientName">Client Name</Label>
+            <Label htmlFor="client">Client</Label>
+            <Select onValueChange={setClientId} value={client_id}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a client" />
+              </SelectTrigger>
+              <SelectContent>
+                {clients.map((client) => (
+                  <SelectItem key={client.id} value={client.id.toString()}>
+                    {client.client_first_name} {client.client_last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="date">Date</Label>
             <Input
-              id="clientName"
-              value={newAppointment.clientName}
-              onChange={(e) => setNewAppointment({ ...newAppointment, clientName: e.target.value })}
-              placeholder="Enter client name"
+              id="date"
+              type="date"
+              value={appointment_date}
+              onChange={(e) => setAppointmentDate(e.target.value)}
               required
             />
           </div>
@@ -119,8 +160,8 @@ export default function AddAppointmentModal({ onAdd, prefilledSlot, onClose }) {
             <Input
               id="time"
               type="time"
-              value={newAppointment.time}
-              onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
+              value={appointment_time}
+              onChange={(e) => setAppointmentTime(e.target.value)}
               required
             />
           </div>
@@ -128,12 +169,14 @@ export default function AddAppointmentModal({ onAdd, prefilledSlot, onClose }) {
           {/* Dropdown to select session type */}
           <div className="grid gap-2">
             <Label htmlFor="type">Session Type</Label>
-            <Select value={newAppointment.type} onValueChange={(val) => setNewAppointment({ ...newAppointment, type: val })}>
+            <Select value={type} onValueChange={setType}>
               <SelectTrigger>
                 <SelectValue placeholder="Select session type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Individual Session">Individual Session</SelectItem>
+                <SelectItem value="Individual Session">
+                  Individual Session
+                </SelectItem>
                 <SelectItem value="Group Therapy">Group Therapy</SelectItem>
                 <SelectItem value="Assessment">Assessment</SelectItem>
               </SelectContent>
@@ -187,3 +230,4 @@ export default function AddAppointmentModal({ onAdd, prefilledSlot, onClose }) {
     </Dialog>
   );
 }
+

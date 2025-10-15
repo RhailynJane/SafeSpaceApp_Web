@@ -107,40 +107,25 @@ const formatMetrics = (metrics) => [
   },
 ];
 
-export default function DashboardPage() {
+export default function DashboardPage({ clients, onAdd }) {
   const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
+
+  const handleAddAppointment = async (newAppt) => {
+    try {
+      await mutate();
+      globalMutate("/api/appointments");
+    } catch (err) {
+      console.error("Error revalidating dashboard after add:", err);
+    }
+  };
 
   if (isLoading) return <p className="text-gray-600">Loading dashboard...</p>;
   if (error) return <p className="text-red-600">Failed to load dashboard data.</p>;
 
-  const { metrics, notifications, todaySchedule, role } = data;
+  const { metrics, notifications, upcomingAppointments, role } = data;
 
   const formattedMetrics = formatMetrics(metrics);
-
-  // <-- UPDATED: force immediate revalidation of /api/dashboard and also revalidate /api/appointments
-  const handleAddAppointment = async (newAppt) => {
-    try {
-      // Force fetch fresh dashboard data immediately and update SWR cache for this key
-      await mutate(async () => {
-        const res = await fetch("/api/dashboard");
-        if (!res.ok) throw new Error("Failed to revalidate dashboard");
-        return res.json();
-      }, false);
-
-      // Also revalidate appointments cache if other parts of app use /api/appointments
-      globalMutate("/api/appointments");
-    } catch (err) {
-      console.error("Error revalidating dashboard after add:", err);
-      // Fallback: call simple mutate() to attempt revalidation
-      try {
-        await mutate();
-        globalMutate("/api/appointments");
-      } catch (e) {
-        console.error("Fallback mutate failed:", e);
-      }
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -218,11 +203,11 @@ export default function DashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
             {/* <-- AddAppointmentModal kept exactly as before, now wired to handleAddAppointment */}
-            <AddAppointmentModal onAdd={handleAddAppointment} clients={[]} className="bg-white border-teal-200" />
+            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
-            {todaySchedule?.length > 0 ? (
-              todaySchedule.map((appointment) => (
+            {upcomingAppointments?.length > 0 ? (
+              upcomingAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
