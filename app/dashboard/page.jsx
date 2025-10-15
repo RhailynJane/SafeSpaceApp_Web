@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -107,20 +107,25 @@ const formatMetrics = (metrics) => [
   },
 ];
 
-export default function DashboardPage() {
+export default function DashboardPage({ clients, onAdd }) {
   const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
+
+  const handleAddAppointment = async (newAppt) => {
+    try {
+      await mutate();
+      globalMutate("/api/appointments");
+    } catch (err) {
+      console.error("Error revalidating dashboard after add:", err);
+    }
+  };
 
   if (isLoading) return <p className="text-gray-600">Loading dashboard...</p>;
   if (error) return <p className="text-red-600">Failed to load dashboard data.</p>;
 
-  const { metrics, notifications, todaySchedule, role } = data;
+  const { metrics, notifications, upcomingAppointments, role } = data;
 
   const formattedMetrics = formatMetrics(metrics);
-
-  const handleAddAppointment = (newAppt) => {
-    mutate(); // revalidate data after adding appointment
-  };
 
   return (
     <div className="space-y-6">
@@ -197,11 +202,12 @@ export default function DashboardPage() {
         <Card className="bg-teal-50 border-teal-200">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
-            <AddAppointmentModal onAdd={handleAddAppointment} clients={[]} className="bg-white border-teal-200" />
+            {/* <-- AddAppointmentModal kept exactly as before, now wired to handleAddAppointment */}
+            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
-            {todaySchedule?.length > 0 ? (
-              todaySchedule.map((appointment) => (
+            {upcomingAppointments?.length > 0 ? (
+              upcomingAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"

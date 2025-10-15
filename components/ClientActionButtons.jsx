@@ -12,9 +12,9 @@ export default function ClientActionButtons({ client }) {
   return (
     <>
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => setShowProfile(true)}>View Profile</Button>
-        <Button variant="outline" size="sm" onClick={() => setShowMessage(true)}>Message</Button>
-        <Button size="sm" onClick={() => setShowSchedule(true)}>Schedule</Button>
+        <Button size="sm" onClick={() => setShowProfile(true)} className="bg-cyan-500 border-2 border-cyan-900 hover:bg-cyan-600 text-black ">View Profile</Button>
+        <Button size="sm" onClick={() => setShowMessage(true)} className="bg-amber-100 border-2 border-amber-800 hover:bg-amber-400 text-black">Message</Button>
+        <Button size="sm" onClick={() => setShowSchedule(true)} className="bg-gray-500 border-2 border-black hover:bg-black text-white">Schedule</Button>
       </div>
 
       <ViewProfileModal open={showProfile} onOpenChange={setShowProfile} client={client} />

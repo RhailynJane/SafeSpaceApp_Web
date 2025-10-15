@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import { useSWRConfig } from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react";
 
-import { DashboardOverview } from "../dashboard/page";
+import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
 import ReferralActions from "@/components/ReferralActions";
 import NewNoteModal from "@/components/Notes/NewNoteModal";
@@ -29,15 +30,12 @@ import ViewReportModal from "@/components/reports/ViewReportModal";
 import jsPDF from "jspdf";
 
 function InteractiveDashboardContent({ userRole = "support-worker", userName = "User", getToken, defaultTab }) {
+  const { mutate } = useSWRConfig();
   const [referrals, setReferrals] = useState([]);
   const [clients, setClients] = useState([]);
   const [notes, setNotes] = useState([]);
   const [crisisEvents, setCrisisEvents] = useState([]);
-  const [schedule, setSchedule] = useState([
-    { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min", details: "Session on coping strategies.", date: "2024-09-16" },
-    { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min", details: "Focus on stress management.", date: "2024-09-16" },
-    { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min", details: "Initial assessment and intake.", date: "2024-09-16" },
-  ]);
+  const [schedule, setSchedule] = useState([]);
 
   const [reportType, setReportType] = useState("caseload");
   const [dateRange, setDateRange] = useState("month");
@@ -52,27 +50,29 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       console.log("getToken is not available yet");
       return;
     }
-    
+
     try {
       setLoading(true);
       setError(null);
       const token = await getToken();
-      
+
       if (!token) {
         console.log("No token available - user may not be authenticated");
         setLoading(false);
         return;
       }
-      
+
       // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes] = await Promise.all([
+      const [clientRes, noteRes, crisisRes, appointmentRes] = await Promise.all([
         fetch("/api/clients"),
         fetch("/api/notes"),
         fetch("/api/crisis-events"),
+        fetch("/api/appointments"),
       ]);
 
       if (clientRes.ok) {
         const clientData = await clientRes.json();
+        console.log("Fetched client data:", clientData);
         setClients(Array.isArray(clientData) ? clientData : []);
       } else {
         console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText);
@@ -90,6 +90,13 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         setCrisisEvents(Array.isArray(crisisData) ? crisisData : []);
       } else {
         console.error("Failed to fetch crisis events:", crisisRes.status, crisisRes.statusText);
+      }
+
+      if (appointmentRes.ok) {
+        const appointmentData = await appointmentRes.json();
+        setSchedule(Array.isArray(appointmentData) ? appointmentData : []);
+      } else {
+        console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText);
       }
 
       // Conditionally fetch referrals
@@ -115,7 +122,10 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     fetchData();
   }, [fetchData]);
 
-  const handleAddAppointment = (newAppointment) => setSchedule(prev => [...prev, newAppointment]);
+  const handleAddAppointment = (newAppointment) => {
+    setSchedule((prev) => [...prev, newAppointment]);
+    mutate("/api/dashboard");
+  };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
 
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
@@ -209,11 +219,8 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       });
     } else if (reportType === "sessions") {
       setReportData({
-        sessions: [
-          { date: "2024-01-15", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
-          { date: "2024-01-14", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
-          { date: "2024-01-12", client: "Carol Davis", type: "Assessment", duration: "60 min" },
-        ]
+        sessions: schedule
+
       });
     } else if (reportType === "outcomes") {
       setReportData({
@@ -227,6 +234,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       });
     }
   };
+
+  const reopenReferral = async (id) => {
+    setReferrals(prev => prev.map(r => r.id === id ? { ...r, status: "pending" } : r));
+  };
+
+
 
   return (
     <main className="p-6 space-y-6">
@@ -248,10 +261,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
           {tabs.map(tab => <TabsTrigger key={tab} value={tab} className="text-xs">{tab}</TabsTrigger>)}
         </TabsList>
 
+        {/* Overview Tab */}
         <TabsContent value="Overview" className="space-y-6">
-          <DashboardOverview userRole={userRole} />
+          <DashboardOverview userRole={userRole} clients={clients} onAdd={handleAddAppointment} />
         </TabsContent>
 
+        {/* Referrals Tab - Team Leaders Only */}
         {userRole === "team-leader" && (
           <TabsContent value="Referrals" className="space-y-6">
             <div className="flex items-center justify-between">
@@ -349,11 +364,16 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                       <div key={referral.id} className="border rounded-lg p-4 space-y-2">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                          <Badge variant={
-                            referral.status.toLowerCase() === 'accepted' ? 'default' :
-                            referral.status.toLowerCase() === 'declined' ? 'destructive' :
-                            'secondary'
-                          }>{referral.status}</Badge>
+                          <Badge className={
+                            referral.status.toLowerCase() === "approved"
+                              ? "bg-teal-600 text-white"
+                              : referral.status.toLowerCase() === "rejected"
+                                ? "bg-red-500 text-white"
+                                : "bg-blue-500 text-white"
+                          }>
+                            {referral.status}
+                          </Badge>
+
                         </div>
                         <div className="text-sm text-gray-600">
                           Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
@@ -383,28 +403,28 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
             <CardContent>
               <div className="space-y-4">
                 {clients.map((client) => (
-                  <div key={client.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
-                      <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                  <div key={client.id} className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
+                        <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          className={client.risk_level === "High" ? "bg-red-200 text-red-800" : client.risk_level === "Medium" ? "bg-yellow-200 text-yellow-800" : "bg-teal-200 text-teal-800"}
+                        >
+                          {client.risk_level} Risk
+                        </Badge>
+                        <Badge
+                          className={client.status === "Active" ? "bg-green-200 text-green-800" : client.status === "Inactive" ? "bg-orange-200 text-orange-800" : "bg-gray-200 text-gray-800"}
+                        >
+                          {client.status}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          client.risk_level === "High"
-                            ? "destructive"
-                            : client.risk_level === "Medium"
-                              ? "default"
-                              : "secondary"
-                        }
-                      >
-                        {client.risk_level} Risk
-                      </Badge>
-                      <Badge variant={client.status === "Active" ? "default" : "secondary"}>
-                        {client.status}
-                      </Badge>
+                    <div className="mt-4">
+                      <ClientActionButtons client={client} />
                     </div>
-                    <ClientActionButtons client={client} />
                   </div>
                 ))}
               </div>
@@ -420,7 +440,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
-                <AddAppointmentModal onAdd={handleAddAppointment} />
+                <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} />
                 <ViewAvailabilityModal
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },
@@ -437,9 +457,9 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                     <div key={appt.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-semibold">{appt.client}</h3>
+                          <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
                           <p className="text-sm text-gray-600">
-                            {appt.date} at {appt.time} • {appt.type} • {appt.duration}
+                            {new Date(appt.appointment_date).toLocaleDateString()} at {new Date(appt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
                           </p>
                           {appt.details && (
                             <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
@@ -812,11 +832,11 @@ function InteractiveDashboard() {
   }
 
   const rawRole = user?.publicMetadata?.role;
-  
+
   // Debug: Log the actual role from Clerk
   console.log("Raw role from Clerk:", rawRole);
   console.log("Full publicMetadata:", user?.publicMetadata);
-  
+
   const normalizeRole = (r) => {
     if (!r) return null;
     // Convert any format to underscore: team-leader -> team_leader, teamLeader -> team_leader
@@ -827,7 +847,7 @@ function InteractiveDashboard() {
   const normalized = normalizeRole(rawRole);
   const userRole = normalized ? normalized.replace(/_/g, "-") : "support-worker";
   const userName = user?.fullName ?? "User";
-  
+
   console.log("Normalized role:", normalized);
   console.log("Final userRole for UI:", userRole);
 
