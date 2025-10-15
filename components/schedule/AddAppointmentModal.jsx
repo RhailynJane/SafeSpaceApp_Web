@@ -44,6 +44,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
       setError("Please fill all required fields.");
       return;
     }
+  }, [prefilledSlot]);
 
     try {
       setLoading(true);
@@ -87,12 +88,30 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     }
   };
 
+  // Function to handle form submission
+  const handleSubmit = (e) => {
+    e.preventDefault(); // Prevents the default browser reload behavior on form submission
+
+    // Call the parent function to add the new appointment to the list
+    onAdd(newAppointment);
+
+    // Close the modal after submission
+    // Close the modal after submission
+    handleOpenChange(false);
+
+    // Reset form fields back to their initial values
+    setNewAppointment({ client: "", date: "", time: "", duration: "50 min" });
+  };
+
   return (
     // Dialog (modal) wrapper
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       {/* Button that opens the modal */}
       <DialogTrigger asChild>
-        <Button variant="default">Add Appointment</Button>
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Appointment
+        </Button>
       </DialogTrigger>
 
       {/* Modal content area */}
@@ -169,8 +188,8 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             <Label htmlFor="duration">Duration</Label>
             <Input
               id="duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
+              value={newAppointment.duration}
+              onChange={(e) => setNewAppointment({ ...newAppointment, duration: e.target.value })}
               placeholder="e.g., 50 min"
               required
             />
@@ -181,8 +200,8 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             <Label htmlFor="details">Details</Label>
             <Input
               id="details"
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
+              value={newAppointment.details}
+              onChange={(e) => setNewAppointment({ ...newAppointment, details: e.target.value })}
               placeholder="Appointment details"
             />
           </div>

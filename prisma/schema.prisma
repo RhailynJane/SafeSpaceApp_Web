@@ -18,23 +18,21 @@ datasource db {
 // =======================
 
 model User {
-  id                         Int           @id @default(autoincrement())
-  clerk_user_id              String?       @unique
-  first_name                 String
-  last_name                  String
-  email                      String        @unique
-  last_login                 DateTime?
-  created_at                 DateTime      @default(now())
-  updated_at                 DateTime      @updatedAt
-  role_id                    Int
-  role                       Role          @relation(fields: [role_id], references: [id])
-  clients                    Client[]
-  notes                      Note[]        @relation("AuthoredNotes")
-  processed_referrals        Referral[]    @relation("ProcessedByUser")
-  appointments               Appointment[] @relation("ScheduledAppointments")
-  initiated_crisis_events    CrisisEvent[] @relation("InitiatedCrisisEvents")
-  supervised_crisis_events   CrisisEvent[] @relation("SupervisedCrisisEvents")
-  notifications              Notification[]
+  id                  Int        @id @default(autoincrement())
+  clerk_user_id       String?    @unique
+  first_name          String
+  last_name           String
+  email               String     @unique
+  last_login          DateTime?
+  created_at          DateTime   @default(now())
+  updated_at          DateTime   @updatedAt
+  role_id             Int?
+  role                Role?      @relation(fields: [role_id], references: [id])
+  clients             Client[]
+  notes               Note[]     @relation("AuthoredNotes")
+  therapistSessions   Session[]  @relation("TherapistSessions")
+  patientSessions     Session[]  @relation("PatientSessions")
+  processed_referrals Referral[] @relation("ProcessedByUser")
 
   @@map("users")
 }
@@ -78,6 +76,7 @@ model ReferralStatus {
 model SessionType {
   id        Int    @id @default(autoincrement())
   type_name String @unique
+  sessions  Session[]
 
   @@map("session_types")
 }
@@ -172,70 +171,35 @@ model Note {
   @@map("notes")
 }
 
-model SystemAlert {
-  id        Int      @id @default(autoincrement())
-  message   String
-  timestamp DateTime @default(now())
-  type      String
-  is_read   Boolean  @default(false)
+model Session {
+  id              Int         @id @default(autoincrement())
+  title           String
+  start_time      DateTime
+  end_time        DateTime
+  therapist_id    Int
+  therapist       User        @relation("TherapistSessions", fields: [therapist_id], references: [id])
+  patient_id      Int
+  patient         User        @relation("PatientSessions", fields: [patient_id], references: [id])
+  session_type_id Int
+  sessionType     SessionType @relation(fields: [session_type_id], references: [id])
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
-  @@map("system_alerts")
+  @@map("sessions")
 }
 
 model Appointment {
-  id                   Int       @id @default(autoincrement())
-  client_id            Int
-  scheduled_by_user_id Int?
-  appointment_date     DateTime  @db.Date
-  appointment_time     DateTime  @db.Time
-  type                 String?
-  duration             String?
-  details              String?
-  status               String?
-  created_at           DateTime  @default(now())
-  updated_at           DateTime? @updatedAt
-  client               Client    @relation(fields: [client_id], references: [id])
-  scheduled_by         User?     @relation("ScheduledAppointments", fields: [scheduled_by_user_id], references: [id])
+  id         String   @id @default(cuid())
+  clientName String
+  date       String
+  time       String
+  type       String?
+  duration   String?
+  status     String
+  details    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("appointments")
-}
-
-model CrisisEvent {
-  id                           Int       @id @default(autoincrement())
-  client_id                    Int?
-  initiator_user_id            Int?
-  event_type                   String
-  event_date                   DateTime  @default(now())
-  description                  String?
-  risk_level_at_event          String?
-  intervention_details         String?
-  contact_method               String?
-  contact_purpose              String?
-  urgency_level                String?
-  supervisor_contacted_user_id Int?
-  created_at                   DateTime  @default(now())
-  updated_at                   DateTime  @updatedAt
-
-  client                       Client?   @relation("ClientCrisisEvents", fields: [client_id], references: [id])
-  initiator                    User?     @relation("InitiatedCrisisEvents", fields: [initiator_user_id], references: [id])
-  supervisor_contacted         User?     @relation("SupervisedCrisisEvents", fields: [supervisor_contacted_user_id], references: [id])
-
-  @@map("crisis_events")
-}
-
-// =======================
-// NEW MODEL: Notification
-// =======================
-model Notification {
-  id          Int       @id @default(autoincrement())
-  user_id     Int
-  title       String
-  message     String
-  type        String     // e.g., "pending_referral", "high_risk", "upcoming_appointment"
-  related_id  Int?       // optional: link to Referral, Appointment, or Client
-  created_at  DateTime   @default(now())
-  is_read     Boolean    @default(false)
-  user        User       @relation(fields: [user_id], references: [id])
-
-  @@map("notifications")
 }
