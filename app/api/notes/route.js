@@ -10,13 +10,86 @@ export async function GET(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const notes = await prisma.note.findMany({
-      include: {
-        author: true,
-        client: true,
-      },
-      orderBy: { created_at: "desc" },
+    const user = await prisma.user.findUnique({
+      where: { clerk_user_id: userId },
+      include: { role: true },
     });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const userRole = user.role.role_name.replace(/_/g, "-");
+
+    let notes;
+    if (userRole === "support-worker") {
+      const clients = await prisma.client.findMany({
+        where: { user_id: user.id },
+        select: { id: true },
+      });
+      const clientIds = clients.map((client) => client.id);
+
+      notes = await prisma.note.findMany({
+        where: { client_id: { in: clientIds } },
+        select: {
+          id: true,
+          client_id: true,
+          author_user_id: true,
+          note_date: true,
+          session_type: true,
+          summary: true,
+          detailed_notes: true,
+          risk_assessment: true,
+          created_at: true,
+          updated_at: true,
+          client: {
+            select: {
+              id: true,
+              client_first_name: true,
+              client_last_name: true,
+            },
+          },
+          author: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
+        orderBy: { created_at: "desc" },
+      });
+    } else {
+      notes = await prisma.note.findMany({
+        select: {
+          id: true,
+          client_id: true,
+          author_user_id: true,
+          note_date: true,
+          session_type: true,
+          summary: true,
+          detailed_notes: true,
+          risk_assessment: true,
+          created_at: true,
+          updated_at: true,
+          client: {
+            select: {
+              id: true,
+              client_first_name: true,
+              client_last_name: true,
+            },
+          },
+          author: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+            },
+          },
+        },
+        orderBy: { created_at: "desc" },
+      });
+    }
 
     return NextResponse.json(notes, { status: 200 });
   } catch (error) {
@@ -36,22 +109,54 @@ export async function POST(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const user = await prisma.user.findUnique({
+      where: { clerk_user_id: userId },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const data = await request.json();
+
+    const duration = data.duration_minutes ? parseInt(data.duration_minutes, 10) : null;
 
     const note = await prisma.note.create({
       data: {
         client_id: data.client_id,
-        author_user_id: data.author_user_id,
+        author_user_id: user.id,
         note_date: new Date(data.note_date),
         session_type: data.session_type,
-        duration_minutes: data.duration_minutes,
+        duration_minutes: isNaN(duration) ? null : duration,
         summary: data.summary,
         detailed_notes: data.detailed_notes,
         risk_assessment: data.risk_assessment,
       },
-      include: {
-        author: true,
-        client: true,
+      select: {
+        id: true,
+        client_id: true,
+        author_user_id: true,
+        note_date: true,
+        session_type: true,
+        summary: true,
+        detailed_notes: true,
+        risk_assessment: true,
+        created_at: true,
+        updated_at: true,
+        client: {
+          select: {
+            id: true,
+            client_first_name: true,
+            client_last_name: true,
+          },
+        },
+        author: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
       },
     });
 

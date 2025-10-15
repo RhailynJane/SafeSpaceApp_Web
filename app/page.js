@@ -53,6 +53,8 @@ export default function SafespacePlatform() {
       // Normalize role strings from Clerk to handle variants like
       // 'team_leader', 'team-leader', 'teamLeader', 'team leader', etc.
       const rawRole = user.publicMetadata?.role;
+
+      // Code written with assistance of Chatgpt - to resove variant strings issue
       const normalizeRole = (r) => {
         if (!r) return null;
         // convert camelCase to snake_case, replace spaces/hyphens with underscores

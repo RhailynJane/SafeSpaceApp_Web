@@ -7,12 +7,20 @@ const isDashboardRoute = createRouteMatcher(['/dashboard(.*)', '/interactive(.*)
 const isApiRoute = createRouteMatcher(['/api(.*)']);
 
 export default clerkMiddleware(async (auth, req) => {
-  // ✅ Protect API routes
+  // Protect API routes
   if (isApiRoute(req)) {
     await auth.protect();
   }
 
   if (isDashboardRoute(req)) {
+    const { sessionClaims } = await auth();
+    const role = sessionClaims?.publicMetadata?.role;
+
+    if (role === 'admin') {
+      const adminUrl = new URL('/admin/overview', req.url);
+      return NextResponse.redirect(adminUrl);
+    }
+
     await auth.protect();
   }
 
@@ -39,6 +47,7 @@ if (path === '/admin') {
   }
 });
 
+// tell Next.js which routes the middleware should run on
 export const config = {
   matcher: [
     '/((?!.*\..*|_next).*)',

@@ -1,3 +1,6 @@
+// “Referral Intake Dashboard” - the main admin-facing page for managing new referrals.
+// Used ChatGPT (OpenAI GPT-5) to help document this file.
+// Prompt - "add explanatory comments for each line of code."
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -34,7 +37,7 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
     };
 
     return (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-white/30 backdrop-blur-2xl flex items-center justify-center z-50 p-4">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-800">Submit Referral to Team Leader for {referral.client_first_name} {referral.client_last_name}</h2>

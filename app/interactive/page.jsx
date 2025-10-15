@@ -1,43 +1,115 @@
+"use client";
 
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { useSearchParams } from "next/navigation";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react";
 
+import DashboardOverview from "../dashboard/page";
+import ClientActionButtons from "@/components/ClientActionButtons";
+import ReferralActions from "@/components/ReferralActions";
+import NewNoteModal from "@/components/Notes/NewNoteModal";
+import ViewNoteModal from "@/components/Notes/ViewNoteModal";
+import EditNoteModal from "@/components/Notes/EditNoteModal";
+import AddAppointmentModal from "@/components/schedule/AddAppointmentModal";
+import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal";
+import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
+import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
+import ViewReportModal from "@/components/reports/ViewReportModal";
 
-"use client"
+import jsPDF from "jspdf";
 
-import { useState, useEffect } from "react"
-import { useUser } from "@clerk/nextjs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
-import { Input } from "@/components/ui/input.jsx"
-import { Textarea } from "@/components/ui/textarea.jsx"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import {
-  Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User,
-  FileText, BarChart3, AlertTriangle, Calendar, MessageSquare,
-  Edit, Eye, Download, Share2, Shield
-} from "lucide-react"
+function InteractiveDashboardContent({ userRole = "support-worker", userName = "User", getToken, defaultTab }) {
+  const [referrals, setReferrals] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [crisisEvents, setCrisisEvents] = useState([]);
+  const [schedule, setSchedule] = useState([
+    { id: 1, time: "09:00", client: "Alice Smith", type: "Individual Session", duration: "50 min", details: "Session on coping strategies.", date: "2024-09-16" },
+    { id: 2, time: "10:30", client: "Bob Johnson", type: "Group Therapy", duration: "90 min", details: "Focus on stress management.", date: "2024-09-16" },
+    { id: 3, time: "14:00", client: "Carol Davis", type: "Assessment", duration: "60 min", details: "Initial assessment and intake.", date: "2024-09-16" },
+  ]);
 
-import { ReferralStatusTracker } from "../referrals/page.jsx"
-import { DashboardOverview } from "../dashboard/page.jsx"
-import ClientActionButtons from "@/components/ClientActionButtons.jsx"
-import TeamLeaderReferralActions from "@/components/TeamLeaderReferralActions.jsx";
-import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
-import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
-import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
-import EmergencyCallModal from "@/components/crisis/EmergencyCallModal.jsx"
-import CrisisHotlineModal from "@/components/crisis/CrisisHotlineModal.jsx"
-import ContactClientModal from "@/components/crisis/ContactClientModal.jsx"
-import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal.jsx"
-import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
-import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
-import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
-import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
-import ViewReportModal from "@/components/reports/ViewReportModal"
+  const [reportType, setReportType] = useState("caseload");
+  const [dateRange, setDateRange] = useState("month");
+  const [reportData, setReportData] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-import jsPDF from "jspdf"
+  const fetchData = useCallback(async () => {
+    if (!getToken) {
+      console.log("getToken is not available yet");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const token = await getToken();
+
+      if (!token) {
+        console.log("No token available - user may not be authenticated");
+        setLoading(false);
+        return;
+      }
+
+      // Always fetch clients and notes
+      const [clientRes, noteRes, crisisRes] = await Promise.all([
+        fetch("/api/clients"),
+        fetch("/api/notes"),
+        fetch("/api/crisis-events"),
+      ]);
+
+      if (clientRes.ok) {
+        const clientData = await clientRes.json();
+        setClients(Array.isArray(clientData) ? clientData : []);
+      } else {
+        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText);
+      }
+
+      if (noteRes.ok) {
+        const noteData = await noteRes.json();
+        setNotes(Array.isArray(noteData) ? noteData : []);
+      } else {
+        console.error("Failed to fetch notes:", noteRes.status, noteRes.statusText);
+      }
+
+      if (crisisRes.ok) {
+        const crisisData = await crisisRes.json();
+        setCrisisEvents(Array.isArray(crisisData) ? crisisData : []);
+      } else {
+        console.error("Failed to fetch crisis events:", crisisRes.status, crisisRes.statusText);
+      }
+
+      // Conditionally fetch referrals
+      if (userRole === "team-leader") {
+        const refRes = await fetch("/api/referrals");
+        if (refRes.ok) {
+          const refData = await refRes.json();
+          setReferrals(Array.isArray(refData) ? refData : []);
+        } else {
+          console.error("Failed to fetch referrals:", refRes.status, refRes.statusText);
+        }
+      }
+
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      setError("Failed to load data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [getToken, userRole]);
 
 
 export default function InteractiveDashboard() {
@@ -121,12 +193,9 @@ export default function InteractiveDashboard() {
       })
     } else if (reportType === "sessions") {
       setReportData({
-        sessions: [
-          { date: "2024-01-15", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
-          { date: "2024-01-14", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
-          { date: "2024-01-12", client: "Carol Davis", type: "Assessment", duration: "60 min" },
-        ]
-      })
+        sessions: schedule
+
+      });
     } else if (reportType === "outcomes") {
       setReportData({
         highRisk: clients.filter(c => c.riskLevel === "High").length,
@@ -170,110 +239,9 @@ export default function InteractiveDashboard() {
     );
   };
 
-  const handleAcceptReferral = (id) => {
-    setReferrals((prev) =>
-      prev.map((ref) =>
-        ref.id === id
-          ? {
-            ...ref,
-            status: "accepted",
-            processedDate: new Date().toISOString().split("T")[0],
-            processedBy: userName,
-          }
-          : ref,
-      ),
-    )
-  }
-
-  const handleDeclineReferral = (id) => {
-    setReferrals((prev) =>
-      prev.map((ref) =>
-        ref.id === id
-          ? {
-            ...ref,
-            status: "declined",
-            processedDate: new Date().toISOString().split("T")[0],
-            processedBy: userName,
-          }
-          : ref,
-      ),
-    )
-  }
-
-  const handleRequestMoreInfo = (id) => {
-    setReferrals((prev) =>
-      prev.map((ref) =>
-        ref.id === id
-          ? {
-            ...ref,
-            status: "more-info-requested",
-            processedDate: new Date().toISOString().split("T")[0],
-            processedBy: userName,
-          }
-          : ref,
-      ),
-    )
-  }
-
-  const openModal = (modalName, item = null) => {
-    setSelectedNote(item)
-    setModals(prev => ({ ...prev, [modalName]: true }))
-  }
-
-  const closeModal = (modalName) => {
-    setModals(prev => ({ ...prev, [modalName]: false }))
-    setSelectedNote(null)
-  }
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "submitted":
-      case "pending":
-        return <Clock className="h-4 w-4 text-yellow-600" />
-      case "in-review":
-        return <Eye className="h-4 w-4 text-blue-600" />
-      case "accepted":
-      case "assigned":
-      case "in-progress":
-        return <CheckCircle className="h-4 w-4 text-green-600" />
-      case "declined":
-        return <XCircle className="h-4 w-4 text-red-600" />
-      case "info-requested":
-        return <AlertCircle className="h-4 w-4 text-orange-600" />
-      case "completed":
-        return <CheckCircle className="h-4 w-4 text-teal-600" />
-      default:
-        return <Clock className="h-4 w-4 text-gray-600" />
-    }
-  }
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "submitted":
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "in-review":
-        return "bg-blue-100 text-blue-800"
-      case "accepted":
-      case "assigned":
-      case "in-progress":
-        return "bg-green-100 text-green-800"
-      case "declined":
-        return "bg-red-100 text-red-800"
-      case "info-requested":
-        return "bg-orange-100 text-orange-800"
-      case "completed":
-        return "bg-teal-100 text-teal-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
-
-  if (userRole === "admin") {
-    return <AdminDashboard />
-  }
-
-
+  const reopenReferral = async (id) => {
+    setReferrals(prev => prev.map(r => r.id === id ? { ...r, status: "pending" } : r));
+  };
 
 
 
@@ -286,15 +254,18 @@ export default function InteractiveDashboard() {
         </div>
       </div>
 
-      <Tabs defaultValue="Overview" className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+          {error}
+        </div>
+      )}
 
+      <Tabs defaultValue={defaultTab} key={defaultTab} className="space-y-6">
         <TabsList className={`grid w-full ${userRole === "team-leader" ? "grid-cols-4 lg:grid-cols-8" : "grid-cols-3 lg:grid-cols-6"}`}>
           {tabs.map(tab => <TabsTrigger key={tab} value={tab} className="text-xs">{tab}</TabsTrigger>)}
         </TabsList>
 
-        
-
-        {/* Overview */}
+        {/* Overview Tab */}
         <TabsContent value="Overview" className="space-y-6">
 
 
@@ -303,6 +274,7 @@ export default function InteractiveDashboard() {
 
         </TabsContent>
 
+        {/* Referrals Tab - Team Leaders Only */}
         {userRole === "team-leader" && (
           <TabsContent value="Referrals" className="space-y-6">
             <div className="flex items-center justify-between">
@@ -368,11 +340,38 @@ export default function InteractiveDashboard() {
                             </div>
                           )}
 
-                          <TeamLeaderReferralActions
-                            referral={referral}
-                            onStatusUpdate={handleReferralStatusUpdate}
-                            supportWorkers={supportWorkers}
-                          />
+                    {referrals.filter(r => r.status.toLowerCase() === "pending").length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                        <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
+                        <p className="text-sm">All referrals have been processed.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="processed">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Processed Referrals</CardTitle>
+                    <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {referrals.filter(r => r.status.toLowerCase() !== "pending").map(referral => (
+                      <div key={referral.id} className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                          <Badge className={
+                            referral.status.toLowerCase() === "approved"
+                              ? "bg-teal-600 text-white"
+                              : referral.status.toLowerCase() === "rejected"
+                                ? "bg-red-500 text-white"
+                                : "bg-blue-500 text-white"
+                          }>
+                            {referral.status}
+                          </Badge>
+
                         </div>
                       ))
                   ) : (
@@ -628,34 +627,138 @@ export default function InteractiveDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    {
-                      name: "Carol Davis",
-                      risk: "High",
-                      lastContact: "2024-01-15",
-                      reason: "Expressed suicidal ideation",
-                      status: "Active monitoring",
-                    },
-                    {
-                      name: "David Wilson",
-                      risk: "Medium",
-                      lastContact: "2024-01-14",
-                      reason: "Substance abuse relapse",
-                      status: "Weekly check-ins",
-                    },
-                  ].map((client, index) => (
-                    <div key={index} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{client.name}</h4>
-                        <Badge variant={client.risk === "High" ? "destructive" : "default"}>{client.risk} Risk</Badge>
+                  {crisisEvents.map((event) => {
+                    const client = clients.find(c => c.id === event.client_id);
+                    return (
+                      <div key={event.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-medium">{client ? `${client.client_first_name} ${client.client_last_name}` : "Unknown Client"}</h4>
+                          <Badge variant={event.risk_level_at_event === "High" ? "destructive" : "default"}>{event.risk_level_at_event} Risk</Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-1">Event Type: {event.event_type}</p>
+                        <p className="text-sm text-gray-600 mb-1">Date: {new Date(event.event_date).toLocaleDateString()}</p>
+                        <p className="text-sm mb-2">{event.description}</p>
+                        <div className="flex gap-2 mt-3">
+                          <Button size="sm">Contact Now</Button>
+                          <Button variant="outline" size="sm">Update Status</Button>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">Last contact: {client.lastContact}</p>
-                      <p className="text-sm mb-2">{client.reason}</p>
-                      <p className="text-sm text-blue-600">{client.status}</p>
-                      <div className="flex gap-2 mt-3">
-                        <Button size="sm">Contact Now</Button>
-                        <Button variant="outline" size="sm">
-                          Update Status
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="Reports" className="space-y-6">
+          <div className="grid gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Generate Reports</CardTitle>
+                <CardDescription>Create custom reports for your caseload</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Report Type</Label>
+                    <Select value={reportType} onValueChange={setReportType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="caseload">Caseload Summary</SelectItem>
+                        <SelectItem value="sessions">Session Reports</SelectItem>
+                        <SelectItem value="outcomes">Outcome Metrics</SelectItem>
+                        <SelectItem value="crisis">Crisis Interventions</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date Range</Label>
+                    <Select value={dateRange} onValueChange={setDateRange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="week">Last Week</SelectItem>
+                        <SelectItem value="month">Last Month</SelectItem>
+                        <SelectItem value="quarter">Last Quarter</SelectItem>
+                        <SelectItem value="year">Last Year</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button className="w-full" onClick={generateReport}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Generate Report
+                </Button>
+
+                {reportData && (
+                  <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                    <h4 className="font-medium mb-2">Report Generated</h4>
+                    <pre className="text-sm text-gray-600">
+                      {JSON.stringify(reportData, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Reports</CardTitle>
+                <CardDescription>Previously generated reports</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {[
+                    { name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB" },
+                    { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
+                    { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
+                  ].map((report, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded">
+                      <div>
+                        <p className="font-medium">{report.name}</p>
+                        <p className="text-sm text-gray-600">
+                          {report.date} • {report.type} • {report.size}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedReport(report)
+                            setModalOpen(true)
+                          }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (report.type === "PDF") {
+                              const doc = new jsPDF()
+                              doc.text(`Report Name: ${report.name}`, 10, 10)
+                              doc.text(`Date: ${report.date}`, 10, 20)
+                              doc.text(`Type: ${report.type}`, 10, 30)
+                              doc.text(`Size: ${report.size}`, 10, 40)
+                              doc.save(`${report.name}.pdf`)
+                            } else {
+                              alert("Downloading non-PDF files is not yet supported")
+                            }
+                          }}
+                        >
+                          Download
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => alert(`Sharing ${report.name}`)}
+                        >
+                          Share
                         </Button>
                       </div>
                     </div>
@@ -856,4 +959,63 @@ export default function InteractiveDashboard() {
       
     </main>
   );
+}
+
+function InteractiveDashboard() {
+  const { isSignedIn, getToken } = useAuth();
+  const { user, isLoaded } = useUser();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get('tab');
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Authentication Required</h2>
+          <p className="text-gray-600">Please sign in to access the dashboard.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const rawRole = user?.publicMetadata?.role;
+
+  // Debug: Log the actual role from Clerk
+  console.log("Raw role from Clerk:", rawRole);
+  console.log("Full publicMetadata:", user?.publicMetadata);
+
+  const normalizeRole = (r) => {
+    if (!r) return null;
+    // Convert any format to underscore: team-leader -> team_leader, teamLeader -> team_leader
+    const splitCamel = r.replace(/([a-z])([A-Z])/g, "$1_$2");
+    return splitCamel.toLowerCase().replace(/[-\s]/g, "_");
+  };
+
+  const normalized = normalizeRole(rawRole);
+  const userRole = normalized ? normalized.replace(/_/g, "-") : "support-worker";
+  const userName = user?.fullName ?? "User";
+
+  console.log("Normalized role:", normalized);
+  console.log("Final userRole for UI:", userRole);
+
+  return <InteractiveDashboardContent userRole={userRole} userName={userName} getToken={getToken} defaultTab={tab || 'Overview'} />;
+}
+
+export default function InteractiveDashboardPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <InteractiveDashboard />
+    </Suspense>
+  )
 }

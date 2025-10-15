@@ -14,61 +14,81 @@ import {
   DialogDescription,
   DialogClose,
 } from "@/components/ui/dialog";
-// Importing reusable dialog (modal) components from your UI library (shadcn/ui).
-// These handle opening, closing, and content of the modal.
-
-import { Button } from "@/components/ui/button"; // Button component (styled)
-import { Input } from "@/components/ui/input"; // Input component for text fields
-import { Label } from "@/components/ui/label"; // Label for form fields
-import { 
-  Select, 
-  SelectTrigger, 
-  SelectValue, 
-  SelectContent, 
-  SelectItem 
-} from "@/components/ui/select"; 
-// Dropdown (Select) components for choosing options.
-
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 // Main component definition
 export default function AddAppointmentModal({ onAdd }) {
-  // Props:
-  // - onAdd: a function passed from the parent component that handles adding a new appointment.
+  const [open, setOpen] = useState(false);
+  const [time, setTime] = useState("");
+  const [client, setClient] = useState("");
+  const [type, setType] = useState("Individual Session");
+  const [duration, setDuration] = useState("50 min");
+  const [details, setDetails] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // State variables to manage form input values and dialog visibility.
-  const [open, setOpen] = useState(false);            // Controls whether the modal is open
-  const [time, setTime] = useState("");               // Stores appointment time
-  const [client, setClient] = useState("");           // Stores client name
-  const [type, setType] = useState("Individual Session"); // Stores session type
-  const [duration, setDuration] = useState("50 min"); // Stores session duration
-  const [details, setDetails] = useState("");         // Stores appointment details
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
 
-  // Function to handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault(); // Prevents the default browser reload behavior on form submission
+    if (!client || !time) {
+      setError("Please fill all required fields.");
+      return;
+    }
 
-    // Create a new appointment object with form data
-    const newAppointment = {
-      id: Date.now(), // Simple unique ID based on the current timestamp
-      time,
-      client,
-      type,
-      duration,
-      details,
-    };
+    try {
+      setLoading(true);
 
-    // Call the parent function to add the new appointment to the list
-    onAdd(newAppointment);
+      // Construct data for API
+      const today = new Date().toISOString().split("T")[0];
+      const formData = {
+        client_id: client,
+        appointment_date: today,
+        appointment_time: time,
+        type,
+        duration,
+        details,
+      };
 
-    // Close the modal after submission
-    setOpen(false);
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
-    // Reset form fields back to their initial values
-    setTime("");
-    setClient("");
-    setType("Individual Session");
-    setDuration("50 min");
-    setDetails("");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to add appointment");
+      }
+
+      const created = await res.json();
+
+      // Update dashboard instantly
+      if (onAdd) onAdd(created);
+
+      // Reset & close
+      setClient("");
+      setTime("");
+      setType("Individual Session");
+      setDuration("50 min");
+      setDetails("");
+      setOpen(false);
+    } catch (err) {
+      console.error("Add appointment error:", err);
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -93,12 +113,12 @@ export default function AddAppointmentModal({ onAdd }) {
           
           {/* Client name input field */}
           <div className="grid gap-2">
-            <Label htmlFor="client">Client Name</Label>
+            <Label htmlFor="client">Client ID</Label>
             <Input
               id="client"
               value={client}
               onChange={(e) => setClient(e.target.value)}
-              placeholder="Enter client name"
+              placeholder="Enter client ID"
               required
             />
           </div>
@@ -150,19 +170,27 @@ export default function AddAppointmentModal({ onAdd }) {
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               placeholder="Appointment details"
-              required
             />
           </div>
 
-          {/* Form action buttons */}
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+
           <div className="flex justify-end gap-2 mt-4">
             {/* Cancel button that closes the dialog without submitting */}
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
-            
-            {/* Submit button that triggers handleSubmit */}
-            <Button type="submit">Add</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Add"
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>

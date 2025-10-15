@@ -1,31 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Clock } from "lucide-react"
 
-export default function ViewAvailabilityModal({ availability = [], onSelect }) {
-  const [selectedSlot, setSelectedSlot] = useState(null)
-  const [open, setOpen] = useState(false) // control dialog state
-
-  const handleConfirm = () => {
-    if (selectedSlot && onSelect) {
-      onSelect(selectedSlot)
-    }
-    setOpen(false) // close the modal after confirming
-  }
-
+export default function ViewAvailabilityModal({ availability = [] }) {
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" onClick={() => setOpen(true)}>
+        <Button variant="outline">
           <Clock className="h-4 w-4 mr-2" /> View Availability
         </Button>
       </DialogTrigger>
@@ -38,13 +21,7 @@ export default function ViewAvailabilityModal({ availability = [], onSelect }) {
             availability.map((slot, idx) => (
               <div
                 key={idx}
-                onClick={() => setSelectedSlot(slot)}
-                className={`p-2 border rounded cursor-pointer transition
-                  ${
-                    selectedSlot === slot
-                      ? "bg-blue-100 border-blue-500"
-                      : "hover:bg-gray-100"
-                  }`}
+                className="p-2 border rounded hover:bg-gray-100 cursor-pointer"
               >
                 {slot.day} — {slot.time}
               </div>
@@ -53,15 +30,6 @@ export default function ViewAvailabilityModal({ availability = [], onSelect }) {
             <p className="text-gray-600 text-sm">No availability slots found</p>
           )}
         </div>
-
-        {/* Confirm Button */}
-        {availability.length > 0 && (
-          <div className="mt-4 flex justify-end">
-            <Button onClick={handleConfirm} disabled={!selectedSlot}>
-              Confirm Selection
-            </Button>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   )

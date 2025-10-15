@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -17,7 +17,8 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
     duration_minutes: '',
     summary: '',
     detailed_notes: '',
-    risk_assessment: ''
+    risk_assessment: '',
+    next_steps: ''
   });
 
   const handleSave = () => {
@@ -129,7 +130,7 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
         </div>
         <DialogFooter className="flex-shrink-0 mt-4">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Save Note</Button>
+          <Button onClick={handleSave} disabled={!formData.client_id}>Save Note</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
