@@ -52,18 +52,47 @@ export async function PATCH(req, { params }) {
     if (!referral)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    // Find the local user record to get their integer ID
+    let localUser = await prisma.user.findUnique({ where: { clerk_user_id: user.id } });
+    if (!localUser) {
+      // User not found, let's try to create them
+      try {
+        localUser = await prisma.user.create({
+          data: {
+            clerk_user_id: user.id,
+            email: user.emailAddresses[0].emailAddress,
+            first_name: user.firstName,
+            last_name: user.lastName,
+            role: user.publicMetadata.role,
+          },
+        });
+      } catch (e) {
+        console.error("Failed to create user in local database during referral update:", e);
+        return NextResponse.json({ error: "User not found in local database and could not be created." }, { status: 500 });
+      }
+    }
+
     // Check the role of the logged-in user
-    const role = user?.publicMetadata?.role;      // Custom user role from Clerk metadata
-    const isAdmin = role === "admin";             // True if user is an admin
-    const isOwner = referral.createdByClerkUserId === user.id; // True if the referral was created by this user
+    const isAdmin = localUser.role === "admin";
+    // Check if the referral is assigned to the logged-in user
+    const isAssignedUser = referral.processed_by_user_id === localUser.id;
     
-    // Only allow admin or teamleader to update
-    if (!isAdmin && !isOwner) {
+    // Only allow admin or the assigned user to update
+    if (!isAdmin && !isAssignedUser) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Parse the request body for updated data
     const body = await req.json();
+
+    // Ensure `processed_by_user_id` is an integer if it exists
+    if (body.processed_by_user_id) {
+      const parsedId = parseInt(body.processed_by_user_id, 10);
+      if (isNaN(parsedId)) {
+        return NextResponse.json({ error: "Invalid processed_by_user_id" }, { status: 400 });
+      }
+      body.processed_by_user_id = parsedId;
+    }
 
     // Update the referral record in the database
     const updated = await prisma.referral.update({

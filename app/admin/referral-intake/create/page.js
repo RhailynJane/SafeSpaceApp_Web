@@ -133,7 +133,6 @@ export default function CreateReferralPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...formData,
-        client_id: parseInt(formData.client_id) || null, // if existing client ID is entered
       }),
     });
 
@@ -210,7 +209,6 @@ export default function CreateReferralPage() {
 
           {/* All Input Fields */}
           <div className="space-y-6">
-            <Field label="Client ID" id="client_id" value={formData.client_id} onChange={handleChange} placeholder="Enter client Id if it exists in system" />
             <Field label="Client First Name" id="client_first_name" value={formData.client_first_name} onChange={handleChange} placeholder="Enter client's first name" />
             <Field label="Client Last Name" id="client_last_name" value={formData.client_last_name} onChange={handleChange} placeholder="Enter client's last name" />
             <Field label="Age" id="age" value={formData.age} onChange={handleChange} placeholder="Enter age" />

@@ -39,6 +39,17 @@ model User {
   @@map("users")
 }
 
+model Notification {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  message    String
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
 model Role {
   id          Int     @id @default(autoincrement())
   role_name   String  @unique
