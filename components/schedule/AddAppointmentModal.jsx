@@ -13,7 +13,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 
 export default function AddAppointmentModal({ onAdd }) {
   const [open, setOpen] = useState(false);
@@ -22,25 +29,61 @@ export default function AddAppointmentModal({ onAdd }) {
   const [type, setType] = useState("Individual Session");
   const [duration, setDuration] = useState("50 min");
   const [details, setDetails] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newAppointment = {
-      id: Date.now(), // simple unique id
-      time,
-      client,
-      type,
-      duration,
-      details,
-    };
-    onAdd(newAppointment);
-    setOpen(false);
-    // Reset form
-    setTime("");
-    setClient("");
-    setType("Individual Session");
-    setDuration("50 min");
-    setDetails("");
+    setError("");
+
+    if (!client || !time) {
+      setError("Please fill all required fields.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Construct data for API
+      const today = new Date().toISOString().split("T")[0];
+      const formData = {
+        client_id: client,
+        appointment_date: today,
+        appointment_time: time,
+        type,
+        duration,
+        details,
+      };
+
+      const res = await fetch("/api/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to add appointment");
+      }
+
+      const created = await res.json();
+
+      // Update dashboard instantly
+      if (onAdd) onAdd(created);
+
+      // Reset & close
+      setClient("");
+      setTime("");
+      setType("Individual Session");
+      setDuration("50 min");
+      setDetails("");
+      setOpen(false);
+    } catch (err) {
+      console.error("Add appointment error:", err);
+      setError(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,16 +94,18 @@ export default function AddAppointmentModal({ onAdd }) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
-          <DialogDescription>Fill in the details for the new appointment.</DialogDescription>
+          <DialogDescription>
+            Fill in the details for the new appointment.
+          </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
-            <Label htmlFor="client">Client Name</Label>
+            <Label htmlFor="client">Client ID</Label>
             <Input
               id="client"
               value={client}
               onChange={(e) => setClient(e.target.value)}
-              placeholder="Enter client name"
+              placeholder="Enter client ID"
               required
             />
           </div>
@@ -108,15 +153,26 @@ export default function AddAppointmentModal({ onAdd }) {
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               placeholder="Appointment details"
-              required
             />
           </div>
 
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+
           <div className="flex justify-end gap-2 mt-4">
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
-            <Button type="submit">Add</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Add"
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>

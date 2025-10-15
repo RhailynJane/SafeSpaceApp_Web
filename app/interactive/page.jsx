@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react";
 
-import { DashboardOverview } from "../dashboard/page";
+import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
 import ReferralActions from "@/components/ReferralActions";
 import NewNoteModal from "@/components/Notes/NewNoteModal";
@@ -52,18 +52,18 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       console.log("getToken is not available yet");
       return;
     }
-    
+
     try {
       setLoading(true);
       setError(null);
       const token = await getToken();
-      
+
       if (!token) {
         console.log("No token available - user may not be authenticated");
         setLoading(false);
         return;
       }
-      
+
       // Always fetch clients and notes
       const [clientRes, noteRes, crisisRes] = await Promise.all([
         fetch("/api/clients"),
@@ -209,11 +209,8 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       });
     } else if (reportType === "sessions") {
       setReportData({
-        sessions: [
-          { date: "2024-01-15", client: "Alice Smith", type: "Individual Session", duration: "50 min" },
-          { date: "2024-01-14", client: "Bob Johnson", type: "Group Therapy", duration: "90 min" },
-          { date: "2024-01-12", client: "Carol Davis", type: "Assessment", duration: "60 min" },
-        ]
+        sessions: schedule
+
       });
     } else if (reportType === "outcomes") {
       setReportData({
@@ -227,6 +224,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       });
     }
   };
+
+  const reopenReferral = async (id) => {
+    setReferrals(prev => prev.map(r => r.id === id ? { ...r, status: "pending" } : r));
+  };
+
+
 
   return (
     <main className="p-6 space-y-6">
@@ -248,10 +251,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
           {tabs.map(tab => <TabsTrigger key={tab} value={tab} className="text-xs">{tab}</TabsTrigger>)}
         </TabsList>
 
+        {/* Overview Tab */}
         <TabsContent value="Overview" className="space-y-6">
           <DashboardOverview userRole={userRole} />
         </TabsContent>
 
+        {/* Referrals Tab - Team Leaders Only */}
         {userRole === "team-leader" && (
           <TabsContent value="Referrals" className="space-y-6">
             <div className="flex items-center justify-between">
@@ -349,11 +354,16 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                       <div key={referral.id} className="border rounded-lg p-4 space-y-2">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                          <Badge variant={
-                            referral.status.toLowerCase() === 'accepted' ? 'default' :
-                            referral.status.toLowerCase() === 'declined' ? 'destructive' :
-                            'secondary'
-                          }>{referral.status}</Badge>
+                          <Badge className={
+                            referral.status.toLowerCase() === "approved"
+                              ? "bg-teal-600 text-white"
+                              : referral.status.toLowerCase() === "rejected"
+                                ? "bg-red-500 text-white"
+                                : "bg-blue-500 text-white"
+                          }>
+                            {referral.status}
+                          </Badge>
+
                         </div>
                         <div className="text-sm text-gray-600">
                           Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
@@ -812,11 +822,11 @@ function InteractiveDashboard() {
   }
 
   const rawRole = user?.publicMetadata?.role;
-  
+
   // Debug: Log the actual role from Clerk
   console.log("Raw role from Clerk:", rawRole);
   console.log("Full publicMetadata:", user?.publicMetadata);
-  
+
   const normalizeRole = (r) => {
     if (!r) return null;
     // Convert any format to underscore: team-leader -> team_leader, teamLeader -> team_leader
@@ -827,7 +837,7 @@ function InteractiveDashboard() {
   const normalized = normalizeRole(rawRole);
   const userRole = normalized ? normalized.replace(/_/g, "-") : "support-worker";
   const userName = user?.fullName ?? "User";
-  
+
   console.log("Normalized role:", normalized);
   console.log("Final userRole for UI:", userRole);
 

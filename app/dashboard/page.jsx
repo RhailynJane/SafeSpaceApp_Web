@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -118,8 +118,28 @@ export default function DashboardPage() {
 
   const formattedMetrics = formatMetrics(metrics);
 
-  const handleAddAppointment = (newAppt) => {
-    mutate(); // revalidate data after adding appointment
+  // <-- UPDATED: force immediate revalidation of /api/dashboard and also revalidate /api/appointments
+  const handleAddAppointment = async (newAppt) => {
+    try {
+      // Force fetch fresh dashboard data immediately and update SWR cache for this key
+      await mutate(async () => {
+        const res = await fetch("/api/dashboard");
+        if (!res.ok) throw new Error("Failed to revalidate dashboard");
+        return res.json();
+      }, false);
+
+      // Also revalidate appointments cache if other parts of app use /api/appointments
+      globalMutate("/api/appointments");
+    } catch (err) {
+      console.error("Error revalidating dashboard after add:", err);
+      // Fallback: call simple mutate() to attempt revalidation
+      try {
+        await mutate();
+        globalMutate("/api/appointments");
+      } catch (e) {
+        console.error("Fallback mutate failed:", e);
+      }
+    }
   };
 
   return (
@@ -197,6 +217,7 @@ export default function DashboardPage() {
         <Card className="bg-teal-50 border-teal-200">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
+            {/* <-- AddAppointmentModal kept exactly as before, now wired to handleAddAppointment */}
             <AddAppointmentModal onAdd={handleAddAppointment} clients={[]} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
