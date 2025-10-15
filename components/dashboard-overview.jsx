@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit, Plus } from "lucide-react";
+
 
 export function DashboardOverview({ userRole }) {
   const metrics = getMetricsForRole(userRole);
@@ -33,29 +35,22 @@ export function DashboardOverview({ userRole }) {
     },
   ]);
 
-  const [todaySchedule] = useState([
-    {
-      id: "1",
-      clientName: "Emma Watson",
-      time: "10:00 AM",
-      type: "Initial Consultation",
-      status: "confirmed",
-    },
-    {
-      id: "2",
-      clientName: "David Chen",
-      time: "02:00 PM",
-      type: "Follow-up session",
-      status: "confirmed",
-    },
-    {
-      id: "3",
-      clientName: "Lisa Rodriguez",
-      time: "04:00 PM",
-      type: "Follow-up session",
-      status: "pending",
-    },
-  ]);
+  const [todaySchedule, setTodaySchedule] = useState([]);
+
+  // This useEffect hook would fetch today's schedule from your API.
+  // For now, it just filters a static list to demonstrate.
+  useEffect(() => {
+    const fetchTodaySchedule = async () => {
+      try {
+        const response = await fetch('/api/appointments?date=today');
+        const data = await response.json();
+        setTodaySchedule(data);
+      } catch (error) {
+        console.error("Failed to fetch today's schedule:", error);
+      }
+    };
+    fetchTodaySchedule();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -126,20 +121,22 @@ export function DashboardOverview({ userRole }) {
         <Card className="bg-teal-50 border-teal-200">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
+            <Link href="/dashboard/schedule" passHref>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
+              >
+                Manage
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent className="space-y-3">
-            {todaySchedule.map((appointment) => (
+            {todaySchedule.length > 0 ? (
+              todaySchedule.map((appointment) => (
               <div
                 key={appointment.id}
-                className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
+                className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
@@ -162,7 +159,10 @@ export function DashboardOverview({ userRole }) {
                   </Badge>
                 </div>
               </div>
-            ))}
+            ))
+            ) : (
+              <p className="text-center text-gray-500 pt-4">No appointments scheduled for today.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -193,15 +193,17 @@ export function DashboardOverview({ userRole }) {
               <span className="text-sm font-medium">View Clients</span>
             </Button>
 
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium">Manage Schedule</span>
-            </Button>
+            <Link href="/dashboard/schedule" passHref>
+              <Button
+                variant="outline"
+                className="h-24 w-full flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+              >
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Calendar className="h-6 w-6 text-blue-600" />
+                </div>
+                <span className="text-sm font-medium">Manage Schedule</span>
+              </Button>
+            </Link>
 
             <Button
               variant="outline"

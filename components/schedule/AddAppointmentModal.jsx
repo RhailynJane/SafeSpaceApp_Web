@@ -2,7 +2,7 @@
 // This directive tells Next.js that this file runs on the client side (browser) 
 // and can use hooks like useState or event handlers.
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 // React hook for managing state variables in a functional component.
 
 import {
@@ -14,89 +14,79 @@ import {
   DialogDescription,
   DialogClose,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+// Importing reusable dialog (modal) components from your UI library (shadcn/ui).
+// These handle opening, closing, and content of the modal.
+
+import { Button } from "@/components/ui/button"; // Button component (styled)
+import { Input } from "@/components/ui/input"; // Input component for text fields
+import { Label } from "@/components/ui/label"; // Label for form fields
+import { 
+  Select, 
+  SelectTrigger, 
+  SelectValue, 
+  SelectContent, 
+  SelectItem 
+} from "@/components/ui/select"; 
+import { Plus } from "lucide-react";
+// Dropdown (Select) components for choosing options.
+
 
 // Main component definition
-export default function AddAppointmentModal({ onAdd }) {
-  const [open, setOpen] = useState(false);
-  const [time, setTime] = useState("");
-  const [client, setClient] = useState("");
-  const [type, setType] = useState("Individual Session");
-  const [duration, setDuration] = useState("50 min");
-  const [details, setDetails] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+export default function AddAppointmentModal({ onAdd, prefilledSlot, onClose }) {
+  // Props:
+  // - onAdd: a function passed from the parent component that handles adding a new appointment.
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
+  // State variables to manage form input values and dialog visibility.
+  const [isOpen, setIsOpen] = useState(false);
+  const [newAppointment, setNewAppointment] = useState({
+    clientName: "",
+    date: "",
+    time: "",
+    duration: "50 min",
+  });
 
-    if (!client || !time) {
-      setError("Please fill all required fields.");
-      return;
+  useEffect(() => {
+    if (prefilledSlot) {
+      setNewAppointment(prev => ({
+        ...prev,
+        date: prefilledSlot.date,
+        time: prefilledSlot.time,
+      }));
+      setIsOpen(true);
     }
+  }, [prefilledSlot]);
 
-    try {
-      setLoading(true);
-
-      // Construct data for API
-      const today = new Date().toISOString().split("T")[0];
-      const formData = {
-        client_id: client,
-        appointment_date: today,
-        appointment_time: time,
-        type,
-        duration,
-        details,
-      };
-
-      const res = await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to add appointment");
-      }
-
-      const created = await res.json();
-
-      // Update dashboard instantly
-      if (onAdd) onAdd(created);
-
-      // Reset & close
-      setClient("");
-      setTime("");
-      setType("Individual Session");
-      setDuration("50 min");
-      setDetails("");
-      setOpen(false);
-    } catch (err) {
-      console.error("Add appointment error:", err);
-      setError(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
+  const handleOpenChange = (open) => {
+    setIsOpen(open);
+    if (!open && onClose) {
+      onClose();
     }
+  };
+
+  // Function to handle form submission
+  const handleSubmit = (e) => {
+    e.preventDefault(); // Prevents the default browser reload behavior on form submission
+
+    // Call the parent function to add the new appointment to the list
+    onAdd(newAppointment);
+
+    // Close the modal after submission
+    // Close the modal after submission
+    handleOpenChange(false);
+
+    // Reset form fields back to their initial values
+    setNewAppointment({ client: "", date: "", time: "", duration: "50 min" });
   };
 
   return (
     // Dialog (modal) wrapper
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       {/* Button that opens the modal */}
       <DialogTrigger asChild>
-        <Button variant="default">Add Appointment</Button>
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Appointment
+        </Button>
       </DialogTrigger>
 
       {/* Modal content area */}
@@ -113,12 +103,12 @@ export default function AddAppointmentModal({ onAdd }) {
           
           {/* Client name input field */}
           <div className="grid gap-2">
-            <Label htmlFor="client">Client ID</Label>
+            <Label htmlFor="clientName">Client Name</Label>
             <Input
-              id="client"
-              value={client}
-              onChange={(e) => setClient(e.target.value)}
-              placeholder="Enter client ID"
+              id="clientName"
+              value={newAppointment.clientName}
+              onChange={(e) => setNewAppointment({ ...newAppointment, clientName: e.target.value })}
+              placeholder="Enter client name"
               required
             />
           </div>
@@ -129,8 +119,8 @@ export default function AddAppointmentModal({ onAdd }) {
             <Input
               id="time"
               type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
+              value={newAppointment.time}
+              onChange={(e) => setNewAppointment({ ...newAppointment, time: e.target.value })}
               required
             />
           </div>
@@ -138,7 +128,7 @@ export default function AddAppointmentModal({ onAdd }) {
           {/* Dropdown to select session type */}
           <div className="grid gap-2">
             <Label htmlFor="type">Session Type</Label>
-            <Select value={type} onValueChange={(val) => setType(val)}>
+            <Select value={newAppointment.type} onValueChange={(val) => setNewAppointment({ ...newAppointment, type: val })}>
               <SelectTrigger>
                 <SelectValue placeholder="Select session type" />
               </SelectTrigger>
@@ -155,8 +145,8 @@ export default function AddAppointmentModal({ onAdd }) {
             <Label htmlFor="duration">Duration</Label>
             <Input
               id="duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
+              value={newAppointment.duration}
+              onChange={(e) => setNewAppointment({ ...newAppointment, duration: e.target.value })}
               placeholder="e.g., 50 min"
               required
             />
@@ -167,8 +157,8 @@ export default function AddAppointmentModal({ onAdd }) {
             <Label htmlFor="details">Details</Label>
             <Input
               id="details"
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
+              value={newAppointment.details}
+              onChange={(e) => setNewAppointment({ ...newAppointment, details: e.target.value })}
               placeholder="Appointment details"
             />
           </div>

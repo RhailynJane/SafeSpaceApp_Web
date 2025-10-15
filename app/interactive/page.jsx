@@ -64,100 +64,111 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         return;
       }
 
-      // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes] = await Promise.all([
-        fetch("/api/clients"),
-        fetch("/api/notes"),
-        fetch("/api/crisis-events"),
-      ]);
+"use client"
 
-      if (clientRes.ok) {
-        const clientData = await clientRes.json();
-        setClients(Array.isArray(clientData) ? clientData : []);
-      } else {
-        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText);
-      }
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Label } from "@/components/ui/label"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Input } from "@/components/ui/input.jsx"
+import { Textarea } from "@/components/ui/textarea.jsx"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User,
+  FileText, BarChart3, AlertTriangle, Calendar, MessageSquare,
+  Edit, Eye, Download, Share2, Shield
+} from "lucide-react"
 
-      if (noteRes.ok) {
-        const noteData = await noteRes.json();
-        setNotes(Array.isArray(noteData) ? noteData : []);
-      } else {
-        console.error("Failed to fetch notes:", noteRes.status, noteRes.statusText);
-      }
+import { ReferralStatusTracker } from "../referrals/page.jsx"
+import { DashboardOverview } from "../dashboard/page.jsx"
+import ClientActionButtons from "@/components/ClientActionButtons.jsx"
+import ReferralActions from "@/components/ReferralActions.jsx"
+import NewNoteModal from "@/components/Notes/NewNoteModal.jsx"
+import ViewNoteModal from "@/components/Notes/ViewNoteModal.jsx"
+import EditNoteModal from "@/components/Notes/EditNoteModal.jsx"
+import EmergencyCallModal from "@/components/crisis/EmergencyCallModal.jsx"
+import CrisisHotlineModal from "@/components/crisis/CrisisHotlineModal.jsx"
+import ContactClientModal from "@/components/crisis/ContactClientModal.jsx"
+import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal.jsx"
+import AddAppointmentModal from "@/components/schedule/AddAppointmentModal"
+import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal"
+import ViewCalendarModal from "@/components/schedule/ViewCalendarModal"
+import ViewDetailsModal from "@/components/schedule/ViewDetailsModal"
+import ViewReportModal from "@/components/reports/ViewReportModal"
 
-      if (crisisRes.ok) {
-        const crisisData = await crisisRes.json();
-        setCrisisEvents(Array.isArray(crisisData) ? crisisData : []);
-      } else {
-        console.error("Failed to fetch crisis events:", crisisRes.status, crisisRes.statusText);
-      }
-
-      // Conditionally fetch referrals
-      if (userRole === "team-leader") {
-        const refRes = await fetch("/api/referrals");
-        if (refRes.ok) {
-          const refData = await refRes.json();
-          setReferrals(Array.isArray(refData) ? refData : []);
-        } else {
-          console.error("Failed to fetch referrals:", refRes.status, refRes.statusText);
-        }
-      }
-
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      setError("Failed to load data. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [getToken, userRole]);
+import jsPDF from "jspdf"
 
 
-export default function InteractiveDashboard() {
-  const { user } = useUser();
-  const userName = user?.firstName ? user.firstName.charAt(0).toUpperCase() + user.firstName.slice(1) : "User";
-  const rawRole = user?.publicMetadata?.role;
-  const userRole = rawRole ? rawRole.replace(/_/g, "-") : "support-worker";
-  const [referrals, setReferrals] = useState([]);
-  const [supportWorkers, setSupportWorkers] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+export default function InteractiveDashboard({ userRole = "support-worker", userName = "User" }) {
+  // State for controlling schedule modals
+  const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [isCalendarModalOpen, setCalendarModalOpen] = useState(false);
+  const [selectedAvailability, setSelectedAvailability] = useState(null);
 
-  const toTitleCase = (str) => {
-    if (!str) return '';
-    return str.replace(/-/g, ' ').replace(
-      /\w\S*/g,
-      (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-    );
-  };
+  const [referrals, setReferrals] = useState([
+    {
+      id: "1",
+      clientName: "Sarah Johnson",
+      age: 28,
+      referralSource: "Community Health Center",
+      reason: "Anxiety and depression following job loss",
+      priority: "High",
+      submittedDate: "2024-01-15",
+      status: "pending",
+      contactInfo: {
+        phone: "(555) 123-4567",
+        email: "sarah.j@email.com",
+        address: "123 Main St, City, State 12345",
+        emergencyContact: "John Johnson (Brother) - (555) 987-6543",
+      },
+      additionalNotes: "Client has expressed suicidal ideation. Immediate assessment recommended.",
+      submittedBy: "Admin User",
+    },
+    {
+      id: "2",
+      clientName: "Michael Chen",
+      age: 35,
+      referralSource: "Primary Care Physician",
+      reason: "PTSD symptoms after car accident",
+      priority: "Medium",
+      submittedDate: "2024-01-14",
+      status: "accepted",
+      contactInfo: {
+        phone: "(555) 234-5678",
+        email: "m.chen@email.com",
+        address: "456 Oak Ave, City, State 12345",
+        emergencyContact: "Lisa Chen (Wife) - (555) 876-5432",
+      },
+      additionalNotes: "Client is motivated for treatment. Has good family support.",
+      submittedBy: "Admin User",
+      processedDate: "2024-01-14",
+      processedBy: "Team Leader",
+    },
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user) return;
-      try {
-        const referralsResponse = await fetch('/api/referrals/mine');
-        if (!referralsResponse.ok) throw new Error('Failed to fetch referrals');
-        const referralsData = await referralsResponse.json();
-        setReferrals(referralsData.referrals);
 
-        if (userRole === 'team-leader') {
-          const supportWorkersResponse = await fetch('/api/support-workers');
-          if (!supportWorkersResponse.ok) throw new Error('Failed to fetch support workers');
-          const supportWorkersData = await supportWorkersResponse.json();
-          setSupportWorkers(supportWorkersData);
-        }
+    {
+      id: "3",
+      clientName: "Emma Davis",
+      age: 42,
+      referralSource: "Hospital Emergency Department",
+      reason: "Crisis intervention needed for severe depression",
+      priority: "Critical",
+      submittedDate: "2024-01-16",
+      status: "pending",
+      contactInfo: {
+        phone: "(555) 345-6789",
+        email: "emma.davis@email.com",
+        address: "789 Pine St, City, State 12345",
+        emergencyContact: "Robert Davis (Husband) - (555) 654-3210",
+      },
+      additionalNotes: "Patient was brought in after suicide attempt. Requires immediate attention.",
+      submittedBy: "ER Social Worker",
+    },
 
-        const notificationsResponse = await fetch('/api/notifications/mine');
-        if (notificationsResponse.ok) {
-          const notificationsData = await notificationsResponse.json();
-          setNotifications(notificationsData.notifications);
-        }
-
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-
-    fetchData();
-  }, [user, userRole]);
+  ])
 
   const [clients] = useState([
     { id: 1, name: "Alice Smith", status: "Active", lastSession: "2024-01-10", riskLevel: "Low" },
@@ -182,6 +193,14 @@ export default function InteractiveDashboard() {
   const handleAddAppointment = (newAppointment) => {
     setSchedule(prevSchedule => [...prevSchedule, newAppointment])
   }
+
+  // When an availability slot is selected, open the AddAppointmentModal with pre-filled data
+  useEffect(() => {
+    if (selectedAvailability) {
+      // This will trigger the AddAppointmentModal to open with the selected slot's data
+      // The modal's internal logic will need to handle this.
+    }
+  }, [selectedAvailability]);
 
   // Generate reports
   const generateReport = () => {
@@ -450,19 +469,30 @@ export default function InteractiveDashboard() {
             </CardHeader>
             <CardContent>
               {/* Action Buttons */}
-              <div className="flex gap-2 mb-4">
-                <AddAppointmentModal onAdd={handleAddAppointment} />
+              <div className="flex flex-wrap gap-2 mb-4">
+                <AddAppointmentModal
+                  onAdd={handleAddAppointment}
+                  prefilledSlot={selectedAvailability}
+                  onClose={() => setSelectedAvailability(null)}
+                />
                 <ViewAvailabilityModal
+                  isOpen={isAvailabilityModalOpen}
+                  onOpenChange={setAvailabilityModalOpen}
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
                     { day: "Friday", time: "9:00 AM - 11:00 AM" },
                   ]}
+                  onSelect={setSelectedAvailability}
                 />
-                <ViewCalendarModal schedule={schedule} />
+                <ViewCalendarModal 
+                  isOpen={isCalendarModalOpen}
+                  onOpenChange={setCalendarModalOpen}
+                />
               </div>
 
               {/* Schedule List */}
+
               <div className="space-y-4">
                 {schedule.length > 0 ? (
                   schedule.map((appt) => (
