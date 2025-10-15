@@ -1,90 +1,109 @@
-
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getAuth } from '@clerk/nextjs/server';
+// app/api/appointments/route.js
+import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import { getAuth } from "@clerk/nextjs/server";
 
 const prisma = new PrismaClient();
 
 export async function GET(req) {
   try {
-    const { userId: clerkUserId } = getAuth(req);
-    if (!clerkUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerk_user_id: clerkUserId },
+    const dbUser = await prisma.user.findUnique({
+      where: { clerk_user_id: userId },
     });
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!dbUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const appointments = await prisma.appointment.findMany({
       where: {
-        OR: [
-          { scheduled_by_user_id: user.id },
-          { client: { user_id: user.id } }
-        ]
+        scheduled_by_user_id: dbUser.id,
       },
       include: {
         client: true,
       },
       orderBy: {
-        appointment_date: 'asc',
+        appointment_date: "asc",
       },
     });
 
     return NextResponse.json(appointments);
   } catch (error) {
-    console.error('Error fetching appointments:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Error fetching appointments:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 
+
 export async function POST(req) {
   try {
-    const { userId: clerkUserId } = getAuth(req);
-    if (!clerkUserId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerk_user_id: clerkUserId },
+    const dbUser = await prisma.user.findUnique({
+      where: { clerk_user_id: userId },
     });
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!dbUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const body = await req.json();
     const { client_id, appointment_date, appointment_time, type, duration, details } = body;
 
-    if (!client_id || !appointment_date || !appointment_time || !type) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    let clientId = client_id;
+
+    // If no client_id is provided, create a new client as a fallback
+    if (!clientId) {
+      const newClient = await prisma.client.create({
+        data: {
+          client_first_name: "Test",
+          client_last_name: "Client",
+          user_id: dbUser.id,
+          status: "Active",
+          risk_level: "Low",
+        },
+      });
+      clientId = newClient.id;
+    } else {
+      // Ensure client_id is an integer
+      clientId = parseInt(clientId, 10);
     }
 
-    const appointmentDateTime = new Date(`${appointment_date}T${appointment_time}`);
+    // Construct appointment date and time
+    const date = new Date(appointment_date);
+    const [hours, minutes] = appointment_time.split(':').map(Number);
+    date.setHours(hours, minutes, 0, 0);
 
-    const newAppointment = await prisma.appointment.create({
+    // ✅ Create appointment
+    const appointment = await prisma.appointment.create({
       data: {
-        client_id,
-        scheduled_by_user_id: user.id,
-        appointment_date: new Date(appointment_date),
-        appointment_time: appointmentDateTime,
-        type,
-        duration,
-        details,
-        status: 'Scheduled',
+        client_id: clientId,
+        appointment_date: date,
+        appointment_time: date,
+        type: type || "Individual Session",
+        duration: duration || "50 min",
+        details: details || "Routine check-in session",
+        status: "scheduled",
+        scheduled_by_user_id: dbUser.id,
       },
       include: {
         client: true,
-      }
+      },
     });
 
-    return NextResponse.json(newAppointment, { status: 201 });
+    return NextResponse.json(appointment, { status: 201 });
   } catch (error) {
-    console.error('Error creating appointment:', error);
-    return NextResponse.json({ error: 'Internal Server Error', details: error.message }, { status: 500 });
+    console.error("Error creating appointment:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
