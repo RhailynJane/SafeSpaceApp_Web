@@ -71,43 +71,32 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
       return;
     }
 
-    setIsProcessing(true);
-    try {
-      // --- API call to update referral status ---
-      const res = await fetch(`/api/referrals/${referral.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: selectedAction, note: actionNotes }),
-      });
-
-      // --- Handle HTTP errors ---
-      if (!res.ok) {
-        let errorMessage = "Failed to update referral due to a server error.";
-        try {
-          const errorData = await res.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (e) {
-          errorMessage = res.statusText;
-        }
-        throw new Error(errorMessage);
+  setIsProcessing(true);
+  try {
+    // --- API call to update referral status ---
+      let body = { status: selectedAction };
+      if (selectedAction === "accepted") {
+        body.processed_date = new Date().toISOString();
+      } else if (selectedAction === "more-info-requested") {
+        body.additional_notes = actionNotes;
       }
 
-      // --- Parse updated referral from API response ---
-      const updatedReferral = await res.json();
+      const res = await fetch(`/api/referrals/${referral.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-      // --- Notify parent component of status update ---
-      onStatusUpdate?.(referral.id, updatedReferral);
-
-      // --- Close modals and open success dialog ---
-      setShowConfirmDialog(false);
-      setShowNotesDialog(false);
-      setShowSuccessDialog(true);
-
-    } catch (error) {
-      console.error("Error updating referral:", error);
-      alert(`Error: ${error.message}`);
-    } finally {
-      setIsProcessing(false);
+    // --- Handle HTTP errors ---
+    if (!res.ok) {
+      let errorMessage = "Failed to update referral due to a server error.";
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (e) {
+        errorMessage = res.statusText;
+      }
+      throw new Error(errorMessage);
     }
   };
 

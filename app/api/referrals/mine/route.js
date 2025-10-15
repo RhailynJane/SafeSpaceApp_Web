@@ -11,9 +11,19 @@ export async function GET() {
 
     const clerkUserId = user.id;
 
+    // Find the local user record based on the Clerk user ID to get the integer ID
+    const localUser = await prisma.user.findUnique({
+      where: { clerk_user_id: clerkUserId },
+    });
+
+    if (!localUser) {
+      return NextResponse.json({ error: "User not found in local database" }, { status: 404 });
+    }
+
+    // Fetch referrals assigned to the local user's integer ID
     const referrals = await prisma.referral.findMany({
-      where: { createdByClerkUserId: clerkUserId },
-      orderBy: { createdAt: "desc" },
+      where: { processed_by_user_id: localUser.id },
+      orderBy: { created_at: "desc" },
     });
 
     return NextResponse.json({ referrals });

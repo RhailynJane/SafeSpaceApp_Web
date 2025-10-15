@@ -41,10 +41,10 @@ function TimelineModal({ data, onClose }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl">
-                <h2 className="text-2xl font-bold text-gray-800 text-center">Referral Timeline - {data.client_name}</h2>
+                <h2 className="text-2xl font-bold text-gray-800 text-center capitalize">Referral Timeline - {data.client_first_name} {data.client_last_name}</h2>
                 <p className="text-center text-gray-500 mb-6">Complete status history and processing timeline</p>
                 <div className="text-sm space-y-2 mb-8 text-center bg-gray-50 p-4 rounded-lg">
-                    <p><span className="font-semibold text-gray-600">Client:</span> {data.client_name}</p>
+                    <p className="capitalize"><span className="font-semibold text-gray-600">Client:</span> {data.client_first_name} {data.client_last_name}</p>
                     <p><span className="font-semibold text-gray-600">Submitted by:</span> {data.processed_by_user_id}</p>
                     <p><span className="font-semibold text-gray-600">Current Status:</span> <span className={`px-2 py-1 rounded font-medium text-xs ${getStatusColor(data.status.toUpperCase())}`}>{data.status}</span></p>
                 </div>
@@ -145,7 +145,7 @@ export default function ReferralTrackingPage() {
                     {referrals.map(ref => (
                         <div key={ref.id} className="bg-white p-6 rounded-lg border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             <div>
-                                <h3 className="font-bold text-lg text-gray-800">{ref.client_name}</h3>
+                                <h3 className="font-bold text-lg text-gray-800 capitalize">{ref.client_first_name} {ref.client_last_name}</h3>
                                 <p className="text-sm text-gray-500 mb-3">Age: {ref.age}</p>
                                 <ProgressTracker steps={["pending", "accepted", "in-progress", "completed"]} currentProgress={[ref.status]} />
                             </div>
