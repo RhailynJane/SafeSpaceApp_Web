@@ -98,26 +98,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
       }
       throw new Error(errorMessage);
     }
-
-    // --- Parse updated referral from API response ---
-    const { referral: updatedReferral } = await res.json();
-
-    // --- Notify parent component of status update ---
-    onStatusUpdate?.(referral.id, updatedReferral);
-
-    // --- Close modals and open success dialog ---
-    setShowConfirmDialog(false);
-    setShowNotesDialog(false);
-    setShowSuccessDialog(true);
-
-  } catch (error) {
-    console.error("Error updating referral:", error);
-    alert(`Error: ${error.message}`);
-  } finally {
-    setIsProcessing(false);
-  }
-};
-
+  };
 
   // ---------------------------------------------------------------------------
   // handleNotesSubmit()

@@ -1,3 +1,6 @@
+// “Referral Intake Dashboard” - the main admin-facing page for managing new referrals.
+// Used ChatGPT (OpenAI GPT-5) to help document this file.
+// Prompt - "add explanatory comments for each line of code."
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -34,7 +37,7 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
     };
 
     return (
-        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-white/30 backdrop-blur-2xl flex items-center justify-center z-50 p-4">
             <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-800">Submit Referral to Team Leader for {referral.client_first_name} {referral.client_last_name}</h2>
@@ -143,14 +146,35 @@ export default function ReferralIntakePage() {
     const closeModal = () => setModal({ type: null, data: null });
 
     const handleAcceptReferral = async (therapistId) => {
-        const res = await fetch(`/api/referrals/${modal.data.id}`,{
-        method: 'PATCH',
+        console.log("therapistId:", therapistId);
+        if (!therapistId) {
+            alert("Please select a Team Leader.");
+            return;
+        }
+        const res = await fetch(`/api/referrals/${modal.data.id}`, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ processed_by_user_id: therapistId }),
+            body: JSON.stringify({
+                processed_by_user_id: therapistId,
+                status: 'in-review'
+            }),
         });
         if (res.ok) {
-            setReferrals(referrals.filter(r => r.id !== modal.data.id));
+            await fetch('/api/notifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: parseInt(therapistId, 10),
+                    message: `You have a new referral to review: ${modal.data.client_first_name} ${modal.data.client_last_name}`,
+                }),
+            });
+            setReferrals(referrals.map(r =>
+                r.id === modal.data.id ? { ...r, status: 'in-review' } : r
+            ));
             closeModal();
+        } else {
+            const errorData = await res.json();
+            alert(`Failed to assign referral: ${errorData.error || 'Unknown error'}`);
         }
     };
 
@@ -190,11 +214,11 @@ export default function ReferralIntakePage() {
                         {referrals.map(referral => (
                             <tr key={referral.id} className="hover:bg-gray-50">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{referral.id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{referral.client_name}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 capitalize">{referral.client_first_name} {referral.client_last_name}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{referral.referral_source}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(referral.submitted_date).toLocaleDateString()}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{referral.status}</span>
+                                    <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">{referral.status}</span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                     <button onClick={() => openModal('accept', referral)} className="px-4 py-1.5 border border-transparent rounded-md text-xs text-white bg-teal-600 hover:bg-teal-700">Submit to Team Leader</button>

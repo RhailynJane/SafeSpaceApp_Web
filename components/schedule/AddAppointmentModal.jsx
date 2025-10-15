@@ -160,19 +160,27 @@ export default function AddAppointmentModal({ onAdd, prefilledSlot, onClose }) {
               value={newAppointment.details}
               onChange={(e) => setNewAppointment({ ...newAppointment, details: e.target.value })}
               placeholder="Appointment details"
-              required
             />
           </div>
 
-          {/* Form action buttons */}
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+
           <div className="flex justify-end gap-2 mt-4">
             {/* Cancel button that closes the dialog without submitting */}
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
-            
-            {/* Submit button that triggers handleSubmit */}
-            <Button type="submit">Add</Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Add"
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>

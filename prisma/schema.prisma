@@ -1,11 +1,21 @@
+// =======================
+// Prisma Client Generator
+// =======================
 generator client {
   provider = "prisma-client-js"
 }
 
+// =======================
+// Database Connection
+// =======================
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// =======================
+// MODELS
+// =======================
 
 model User {
   id                  Int        @id @default(autoincrement())
@@ -25,6 +35,17 @@ model User {
   processed_referrals Referral[] @relation("ProcessedByUser")
 
   @@map("users")
+}
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  message    String
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
 }
 
 model Role {
@@ -69,24 +90,26 @@ model RiskLevel {
 }
 
 model Client {
-  id                      Int        @id @default(autoincrement())
-  client_id               Int?       @unique
-  client_first_name       String
-  client_last_name        String
-  status                  String?
-  last_session_date       DateTime?
-  risk_level              String?
-  phone                   String?
-  email                   String?
-  address                 String?
-  emergency_contact_name  String?
-  emergency_contact_phone String?
-  created_at              DateTime   @default(now())
-  updated_at              DateTime   @updatedAt
-  user_id                 Int?
-  user                    User?      @relation(fields: [user_id], references: [id])
-  notes                   Note[]
-  referrals               Referral[] @relation("ClientReferrals")
+  id                        Int           @id @default(autoincrement())
+  client_id                 Int?          @unique
+  client_first_name         String
+  client_last_name          String
+  status                    String?
+  last_session_date         DateTime?
+  risk_level                String?
+  phone                     String?
+  email                     String?       @unique
+  address                   String?
+  emergency_contact_name    String?
+  emergency_contact_phone   String?
+  created_at                DateTime      @default(now())
+  updated_at                DateTime      @updatedAt
+  user_id                   Int?
+  user                      User?         @relation(fields: [user_id], references: [id])
+  notes                     Note[]
+  referrals                 Referral[]    @relation("ClientReferrals")
+  appointments              Appointment[]
+  crisis_events             CrisisEvent[] @relation("ClientCrisisEvents")
 
   @@map("clients")
 }
@@ -139,6 +162,7 @@ model Note {
   summary          String?
   detailed_notes   String?
   risk_assessment  String?
+  next_steps       String?
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
   author           User     @relation("AuthoredNotes", fields: [author_user_id], references: [id])

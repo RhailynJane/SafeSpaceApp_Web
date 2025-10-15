@@ -17,7 +17,8 @@ export default function EditNoteModal({ isOpen, onClose, note, onSave }) {
     duration_minutes: '',
     summary: '',
     detailed_notes: '',
-    risk_assessment: ''
+    risk_assessment: '',
+    next_steps: ''
   });
 
   // Update form data when note changes
@@ -31,7 +32,8 @@ export default function EditNoteModal({ isOpen, onClose, note, onSave }) {
         duration_minutes: note.duration_minutes || '',
         summary: note.summary || '',
         detailed_notes: note.detailed_notes || '',
-        risk_assessment: note.risk_assessment || ''
+        risk_assessment: note.risk_assessment || '',
+        next_steps: note.next_steps || ''
       });
     }
   }, [note]);
@@ -93,7 +95,7 @@ export default function EditNoteModal({ isOpen, onClose, note, onSave }) {
               <Input 
                 type="number" 
                 value={formData.duration_minutes}
-                onChange={(e) => setFormData(prev => ({...prev, duration_minutes: parseInt(e.target.value)}))}
+                onChange={(e) => setFormData(prev => ({...prev, duration_minutes: e.target.value ? parseInt(e.target.value) : ''}))}
               />
             </div>
           </div>

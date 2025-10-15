@@ -66,7 +66,7 @@ export async function POST(req) {
       });
     } else if (eventType === "user.deleted") {
       const clerkId = data.id;
-      // You may prefer soft-delete; currently doing hard delete
+      // currently doing hard delete
       await prisma.user.deleteMany({ where: { clerk_user_id: clerkId } });
     } else {
       // ignore other events or implement handling if needed
