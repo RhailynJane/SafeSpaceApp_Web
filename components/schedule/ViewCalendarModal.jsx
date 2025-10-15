@@ -1,89 +1,120 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@clerk/nextjs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useState } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Calendar as BigCalendar, momentLocalizer } from "react-big-calendar"
-import moment from "moment"
-import "react-big-calendar/lib/css/react-big-calendar.css"
 import { Calendar } from "lucide-react"
 
-const localizer = momentLocalizer(moment)
+export default function ViewCalendarModal({ schedule = [] }) {
+  const [month] = useState(new Date().getMonth()) // current month
+  const [year] = useState(new Date().getFullYear())
 
-export default function ViewCalendarModal({ isOpen, onOpenChange }) {
-  const [events, setEvents] = useState([])
-  const { isLoaded, isSignedIn } = useAuth()
-  const [date, setDate] = useState(new Date());
-  const [view, setView] = useState('week');
+  // Extract appointment dates (assumes appointments have `date` field "YYYY-MM-DD")
+  const appointmentDates = schedule.map((appt) => appt?.date).filter(Boolean)
 
-  useEffect(() => {
-    // Only fetch data if the modal is open AND the user is signed in.
-    if (isOpen && isLoaded && isSignedIn) {
-      const fetchSchedule = async () => {
-        try {          
-          const response = await fetch("/api/appointments");
-          if (!response.ok) {
-            throw new Error("Failed to fetch schedule")
-          }
-          const appointments = await response.json();
-          const formattedEvents = appointments.map(appointment => {
-            const [hours, minutes] = appointment.time.split(':').map(Number);
-            const start = new Date(appointment.date);
-            start.setUTCHours(hours, minutes);
+  // Generate days for the current month
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const firstDayOfMonth = new Date(year, month, 1).getDay() // 0 = Sunday, 1 = Monday, etc.
+  
+  // Create array of days including empty cells for proper calendar layout
+  const days = []
+  
+  // Add empty cells for days before the first day of the month
+  for (let i = 0; i < firstDayOfMonth; i++) {
+    days.push(null)
+  }
+  
+  // Add all days of the month
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push(i)
+  }
 
-            const durationMinutes = parseInt(appointment.duration) || 50;
-            const end = new Date(start.getTime() + durationMinutes * 60000);
+  const isAppointmentDay = (day) => {
+    if (!day) return false
+    const dayStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+    return appointmentDates.includes(dayStr)
+  }
 
-            return {
-              id: appointment.id,
-              title: `${appointment.clientName} - ${appointment.type}`,
-              start,
-              end,
-              resource: appointment,
-            };
-          });
-          setEvents(formattedEvents);
-        } catch (error) {
-          console.error("Error fetching schedule:", error)
-          // Handle error display to the user
-        }
-      }
+  const getAppointmentCount = (day) => {
+    if (!day) return 0
+    const dayStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+    return schedule.filter(appt => appt?.date === dayStr).length
+  }
 
-      fetchSchedule()
-    }
-  }, [isOpen, isLoaded, isSignedIn])
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ]
+
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline">
-          <Calendar className="h-4 w-4 mr-2" />
-          View Calendar
+          <Calendar className="h-4 w-4 mr-2" /> View Calendar
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl h-[80vh]">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>My Calendar</DialogTitle>
+          <DialogTitle>{monthNames[month]} {year}</DialogTitle>
         </DialogHeader>
-        <div className="h-[calc(80vh-100px)]">
-          <BigCalendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: "100%" }}
-            defaultDate={new Date()}
-            date={date}
-            view={view}
-            onNavigate={(newDate) => setDate(newDate)}
-            onView={(newView) => setView(newView)}
-            views={["month", "week", "day"]}
-            selectable
-            // onSelectSlot={(slotInfo) => console.log("Selected slot:", slotInfo)}
-            // onSelectEvent={(event) => console.log("Selected event:", event)}
-          />
+
+        <div className="mt-4">
+          {/* Day headers */}
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {dayNames.map((dayName) => (
+              <div
+                key={dayName}
+                className="h-8 flex items-center justify-center text-xs font-medium text-gray-500"
+              >
+                {dayName}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-1">
+            {days.map((day, index) => {
+              const appointmentCount = getAppointmentCount(day)
+              return (
+                <div
+                  key={index}
+                  className={`h-12 flex flex-col items-center justify-center rounded-md border text-sm relative ${
+                    day === null
+                      ? "border-transparent" // Empty cells
+                      : isAppointmentDay(day)
+                      ? "bg-blue-500 text-white font-semibold hover:bg-blue-600"
+                      : "bg-gray-50 hover:bg-gray-100 border-gray-200"
+                  } ${day ? "cursor-pointer" : ""}`}
+                >
+                  {day && (
+                    <>
+                      <span>{day}</span>
+                      {appointmentCount > 0 && (
+                        <span className="text-xs opacity-75">
+                          {appointmentCount > 1 ? `${appointmentCount}` : ""}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
+
+        {schedule.length === 0 && (
+          <p className="text-center text-gray-500 mt-4 text-sm">
+            No appointments scheduled this month
+          </p>
+        )}
       </DialogContent>
     </Dialog>
   )

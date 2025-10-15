@@ -44,7 +44,6 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
       setError("Please fill all required fields.");
       return;
     }
-  }, [prefilledSlot]);
 
     try {
       setLoading(true);
@@ -88,33 +87,11 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     }
   };
 
-  // Function to handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault(); // Prevents the default browser reload behavior on form submission
-
-    // Call the parent function to add the new appointment to the list
-    onAdd(newAppointment);
-
-    // Close the modal after submission
-    // Close the modal after submission
-    handleOpenChange(false);
-
-    // Reset form fields back to their initial values
-    setNewAppointment({ client: "", date: "", time: "", duration: "50 min" });
-  };
-
   return (
-    // Dialog (modal) wrapper
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      {/* Button that opens the modal */}
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Appointment
-        </Button>
+        <Button variant="default">Add Appointment</Button>
       </DialogTrigger>
-
-      {/* Modal content area */}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
@@ -122,11 +99,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             Fill in the details for the new appointment.
           </DialogDescription>
         </DialogHeader>
-
-        {/* Appointment form */}
         <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
-          
-          {/* Client name input field */}
           <div className="grid gap-2">
             <Label htmlFor="client">Client</Label>
             <Select onValueChange={setClientId} value={client_id}>
@@ -154,7 +127,6 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             />
           </div>
 
-          {/* Time input field */}
           <div className="grid gap-2">
             <Label htmlFor="time">Time</Label>
             <Input
@@ -166,7 +138,6 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             />
           </div>
 
-          {/* Dropdown to select session type */}
           <div className="grid gap-2">
             <Label htmlFor="type">Session Type</Label>
             <Select value={type} onValueChange={setType}>
@@ -183,25 +154,23 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             </Select>
           </div>
 
-          {/* Duration input field */}
           <div className="grid gap-2">
             <Label htmlFor="duration">Duration</Label>
             <Input
               id="duration"
-              value={newAppointment.duration}
-              onChange={(e) => setNewAppointment({ ...newAppointment, duration: e.target.value })}
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
               placeholder="e.g., 50 min"
               required
             />
           </div>
 
-          {/* Details input field */}
           <div className="grid gap-2">
             <Label htmlFor="details">Details</Label>
             <Input
               id="details"
-              value={newAppointment.details}
-              onChange={(e) => setNewAppointment({ ...newAppointment, details: e.target.value })}
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
               placeholder="Appointment details"
             />
           </div>
@@ -209,7 +178,6 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <div className="flex justify-end gap-2 mt-4">
-            {/* Cancel button that closes the dialog without submitting */}
             <DialogClose asChild>
               <Button type="button" variant="outline">
                 Cancel

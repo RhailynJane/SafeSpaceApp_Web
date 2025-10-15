@@ -294,10 +294,11 @@ export default function DashboardPage({ clients, onAdd }) {
               <div className="p-2 bg-green-100 rounded-lg">
                 <BarChart3 className="h-6 w-6 text-green-600" />
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              <span className="text-sm font-medium">Generate Reports</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
