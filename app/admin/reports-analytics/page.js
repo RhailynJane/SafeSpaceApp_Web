@@ -47,7 +47,7 @@ export default function ReportsAnalyticsPage() {
         const getReports = async () => {
             const res = await fetch('/api/admin/reports');
             const data = await res.json();
-            setReports(data);
+            setReports(data.reports || []);
         };
         getReports();
     }, []);

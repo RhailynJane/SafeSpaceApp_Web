@@ -58,7 +58,7 @@ export async function POST(req) {
     }
 
     const body = await req.json();
-    const { client_id, appointment_date, appointment_time, type, duration, details } = body;
+    const { client_id, time, type, duration, details } = body;
 
     let clientId = client_id;
 

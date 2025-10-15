@@ -88,10 +88,14 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
   };
 
   return (
+    // Dialog (modal) wrapper
     <Dialog open={open} onOpenChange={setOpen}>
+      {/* Button that opens the modal */}
       <DialogTrigger asChild>
         <Button variant="default">Add Appointment</Button>
       </DialogTrigger>
+
+      {/* Modal content area */}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
@@ -99,7 +103,11 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             Fill in the details for the new appointment.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Appointment form */}
         <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
+          
+          {/* Client name input field */}
           <div className="grid gap-2">
             <Label htmlFor="client">Client</Label>
             <Select onValueChange={setClientId} value={client_id}>
@@ -127,6 +135,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             />
           </div>
 
+          {/* Time input field */}
           <div className="grid gap-2">
             <Label htmlFor="time">Time</Label>
             <Input
@@ -138,6 +147,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             />
           </div>
 
+          {/* Dropdown to select session type */}
           <div className="grid gap-2">
             <Label htmlFor="type">Session Type</Label>
             <Select value={type} onValueChange={setType}>
@@ -154,6 +164,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             </Select>
           </div>
 
+          {/* Duration input field */}
           <div className="grid gap-2">
             <Label htmlFor="duration">Duration</Label>
             <Input
@@ -165,6 +176,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             />
           </div>
 
+          {/* Details input field */}
           <div className="grid gap-2">
             <Label htmlFor="details">Details</Label>
             <Input
@@ -178,6 +190,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <div className="flex justify-end gap-2 mt-4">
+            {/* Cancel button that closes the dialog without submitting */}
             <DialogClose asChild>
               <Button type="button" variant="outline">
                 Cancel
