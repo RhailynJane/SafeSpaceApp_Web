@@ -1,293 +1,311 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
+import useSWR from "swr";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import AddAppointmentModal from "@/components/AddAppointmentModal";
+import { Badge } from "@/components/ui/badge";
 import {
   Users,
-  Calendar,
   AlertTriangle,
   FileText,
+  Calendar,
+  UserCheck,
   Clock,
   Bell,
-  Plus,
   BarChart3,
   Edit,
-  Eye,
-  Briefcase,
-  TrendingUp,
+  PlusCircle,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import AddAppointmentModal from "@/components/schedule/AddAppointmentModal";
 
-export function DashboardOverview() {
-  const [metrics, setMetrics] = useState({
-    clients: 0,
-    sessions: 0,
-    highRisk: 0,
-    notes: 0,
-    totalClients: 0,
-    newClientsThisMonth: 0,
-    completedClients: 0,
-  });
-  const [notifications, setNotifications] = useState([]);
-  const [appointments, setAppointments] = useState([]);
-  const [recentClients, setRecentClients] = useState([]);
+const fetcher = (url) => fetch(url).then((res) => res.json());
+
+// Helpers
+const getNotificationIcon = (type) => {
+  switch (type) {
+    case "referral":
+      return <FileText className="h-4 w-4" />;
+    case "appointment":
+      return <Clock className="h-4 w-4" />;
+    case "crisis":
+    case "error":
+      return <AlertTriangle className="h-4 w-4" />;
+    default:
+      return <FileText className="h-4 w-4" />;
+  }
+};
+
+const getStatusColor = (status) => {
+  switch (status) {
+    case "confirmed":
+    case "scheduled":
+      return "bg-teal-700 text-white";
+    case "pending":
+      return "bg-gray-400 text-white";
+    default:
+      return "bg-gray-400 text-white";
+  }
+};
+
+const formatMetrics = (metrics) => [
+  {
+    title: "Total Clients",
+    value: metrics.totalClients,
+    icon: Users,
+    bgColor: "bg-blue-100",
+    color: "text-blue-600",
+  },
+  {
+    title: "Case Notes",
+    value: metrics.totalNotes,
+    icon: FileText,
+    bgColor: "bg-yellow-100",
+    color: "text-yellow-600",
+  },
+  {
+    title: "Appointments",
+    value: metrics.totalAppointments,
+    icon: Calendar,
+    bgColor: "bg-green-100",
+    color: "text-green-600",
+  },
+  {
+    title: "High-Risk Clients",
+    value: metrics.highRiskClients,
+    icon: AlertTriangle,
+    bgColor: "bg-red-100",
+    color: "text-red-600",
+  },
+  {
+    title: "Crisis Events",
+    value: metrics.crisisEvents,
+    icon: AlertTriangle,
+    bgColor: "bg-orange-100",
+    color: "text-orange-600",
+  },
+  {
+    title: "Pending Referrals",
+    value: metrics.pendingReferrals,
+    icon: FileText,
+    bgColor: "bg-purple-100",
+    color: "text-purple-600",
+  },
+  {
+    title: "Active Clients",
+    value: metrics.activeClients,
+    icon: UserCheck,
+    bgColor: "bg-indigo-100",
+    color: "text-indigo-600",
+  },
+  {
+    title: "Today’s Sessions",
+    value: metrics.todaysSessions,
+    icon: Clock,
+    bgColor: "bg-teal-100",
+    color: "text-teal-600",
+  },
+];
+
+export default function DashboardPage() {
   const router = useRouter();
+  const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
 
-  // Fetch metrics, notifications, appointments
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [metricsRes, notifRes, appointRes, recentClientsRes] = await Promise.all([
-          fetch("/api/metrics"),
-          fetch("/api/notifications"),
-          fetch("/api/appointments/today"),
-          fetch("/api/clients/recent"),
-        ]);
+  if (isLoading) return <p className="text-gray-600">Loading dashboard...</p>;
+  if (error) return <p className="text-red-600">Failed to load dashboard data.</p>;
 
-        const [metricsData, notifData, appointData, recentClientsData] = await Promise.all([
-          metricsRes.json(),
-          notifRes.json(),
-          appointRes.json(),
-          recentClientsRes.json(),
-        ]);
+  const { metrics, notifications, todaySchedule, role } = data;
 
-        setMetrics({
-          clients: metricsData.myClients || 0,
-          sessions: metricsData.todaysSessions || 0,
-          highRisk: metricsData.highRiskClients || 0,
-          notes: metricsData.pendingNotes || 0,
-          totalClients: metricsData.totalClients || 0,
-          newClientsThisMonth: metricsData.newClientsThisMonth || 0,
-          completedClients: metricsData.completedClients || 0,
-        });
+  const formattedMetrics = formatMetrics(metrics);
 
-        setNotifications(notifData || []);
-        setAppointments(appointData || []);
-        setRecentClients(recentClientsData || []);
-      } catch (err) {
-        console.error("Error loading dashboard:", err);
-      }
-    }
-    fetchData();
-  }, []);
-
-  // ✅ Fix Add Appointment — convert modal data to backend format
-  const handleAddAppointment = async (formData) => {
-    try {
-      const appointmentPayload = {
-        client_id: formData.client_id || formData.client, // adapt if modal passes name
-        appointment_date: new Date().toISOString().split("T")[0],
-        appointment_time: formData.time || "09:00",
-        type: formData.type || "Session",
-        duration: formData.duration || "60",
-        details: formData.details || "",
-      };
-
-      const res = await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(appointmentPayload),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("Backend error:", errorData);
-        throw new Error("Failed to add appointment");
-      }
-
-      const created = await res.json();
-      setAppointments((prev) => [...prev, created]);
-    } catch (err) {
-      console.error("Add appointment error:", err);
-      alert("Failed to add appointment. Check console for details.");
-    }
+  const handleAddAppointment = (newAppt) => {
+    mutate(); // revalidate data after adding appointment
   };
 
-  // Handle Quick Actions
-  const handleNavigate = (path) => router.push(path);
-
   return (
-    <div className="min-h-screen bg-teal-50 p-8">
-      {/* ===== Metrics Row ===== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-        <MetricCard icon={Users} label="Active Clients" value={metrics.clients} />
-        <MetricCard icon={Calendar} label="Today's Sessions" value={metrics.sessions} />
-        <MetricCard icon={AlertTriangle} label="High-Risk Clients" value={metrics.highRisk} />
-        <MetricCard icon={FileText} label="Pending Notes" value={metrics.notes} />
+    <div className="space-y-6">
+      {/* Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {formattedMetrics.map((metric, index) => (
+          <Card key={index} className="hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">{metric.title}</p>
+                  <p className="text-3xl font-bold text-gray-900">{metric.value}</p>
+                </div>
+                <div className={`p-3 rounded-full ${metric.bgColor}`}>
+                  <metric.icon className={`h-6 w-6 ${metric.color}`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {/* ===== Additional Metrics Row ===== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-        <MetricCard icon={Briefcase} label="Total Clients" value={metrics.totalClients} />
-        <MetricCard icon={TrendingUp} label="New Clients This Month" value={metrics.newClientsThisMonth} />
-        <MetricCard icon={Users} label="Completed Clients" value={metrics.completedClients} />
-      </div>
-
-      {/* ===== Notifications & Appointments Section ===== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+      {/* Main Panels */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Notifications */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#CDE7E4] rounded-2xl shadow-md p-6"
-        >
-          <h2 className="text-md font-semibold mb-4 flex items-center gap-2">
-            <Bell className="w-5 h-5 text-gray-700" /> Recent Notifications
-          </h2>
-          <div className="space-y-3">
-            {notifications.length > 0 ? (
-              notifications.map((n, i) => (
+        <Card className="bg-white border-teal-200">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg font-semibold">Recent Notifications</CardTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
+            >
+              <Bell className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {notifications?.length > 0 ? (
+              notifications.map((notification) => (
                 <div
-                  key={i}
-                  className="bg-white rounded-xl p-4 shadow-sm flex justify-between items-center"
+                  key={notification.id}
+                  className={`p-3 rounded-lg border ${
+                    notification.type === "error"
+                      ? "bg-red-50 border-red-200"
+                      : "bg-white border-gray-200"
+                  }`}
                 >
-                  <p className="text-gray-700 text-sm">{n.message}</p>
-                  <span className="text-xs text-gray-500">{n.timeAgo}</span>
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`p-1 rounded ${
+                        notification.type === "error"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-teal-100 text-teal-600"
+                      }`}
+                    >
+                      {getNotificationIcon(notification.type)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-900">{notification.message}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(notification.timestamp).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-sm">No new notifications.</p>
+              <p className="text-sm text-gray-500 italic">No notifications available.</p>
             )}
-          </div>
-        </motion.div>
+          </CardContent>
+        </Card>
 
-        {/* Appointments */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#CDE7E4] rounded-2xl shadow-md p-6"
-        >
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-md font-semibold flex items-center gap-2">
-              <Clock className="w-5 h-5 text-gray-700" /> Today’s Schedule
-            </h2>
-            <AddAppointmentModal onAdd={handleAddAppointment} />
-          </div>
-
-          <div className="space-y-3">
-            {appointments.length > 0 ? (
-              appointments.map((a) => (
+        {/* Today's Schedule */}
+        <Card className="bg-teal-50 border-teal-200">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
+            <AddAppointmentModal onAdd={handleAddAppointment} clients={[]} className="bg-white border-teal-200" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {todaySchedule?.length > 0 ? (
+              todaySchedule.map((appointment) => (
                 <div
-                  key={a.id}
-                  className="bg-white rounded-xl p-4 shadow-sm flex justify-between items-center"
+                  key={appointment.id}
+                  className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
                 >
-                  <div>
-                    <p className="font-medium text-gray-800">
-                      {a.client?.name || "Unknown Client"}
-                    </p>
-                    <p className="text-sm text-gray-500">{a.type}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-teal-700">
+                        {appointment.client.client_first_name[0]}
+                        {appointment.client.client_last_name[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {appointment.client.client_first_name}{" "}
+                        {appointment.client.client_last_name}
+                      </p>
+                      <p className="text-sm text-gray-600">{appointment.type}</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-sm font-semibold text-gray-700">
-                      {new Date(a.appointment_time).toLocaleTimeString([], {
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-900">
+                      {new Date(appointment.appointment_time).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </span>
-                    <span className="bg-blue-500 text-white text-xs px-3 py-1 rounded-full mt-1">
-                      {a.status || "Confirmed"}
-                    </span>
+                    <Badge className={getStatusColor(appointment.status)}>
+                      {appointment.status}
+                    </Badge>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-sm">No appointments scheduled today.</p>
+              <p className="text-sm text-gray-500 italic">No appointments scheduled today.</p>
             )}
-          </div>
-        </motion.div>
+          </CardContent>
+        </Card>
       </div>
-
-      {/* ===== Recent Clients Section ===== */}
-      <div className="bg-white rounded-2xl shadow-md p-6 mb-10">
-        <h2 className="text-md font-semibold mb-4 flex items-center gap-2">
-          <Users className="w-5 h-5 text-gray-700" /> Recent Clients
-        </h2>
-        <div className="space-y-3">
-          {recentClients.length > 0 ? (
-            recentClients.map((client) => (
-              <div
-                key={client.id}
-                className="bg-gray-50 rounded-xl p-4 shadow-sm flex justify-between items-center"
-              >
-                <div>
-                  <p className="font-medium text-gray-800">
-                    {client.client_first_name} {client.client_last_name}
-                  </p>
-                  <p className="text-sm text-gray-500">{client.email}</p>
-                </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-sm font-semibold text-gray-700">
-                    {new Date(client.created_at).toLocaleDateString()}
-                  </span>
-                  <span className={`bg-${client.risk_level === 'High' ? 'red' : 'green'}-500 text-white text-xs px-3 py-1 rounded-full mt-1`}>
-                    {client.risk_level || "N/A"}
-                  </span>
-                </div>
+{/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+              onClick={() => router.push('/interactive?tab=Notes')}
+            >
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <Edit className="h-6 w-6 text-orange-600" />
               </div>
-            ))
-          ) : (
-            <p className="text-gray-500 text-sm">No recent clients.</p>
-          )}
-        </div>
-      </div>
+              <span className="text-sm font-medium">Case Notes</span>
+            </Button>
 
-      {/* ===== Quick Actions ===== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <QuickActionCard
-          icon={Plus}
-          title="Add Client"
-          onClick={() => handleNavigate("/clients/new")}
-        />
-        <QuickActionCard
-          icon={Eye}
-          title="View Clients"
-          onClick={() => handleNavigate("/clients")}
-        />
-        <QuickActionCard
-          icon={Edit}
-          title="Write Note"
-          onClick={() => handleNavigate("/notes")}
-        />
-        <QuickActionCard
-          icon={BarChart3}
-          title="View Reports"
-          onClick={() => handleNavigate("/reports")}
-        />
-      </div>
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+              onClick={() => router.push('/interactive?tab=Clients')}
+            >
+              <div className="p-2 bg-teal-100 rounded-lg">
+                <Users className="h-6 w-6 text-teal-600" />
+              </div>
+              <span className="text-sm font-medium">View Clients</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+              onClick={() => router.push('/interactive?tab=Schedule')}
+            >
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Calendar className="h-6 w-6 text-blue-600" />
+              </div>
+              <span className="text-sm font-medium">Manage Schedule</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+              onClick={() => router.push('/interactive?tab=Reports')}
+            >
+              <div className="p-2 bg-green-100 rounded-lg">
+                <BarChart3 className="h-6 w-6 text-green-600" />
+              </div>
+              <span className="text-sm font-medium">Generate Reports</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  );
+  )
 }
 
-// --- Reusable Metric Card ---
-function MetricCard({ icon: Icon, label, value }) {
+function ActionButton({ label, icon, bgColor, onClick }) {
   return (
-    <Card className="rounded-2xl shadow-md border-none">
-      <CardContent className="flex items-center justify-between p-6">
-        <div>
-          <p className="text-sm text-gray-500">{label}</p>
-          <h3 className="text-3xl font-bold text-gray-800">{value}</h3>
-        </div>
-        <Icon className="w-8 h-8 text-blue-500" />
-      </CardContent>
-    </Card>
-  );
-}
-
-// --- Quick Action Card ---
-function QuickActionCard({ icon: Icon, title, onClick }) {
-  return (
-    <motion.div
-      whileHover={{ scale: 1.05 }}
-      className="cursor-pointer bg-white rounded-2xl shadow-md p-6 flex flex-col items-center justify-center text-center hover:shadow-lg"
+    <Button
+      className={`flex flex-col items-center justify-center gap-2 p-6 rounded-xl ${bgColor} hover:opacity-90 transition`}
       onClick={onClick}
+      variant="ghost"
     >
-      <Icon className="w-8 h-8 mb-3 text-blue-500" />
-      <p className="font-medium text-gray-700">{title}</p>
-    </motion.div>
+      {icon}
+      <span className="text-sm font-medium text-gray-700">{label}</span>
+    </Button>
   );
 }
-
-export default DashboardOverview;
