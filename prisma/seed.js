@@ -64,6 +64,38 @@ async function main() {
     },
   });
 
+  await prisma.user.upsert({
+    where: { email: "teamleader@test.com" },
+    update: {
+        first_name: "team",
+        last_name: "leader",
+        clerk_user_id: "user_33ylFjc40kAhFaH7AgzvfJTmp64",
+    },
+    create: {
+      first_name: "team",
+      last_name: "leader",
+      email: "teamleader@test.com",
+      role_id: teamLeaderRole.id,
+      clerk_user_id: "user_33ylFjc40kAhFaH7AgzvfJTmp64",
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: "supportworker@test.com" },
+    update: {
+        first_name: "support",
+        last_name: "worker",
+        clerk_user_id: "user_33ykux9arPfJry1yCW0ljDKbluy",
+    },
+    create: {
+      first_name: "support",
+      last_name: "worker",
+      email: "supportworker@test.com",
+      role_id: supportWorkerRole.id,
+      clerk_user_id: "user_33ykux9arPfJry1yCW0ljDKbluy",
+    },
+  });
+
   // 4️⃣ Support Workers
   const supportWorkers = [];
   for (let i = 0; i < 5; i++) {

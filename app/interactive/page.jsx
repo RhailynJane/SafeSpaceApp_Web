@@ -271,7 +271,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
           <TabsContent value="Referrals" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Referral Management</h2>
-              <Badge variant="outline">{referrals.filter(r => r.status.toLowerCase() === "pending").length} Pending</Badge>
+              <Badge variant="outline">{referrals.filter(r => ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
             </div>
 
             <Tabs defaultValue="pending" className="space-y-4">
@@ -287,7 +287,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                     <CardDescription>Review and process new client referrals</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status.toLowerCase() === "pending").map(referral => (
+                    {referrals.filter(r => ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
                           <div className="space-y-2">
@@ -342,7 +342,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                       </div>
                     ))}
 
-                    {referrals.filter(r => r.status.toLowerCase() === "pending").length === 0 && (
+                    {referrals.filter(r => ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
                         <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
@@ -360,7 +360,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                     <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status.toLowerCase() !== "pending").map(referral => (
+                    {referrals.filter(r => !['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-2">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
@@ -380,7 +380,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                         </div>
                       </div>
                     ))}
-                    {referrals.filter(r => r.status.toLowerCase() !== "pending").length === 0 && (
+                    {referrals.filter(r => !['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
                         <h3 className="text-lg font-medium mb-2">No processed referrals</h3>

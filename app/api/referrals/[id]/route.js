@@ -52,36 +52,54 @@ export async function PATCH(req, { params }) {
     if (!referral)
       return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // Find the local user record to get their integer ID
-    let localUser = await prisma.user.findUnique({ where: { clerk_user_id: user.id } });
-    if (!localUser) {
-      // User not found, let's try to create them
-      try {
-        localUser = await prisma.user.create({
-          data: {
-            clerk_user_id: user.id,
-            email: user.emailAddresses[0].emailAddress,
-            first_name: user.firstName,
-            last_name: user.lastName,
-            role: user.publicMetadata.role,
-          },
+        // Find the local user record to get their integer ID
+        let localUser = await prisma.user.findUnique({ 
+            where: { clerk_user_id: user.id },
+            include: { role: true },
         });
-      } catch (e) {
-        console.error("Failed to create user in local database during referral update:", e);
-        return NextResponse.json({ error: "User not found in local database and could not be created." }, { status: 500 });
-      }
-    }
-
-    // Check the role of the logged-in user
-    const isAdmin = localUser.role === "admin";
-    // Check if the referral is assigned to the logged-in user
-    const isAssignedUser = referral.processed_by_user_id === localUser.id;
+        if (!localUser) {
+          // User not found, let's try to create them
+          try {
+            const roleName = user.publicMetadata.role;
+            if (!roleName) {
+              throw new Error("User does not have a role defined in Clerk public metadata.");
+            }
     
-    // Only allow admin or the assigned user to update
-    if (!isAdmin && !isAssignedUser) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
+            const role = await prisma.role.findUnique({
+              where: {
+                role_name: roleName,
+              },
+            });
+    
+            if (!role) {
+              throw new Error(`Role '${roleName}' not found in the database.`);
+            }
+    
+            localUser = await prisma.user.create({
+              data: {
+                clerk_user_id: user.id,
+                email: user.emailAddresses[0].emailAddress,
+                first_name: user.firstName,
+                last_name: user.lastName,
+                role_id: role.id,
+              },
+              include: { role: true },
+            });
+          } catch (e) {
+            console.error("Failed to create user in local database during referral update:", e);
+            return NextResponse.json({ error: "User not found in local database and could not be created. " + e.message }, { status: 500 });
+          }
+        }
+    
+        // Check the role of the logged-in user
+        const isAdmin = localUser.role.role_name === "admin";
+        // Check if the referral is assigned to the logged-in user
+        const isAssignedUser = referral.processed_by_user_id === localUser.id;
+        
+        // Only allow admin or the assigned user to update
+        if (!isAdmin && !isAssignedUser) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
     // Parse the request body for updated data
     const body = await req.json();
 
