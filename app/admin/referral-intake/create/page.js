@@ -1,11 +1,10 @@
 'use client';
 
 // REFERENCE:
-// GEMini Code Assist Agent / Gemini-Pro-2
-// Create the referral intake file upload, what event handlers are needed. how to make it upload an attach to the referral
-// Refactor code so Javascript is organized and above the div 
-// Fix syntax please
-
+// This page was documented with guidance from ChatGPT (OpenAI GPT-5)
+// Prompt -"add explanatory comments for each line of code."
+// Purpose: Provides an admin-facing form to collect client referral information,
+// upload documents, and submit data to the backend (/api/referrals).
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,6 +12,7 @@ import { Field, TextArea } from '@/components/ui/form-elements'; // Reusable inp
 
 // --- ICON COMPONENTS ---
 // These are small SVG-based React components used for decorative icons in the UI.
+// created using Chatgpt (OpenAI) - prompt { create icon for user, upload and file }
 
 const UserIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
@@ -32,6 +32,7 @@ const UploadIcon = () => (
     <line x1="12" y1="3" x2="12" y2="15" />
   </svg>
 );
+
 
 const FileIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"

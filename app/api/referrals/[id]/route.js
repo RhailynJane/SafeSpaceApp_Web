@@ -36,7 +36,7 @@ export async function GET(req, { params }) {
  * PATCH /api/referrals/[id]
  * =====================
  * Update a referral record by ID.
- * Only the referral creator or an admin is authorized to perform this action.
+ * Only the admin and team leader is authorized to perform this action.
  */
 export async function PATCH(req, { params }) {
   try {
