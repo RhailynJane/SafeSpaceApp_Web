@@ -21,6 +21,43 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { CheckCircle, XCircle, Info, MessageCircle, Clock } from "lucide-react";
 
+const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) => {
+    const [selectedUserId, setSelectedUserId] = useState('');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onAssign(selectedUserId);
+    };
+
+    return (
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Accept and Assign Referral</DialogTitle>
+                    <DialogDescription>
+                        Accept the referral for {referral.client_first_name} {referral.client_last_name} and assign it to a team member.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="assignee" className="block text-sm font-medium text-gray-700">Assign to</label>
+                        <select id="assignee" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
+                            <option value="">Select a team member...</option>
+                            {assignableUsers.map(user => (
+                                <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.role.role_name})</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex justify-end gap-4 pt-4">
+                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button type="submit">Accept and Assign</Button>
+                    </div>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // -----------------------------------------------------------------------------
 // Component: ReferralActions
 // Props:
@@ -28,16 +65,17 @@ import { CheckCircle, XCircle, Info, MessageCircle, Clock } from "lucide-react";
 //   - onStatusUpdate: callback to update parent state when referral status changes
 //   - userRole: identifies the actor (default: "team-leader")
 // -----------------------------------------------------------------------------
-const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" }) => {
+const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", assignableUsers = [] }) => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showNotesDialog, setShowNotesDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
 
   const [selectedAction, setSelectedAction] = useState(null);
   const [actionNotes, setActionNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!referral || referral.status !== "Pending") {
+  if (!referral || !['pending', 'in-review'].includes(referral.status.toLowerCase())) {
     return null;
   }
 
@@ -46,15 +84,57 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     setSelectedAction(action);
     if (action === "more-info-requested") {
       setShowNotesDialog(true);
+    } else if (action === "accepted") {
+      setShowAssignDialog(true);
     } else {
       setShowConfirmDialog(true);
     }
   };
 
+  // ------------------------ Assign Action ------------------------
+  const handleAssignAction = async (userId) => {
+    if (!userId) {
+      alert("Please select a user to assign the referral to.");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const body = {
+        status: "accepted",
+        processed_by_user_id: parseInt(userId, 10),
+        processed_date: new Date().toISOString(),
+      };
+
+      const res = await fetch(`/api/referrals/${referral.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const message = errorData.message || errorData.error || "Server error while updating referral.";
+        throw new Error(message);
+      }
+
+      const updatedReferral = await res.json();
+      onStatusUpdate?.(referral.id, updatedReferral);
+
+      setShowAssignDialog(false);
+      setShowSuccessDialog(true);
+    } catch (error) {
+      console.error("Error assigning referral:", error);
+      alert(`Error: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // ------------------------ Confirm Action ------------------------
   const handleConfirmAction = async () => {
-    if (!selectedAction || !["accepted", "declined", "more-info-requested"].includes(selectedAction)) {
-      alert("Please select a valid action: Accept, Decline, or Request Info.");
+    if (!selectedAction || !["declined", "more-info-requested"].includes(selectedAction)) {
+      alert("Please select a valid action: Decline, or Request Info.");
       return;
     }
 
@@ -63,9 +143,6 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
       const body = { status: selectedAction };
       if (selectedAction === "more-info-requested") {
         body.additional_notes = actionNotes;
-      }
-      if (selectedAction === "accepted") {
-        body.processed_date = new Date().toISOString();
       }
 
       const res = await fetch(`/api/referrals/${referral.id}`, {
@@ -110,6 +187,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     setShowConfirmDialog(false);
     setShowNotesDialog(false);
     setShowSuccessDialog(false);
+    setShowAssignDialog(false);
   };
 
   // ------------------------ Action Config ------------------------
@@ -117,11 +195,11 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
     switch (action) {
       case "accepted":
         return {
-          label: "Accept",
+          label: "Accept & Assign",
           icon: CheckCircle,
           variant: "default",
           className: "bg-teal-600 hover:bg-teal-700",
-          description: "Accept this referral assigning to available support worker",
+          description: "Accept this referral and assign to a team member",
         };
       case "declined":
         return {
@@ -173,6 +251,16 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader" })
           );
         })}
       </div>
+
+      {/* ------------------------ Assign Dialog ------------------------ */}
+      {showAssignDialog && (
+        <AcceptAndAssignModal 
+            referral={referral} 
+            onClose={resetState} 
+            onAssign={handleAssignAction} 
+            assignableUsers={assignableUsers} 
+        />
+      )}
 
       {/* ------------------------ Confirmation Dialog ------------------------ */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>

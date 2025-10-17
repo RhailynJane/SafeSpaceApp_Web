@@ -91,15 +91,17 @@ export async function PATCH(req, { params }) {
           }
         }
     
-        // Check the role of the logged-in user
-        const isAdmin = localUser.role.role_name === "admin";
-        // Check if the referral is assigned to the logged-in user
-        const isAssignedUser = referral.processed_by_user_id === localUser.id;
-        
-        // Only allow admin or the assigned user to update
-        if (!isAdmin && !isAssignedUser) {
-          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
+            // Check the role of the logged-in user
+            const userRole = localUser.role.role_name;
+            const isAdmin = userRole === "admin";
+            const isTeamLeader = userRole === "team_leader";
+            // Check if the referral is assigned to the logged-in user
+            const isAssignedUser = referral.processed_by_user_id === localUser.id;
+            
+            // Only allow admin, team leader, or the assigned user to update
+            if (!isAdmin && !isTeamLeader && !isAssignedUser) {
+              return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+            }
     // Parse the request body for updated data
     const body = await req.json();
 
@@ -117,6 +119,37 @@ export async function PATCH(req, { params }) {
       where: { id: parseInt(id) },
       data: body,
     });
+
+    // If the referral was accepted, create or update a client record
+    if (body.status === 'accepted' && body.processed_by_user_id) {
+      const clientData = {
+        client_first_name: updated.client_first_name,
+        client_last_name: updated.client_last_name,
+        email: updated.email,
+        phone: updated.phone,
+        address: updated.address,
+        emergency_contact_name: updated.emergency_first_name,
+        emergency_contact_phone: updated.emergency_phone,
+        user_id: body.processed_by_user_id,
+        status: 'Active', // Or some default status
+        risk_level: 'Low', // Or some default risk level
+      };
+
+      if (updated.email) {
+        await prisma.client.upsert({
+          where: { email: updated.email },
+          update: {
+            user_id: body.processed_by_user_id,
+            status: 'Active',
+          },
+          create: clientData,
+        });
+      } else {
+        await prisma.client.create({
+          data: clientData,
+        });
+      }
+    }
 
     // Return the updated referral
     return NextResponse.json({ referral: updated });

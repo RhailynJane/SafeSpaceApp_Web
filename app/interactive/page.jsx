@@ -36,6 +36,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [notes, setNotes] = useState([]);
   const [crisisEvents, setCrisisEvents] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const [assignableUsers, setAssignableUsers] = useState([]);
 
   const [reportType, setReportType] = useState("caseload");
   const [dateRange, setDateRange] = useState("month");
@@ -99,14 +100,25 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText);
       }
 
-      // Conditionally fetch referrals
+      // Conditionally fetch referrals and assignable users
       if (userRole === "team-leader") {
-        const refRes = await fetch("/api/referrals");
+        const [refRes, usersRes] = await Promise.all([
+            fetch("/api/referrals"),
+            fetch("/api/assignable-users")
+        ]);
+
         if (refRes.ok) {
           const refData = await refRes.json();
           setReferrals(Array.isArray(refData) ? refData : []);
         } else {
           console.error("Failed to fetch referrals:", refRes.status, refRes.statusText);
+        }
+
+        if (usersRes.ok) {
+            const usersData = await usersRes.json();
+            setAssignableUsers(Array.isArray(usersData) ? usersData : []);
+        } else {
+            console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText);
         }
       }
 
@@ -271,7 +283,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
           <TabsContent value="Referrals" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Referral Management</h2>
-              <Badge variant="outline">{referrals.filter(r => ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
+              <Badge variant="outline">{referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
             </div>
 
             <Tabs defaultValue="pending" className="space-y-4">
@@ -287,7 +299,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                     <CardDescription>Review and process new client referrals</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {referrals.filter(r => ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
+                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
                           <div className="space-y-2">
@@ -338,11 +350,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                           referral={referral}
                           onStatusUpdate={handleReferralStatusUpdate}
                           userRole={userRole}
+                          assignableUsers={assignableUsers}
                         />
                       </div>
                     ))}
 
-                    {referrals.filter(r => ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
+                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
                         <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
@@ -360,7 +373,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                     <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {referrals.filter(r => !['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
+                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
                       <div key={referral.id} className="border rounded-lg p-4 space-y-2">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
@@ -380,7 +393,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                         </div>
                       </div>
                     ))}
-                    {referrals.filter(r => !['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
+                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
                       <div className="text-center py-8 text-gray-500">
                         <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
                         <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
