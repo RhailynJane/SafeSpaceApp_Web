@@ -32,7 +32,14 @@ export async function GET(req) {
       },
     });
 
-    return NextResponse.json(appointments);
+    // Map appointments to include a `date` string (YYYY-MM-DD) for client consumption
+    const mapped = appointments.map((a) => {
+      const date = a.appointment_date instanceof Date ? a.appointment_date : new Date(a.appointment_date);
+      const dateStr = date.toISOString().split("T")[0];
+      return { ...a, date: dateStr };
+    });
+
+    return NextResponse.json(mapped);
   } catch (error) {
     console.error("Error fetching appointments:", error);
     return NextResponse.json(
@@ -79,17 +86,22 @@ export async function POST(req) {
       clientId = parseInt(clientId, 10);
     }
 
-    // Construct appointment date and time
-    const date = new Date(appointment_date);
+    // Construct appointment date-only and time values to avoid timezone offset issues
+    const dateOnly = new Date(`${appointment_date}T00:00:00`);
+
     const [hours, minutes] = appointment_time.split(':').map(Number);
-    date.setHours(hours, minutes, 0, 0);
+    // appointment_time as a Date object representing the time on the same date
+    const timeVal = new Date(dateOnly);
+    timeVal.setHours(hours, minutes, 0, 0);
 
     // ✅ Create appointment
     const appointment = await prisma.appointment.create({
       data: {
         client_id: clientId,
-        appointment_date: date,
-        appointment_time: date,
+        // store the date without time component for consistent comparisons
+        appointment_date: dateOnly,
+        // store the full datetime for appointment_time (DB column mapped to time)
+        appointment_time: timeVal,
         type: type || "Individual Session",
         duration: duration || "50 min",
         details: details || "Routine check-in session",
@@ -101,7 +113,9 @@ export async function POST(req) {
       },
     });
 
-    return NextResponse.json(appointment, { status: 201 });
+  // include `date` string on the created appointment as well
+  const created = { ...appointment, date: appointment.appointment_date.toISOString().split("T")[0] };
+  return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Error creating appointment:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

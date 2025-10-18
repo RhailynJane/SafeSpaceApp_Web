@@ -29,7 +29,12 @@ export async function GET() {
       orderBy: { appointment_date: "asc" },
     });
 
-    return NextResponse.json(appointments);
+    const mapped = appointments.map(a => ({
+      ...a,
+      date: (a.appointment_date instanceof Date ? a.appointment_date : new Date(a.appointment_date)).toISOString().split('T')[0]
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error) {
     console.error("Error fetching today's schedule:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

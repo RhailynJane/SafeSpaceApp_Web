@@ -18,8 +18,9 @@ export async function GET() {
     console.log("localUser:", localUser);
 
     const notifications = await prisma.notification.findMany({
-      where: { userId: localUser.id, is_read: false },
+      where: { user_id: localUser.id },
       orderBy: { created_at: "desc" },
+      take: 5,
     });
 
     console.log("notifications:", notifications);
