@@ -26,9 +26,14 @@ export async function GET(request) {
       if (!clerkUser) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
-      const email = clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId).emailAddress;
+      const emailAddress = clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId);
+      if (!emailAddress) {
+        return NextResponse.json({ error: "Primary email address not found for Clerk user." }, { status: 500 });
+      }
+      const email = emailAddress.emailAddress;
 
-      const roleName = clerkUser.publicMetadata.role || "support_worker";
+      const rawRole = clerkUser.publicMetadata.role || "support_worker";
+      const roleName = rawRole ? rawRole.replace(/-/g, "_") : "support_worker"; // Default to support_worker if rawRole is empty
       const role = await prisma.role.findUnique({
         where: { role_name: roleName },
       });
@@ -50,6 +55,10 @@ export async function GET(request) {
         },
       });
       console.log("Created user:", user);
+    }
+
+    if (!user.role) {
+      return NextResponse.json({ error: `User with clerk_user_id ${userId} has an invalid role_id.` }, { status: 500 });
     }
 
     const userRole = user.role.role_name.replace(/_/g, "-");

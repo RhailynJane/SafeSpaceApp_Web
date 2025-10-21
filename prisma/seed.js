@@ -105,7 +105,7 @@ async function main() {
         last_name: faker.person.lastName(),
         email: faker.internet.email(),
         role_id: supportWorkerRole.id,
-        clerk_user_id: faker.string.uuid(),
+        // clerk_user_id: faker.string.uuid(), // Removed random UUID generation
       },
     });
     supportWorkers.push(user);
