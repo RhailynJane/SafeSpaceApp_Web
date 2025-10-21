@@ -13,7 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search } from "lucide-react";
 
 import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
@@ -45,6 +45,9 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [riskLevelFilter, setRiskLevelFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const fetchData = useCallback(async () => {
     if (!getToken) {
@@ -414,8 +417,51 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
               <CardDescription>Manage your active clients and their information</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="flex space-x-4 mb-4">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search clients by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <Select value={riskLevelFilter} onValueChange={setRiskLevelFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by risk level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Risk Levels</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                    <SelectItem value="On-Hold">On-Hold</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-4">
-                {clients.map((client) => (
+                {clients
+                  .filter(client => 
+                    `${client.client_first_name} ${client.client_last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  .filter(client => 
+                    riskLevelFilter === "all" || client.risk_level === riskLevelFilter
+                  )
+                  .filter(client =>
+                    statusFilter === "all" || client.status === statusFilter
+                  )
+                  .map((client) => (
                   <div key={client.id} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
