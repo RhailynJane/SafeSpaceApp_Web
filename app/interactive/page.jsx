@@ -37,6 +37,10 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [crisisEvents, setCrisisEvents] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [assignableUsers, setAssignableUsers] = useState([]);
+  const [referralSearchQuery, setReferralSearchQuery] = useState("");
+  const [filteredReferrals, setFilteredReferrals] = useState([]);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [filteredClients, setFilteredClients] = useState([]);
 
   const [reportType, setReportType] = useState("caseload");
   const [dateRange, setDateRange] = useState("month");
@@ -134,6 +138,29 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const lowercasedQuery = referralSearchQuery.toLowerCase();
+    const filtered = referrals.filter(r => {
+      return (
+        r.client_first_name.toLowerCase().includes(lowercasedQuery) ||
+        r.client_last_name.toLowerCase().includes(lowercasedQuery) ||
+        r.referral_source.toLowerCase().includes(lowercasedQuery)
+      );
+    });
+    setFilteredReferrals(filtered);
+  }, [referralSearchQuery, referrals]);
+
+  useEffect(() => {
+    const lowercasedQuery = clientSearchQuery.toLowerCase();
+    const filtered = clients.filter(c => {
+      return (
+        c.client_first_name.toLowerCase().includes(lowercasedQuery) ||
+        c.client_last_name.toLowerCase().includes(lowercasedQuery)
+      );
+    });
+    setFilteredClients(filtered);
+  }, [clientSearchQuery, clients]);
 
   const handleAddAppointment = (newAppointment) => {
     setSchedule((prev) => [...prev, newAppointment]);
@@ -281,142 +308,148 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
 
         {/* Referrals Tab - Team Leaders Only */}
         {userRole === "team-leader" && (
-          <TabsContent value="Referrals" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Referral Management</h2>
-              <Badge variant="outline">{referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
-            </div>
-
-            <Tabs defaultValue="pending" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="processed">Processed</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="pending">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pending Referrals</CardTitle>
-                    <CardDescription>Review and process new client referrals</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
-                      <div key={referral.id} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-2">
-                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                              <div>Age: {referral.age}</div>
-                              <div>Source: {referral.referral_source}</div>
-                              <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
-                            </div>
+                    <TabsContent value="Referrals" className="space-y-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Referral Management</CardTitle>
+                          <CardDescription>Review and process new client referrals</CardDescription>
+                          <div className="relative w-full md:w-1/3 mt-4">
+                            <Input
+                              type="text"
+                              placeholder="Search by client name or referral source..."
+                              value={referralSearchQuery}
+                              onChange={(e) => setReferralSearchQuery(e.target.value)}
+                              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                            />
                           </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Reason for Referral:</h4>
-                          <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Contact Information:</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                            <div className="flex items-center gap-2">
-                              <Phone className="h-4 w-4" />
-                              {referral.phone}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Mail className="h-4 w-4" />
-                              {referral.email}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              {referral.address}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}
-                            </div>
-                          </div>
-                        </div>
-
-                        {referral.additional_notes && (
-                          <div className="space-y-2">
-                            <h4 className="font-medium">Additional Notes:</h4>
-                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
-                          </div>
-                        )}
-
-                        <ReferralActions
-                          referral={referral}
-                          onStatusUpdate={handleReferralStatusUpdate}
-                          userRole={userRole}
-                          assignableUsers={assignableUsers}
-                        />
-                      </div>
-                    ))}
-
-                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
-                        <p className="text-sm">All referrals have been processed.</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="processed">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Processed Referrals</CardTitle>
-                    <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
-                      <div key={referral.id} className="border rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                          <Badge className={
-                            referral.status.toLowerCase() === "approved"
-                              ? "bg-teal-600 text-white"
-                              : referral.status.toLowerCase() === "rejected"
-                                ? "bg-red-500 text-white"
-                                : "bg-blue-500 text-white"
-                          }>
-                            {referral.status}
-                          </Badge>
-
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ))}
-                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
-                        <p className="text-sm">Process a referral from the 'Pending' tab.</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-        )}
+                        </CardHeader>
+                        <CardContent>
+                          <Tabs defaultValue="pending" className="space-y-4">
+                            <TabsList>
+                              <TabsTrigger value="pending">Pending</TabsTrigger>
+                              <TabsTrigger value="processed">Processed</TabsTrigger>
+                            </TabsList>
+          
+                                              <TabsContent value="pending">
+                                                <CardContent className="space-y-4">
+                                                  {filteredReferrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
+                                                    <div key={referral.id} className="border rounded-lg p-4 space-y-4">
+                                                      <div className="flex items-start justify-between">
+                                                        <div className="space-y-2">
+                                                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                                                          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                                            <div>Age: {referral.age}</div>
+                                                            <div>Source: {referral.referral_source}</div>
+                                                            <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                            
+                                                      <div className="space-y-2">
+                                                        <h4 className="font-medium">Reason for Referral:</h4>
+                                                        <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
+                                                      </div>
+                            
+                                                      <div className="space-y-2">
+                                                        <h4 className="font-medium">Contact Information:</h4>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                                          <div className="flex items-center gap-2">
+                                                            <Phone className="h-4 w-4" />
+                                                            {referral.phone}
+                                                          </div>
+                                                          <div className="flex items-center gap-2">
+                                                            <Mail className="h-4 w-4" />
+                                                            {referral.email}
+                                                          </div>
+                                                          <div className="flex items-center gap-2">
+                                                            <MapPin className="h-4 w-4" />
+                                                            {referral.address}
+                                                          </div>
+                                                          <div className="flex items-center gap-2">
+                                                            <User className="h-4 w-4" />
+                                                            {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                            
+                                                      {referral.additional_notes && (
+                                                        <div className="space-y-2">
+                                                          <h4 className="font-medium">Additional Notes:</h4>
+                                                          <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
+                                                        </div>
+                                                      )}
+                            
+                                                      <ReferralActions
+                                                        referral={referral}
+                                                        onStatusUpdate={handleReferralStatusUpdate}
+                                                        userRole={userRole}
+                                                        assignableUsers={assignableUsers}
+                                                      />
+                                                    </div>
+                                                  ))}
+                            
+                                                  {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
+                                                    <div className="text-center py-8 text-gray-500">
+                                                      <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                                                      <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
+                                                      <p className="text-sm">All referrals have been processed.</p>
+                                                    </div>
+                                                  )}
+                                                </CardContent>
+                                              </TabsContent>          
+                                              <TabsContent value="processed">
+                                                <CardContent className="space-y-4">
+                                                  {filteredReferrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
+                                                    <div key={referral.id} className="border rounded-lg p-4 space-y-2">
+                                                      <div className="flex items-center justify-between">
+                                                        <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                                                        <Badge className={
+                                                          referral.status.toLowerCase() === "approved"
+                                                            ? "bg-teal-600 text-white"
+                                                            : referral.status.toLowerCase() === "rejected"
+                                                              ? "bg-red-500 text-white"
+                                                              : "bg-blue-500 text-white"
+                                                        }>
+                                                          {referral.status}
+                                                        </Badge>
+                            
+                                                      </div>
+                                                      <div className="text-sm text-gray-600">
+                                                        Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                  {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
+                                                    <div className="text-center py-8 text-gray-500">
+                                                      <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                                                      <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
+                                                      <p className="text-sm">Process a referral from the 'Pending' tab.</p>
+                                                    </div>
+                                                  )}
+                                                </CardContent>
+                                              </TabsContent>                          </Tabs>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>        )}
 
         <TabsContent value="Clients" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Client Management</CardTitle>
               <CardDescription>Manage your active clients and their information</CardDescription>
+              <div className="relative w-full md:w-1/3 mt-4">
+                <Input
+                  type="text"
+                  placeholder="Search by client name..."
+                  value={clientSearchQuery}
+                  onChange={(e) => setClientSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {clients.map((client) => (
+                {filteredClients.map((client) => (
                   <div key={client.id} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
