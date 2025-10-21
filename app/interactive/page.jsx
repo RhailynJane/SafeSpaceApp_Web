@@ -76,7 +76,8 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         console.log("Fetched client data:", clientData);
         setClients(Array.isArray(clientData) ? clientData : []);
       } else {
-        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText);
+        const errorData = await clientRes.json();
+        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText, errorData);
       }
 
       if (noteRes.ok) {
