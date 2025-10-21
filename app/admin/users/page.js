@@ -106,7 +106,7 @@ export default function UsersPage() {
             user.first_name.toLowerCase().includes(lowercasedQuery) ||
             user.last_name.toLowerCase().includes(lowercasedQuery) ||
             user.email.toLowerCase().includes(lowercasedQuery) ||
-            user.role.toLowerCase().includes(lowercasedQuery)
+            user.role.role_name.toLowerCase().includes(lowercasedQuery)
         );
     }) : [];
 
@@ -186,7 +186,7 @@ export default function UsersPage() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.first_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.last_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role.role_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.last_login}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.created_at}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
