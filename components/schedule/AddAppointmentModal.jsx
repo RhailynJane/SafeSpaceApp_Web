@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTrigger,
@@ -8,7 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,47 +19,64 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 
-export default function AddAppointmentModal({ onAdd, clients = [] }) {
-  console.log("Clients in modal:", clients);
-  const [open, setOpen] = useState(false);
-  const [appointment_date, setAppointmentDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [appointment_time, setAppointmentTime] = useState("");
-  const [client_id, setClientId] = useState("");
-  const [type, setType] = useState("Individual Session");
-  const [duration, setDuration] = useState("50 min");
-  const [details, setDetails] = useState("");
+export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clients = [], prefilledSlot, onClose }) {
+  const [formData, setFormData] = useState({
+    clientId: '',
+    date: '',
+    time: '',
+    type: 'Individual Session',
+    duration: '50',
+    details: '',
+  });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (prefilledSlot) {
+      setFormData(prev => ({
+        ...prev,
+        date: prefilledSlot.date,
+        time: prefilledSlot.time,
+      }));
+    }
+  }, [prefilledSlot]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name, value) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  useEffect(() => {
+    if (appointmentDetails) {
+      setFormData(prev => ({ ...prev, ...appointmentDetails }));
+    }
+  }, [appointmentDetails, isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     setError("");
 
-    if (!client_id || !appointment_time || !appointment_date) {
-      setError("Please fill all required fields.");
-      return;
-    }
-
     try {
-      setLoading(true);
-
-      const formData = {
-        client_id,
-        appointment_date,
-        appointment_time,
-        type,
-        duration,
-        details,
-      };
+      const appointmentTime = `${formData.date}T${formData.time}:00`;
 
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          client_id: parseInt(formData.clientId),
+          appointment_time: appointmentTime,
+          type: formData.type,
+          duration: formData.duration,
+          details: formData.details,
+          status: 'scheduled'
+        }),
       });
 
       if (!res.ok) {
@@ -68,17 +84,10 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
         throw new Error(err.error || "Failed to add appointment");
       }
 
-      const created = await res.json();
-
-      if (onAdd) onAdd(created);
-
-      setClientId("");
-      setAppointmentTime("");
-      setAppointmentDate(new Date().toISOString().split("T")[0]);
-      setType("Individual Session");
-      setDuration("50 min");
-      setDetails("");
-      setOpen(false);
+      const newAppointment = await res.json();
+      onAdd(newAppointment);
+      onOpenChange(false); // Close modal on success
+      if (onClose) onClose(); // Reset prefilled slot
     } catch (err) {
       console.error("Add appointment error:", err);
       setError(err.message || "Something went wrong");
@@ -87,22 +96,27 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     }
   };
 
+  const handleModalOpenChange = (open) => {
+    onOpenChange(open);
+    if (!open && onClose) {
+      onClose(); // Reset prefilled slot when modal is closed
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={isOpen} onOpenChange={handleModalOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="default">Add Appointment</Button>
+        <Button variant="default"><PlusCircle className="h-4 w-4 mr-2" />Add Appointment</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
-          <DialogDescription>
-            Fill in the details for the new appointment.
-          </DialogDescription>
+          <DialogDescription>Fill in the details for the new appointment.</DialogDescription>
         </DialogHeader>
         <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="client">Client</Label>
-            <Select onValueChange={setClientId} value={client_id}>
+            <Select name="clientId" value={formData.clientId} onValueChange={(value) => handleSelectChange('clientId', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
@@ -116,38 +130,25 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             </Select>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={appointment_date}
-              onChange={(e) => setAppointmentDate(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="time">Time</Label>
-            <Input
-              id="time"
-              type="time"
-              value={appointment_time}
-              onChange={(e) => setAppointmentTime(e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="date">Date</Label>
+              <Input id="date" name="date" type="date" value={formData.date} onChange={handleChange} required />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="time">Time</Label>
+              <Input id="time" name="time" type="time" value={formData.time} onChange={handleChange} required />
+            </div>
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="type">Session Type</Label>
-            <Select value={type} onValueChange={setType}>
+            <Select name="type" value={formData.type} onValueChange={(value) => handleSelectChange('type', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select session type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Individual Session">
-                  Individual Session
-                </SelectItem>
+                <SelectItem value="Individual Session">Individual Session</SelectItem>
                 <SelectItem value="Group Therapy">Group Therapy</SelectItem>
                 <SelectItem value="Assessment">Assessment</SelectItem>
               </SelectContent>
@@ -156,41 +157,27 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
 
           <div className="grid gap-2">
             <Label htmlFor="duration">Duration</Label>
-            <Input
-              id="duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="e.g., 50 min"
-              required
-            />
+            <Select name="duration" value={formData.duration} onValueChange={(value) => handleSelectChange('duration', value)}>
+              <SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">30 minutes</SelectItem>
+                <SelectItem value="50">50 minutes</SelectItem>
+                <SelectItem value="60">60 minutes</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="details">Details</Label>
-            <Input
-              id="details"
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-              placeholder="Appointment details"
-            />
+            <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Follow-up session" />
           </div>
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex justify-end gap-2 mt-4">
-            <DialogClose asChild>
-              <Button type="button" variant="outline">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
-                </>
-              ) : (
-                "Add"
-              )}
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={loading} className="bg-teal-600 hover:bg-teal-700">
+              {loading ? 'Adding...' : 'Add Appointment'}
             </Button>
           </div>
         </form>
@@ -198,4 +185,3 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     </Dialog>
   );
 }
-

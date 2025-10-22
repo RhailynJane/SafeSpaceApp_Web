@@ -46,9 +46,13 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [dateRange, setDateRange] = useState("month");
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [recentReports, setRecentReports] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [addAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
+  const [prefilledSlot, setPrefilledSlot] = useState(null);
 
   const fetchData = useCallback(async () => {
     if (!getToken) {
@@ -68,11 +72,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       }
 
       // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes] = await Promise.all([
+      const [clientRes, noteRes, crisisRes, appointmentRes, reportRes] = await Promise.all([
         fetch("/api/clients"),
         fetch("/api/notes"),
         fetch("/api/crisis-events"),
         fetch("/api/appointments"),
+        fetch("/api/reports"),
       ]);
 
       if (clientRes.ok) {
@@ -103,6 +108,13 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         setSchedule(Array.isArray(appointmentData) ? appointmentData : []);
       } else {
         console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText);
+      }
+
+      if (reportRes.ok) {
+        const reportData = await reportRes.json();
+        setRecentReports(Array.isArray(reportData) ? reportData : []);
+      } else {
+        console.error("Failed to fetch reports:", reportRes.status, reportRes.statusText);
       }
 
       // Conditionally fetch referrals and assignable users
@@ -167,6 +179,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     mutate("/api/dashboard");
   };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
+
+  const handleSlotSelect = (slot) => {
+    setPrefilledSlot(slot);
+    setAvailabilityModalOpen(false); // Close availability modal
+    setAddAppointmentModalOpen(true); // Open appointment modal
+  };
 
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
     setReferrals(prev =>
@@ -237,6 +255,11 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
 
+  const [isAddAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
+  const [prefilledAppointment, setPrefilledAppointment] = useState(null);
+  const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+
+
   const [modals, setModals] = useState({
     newNote: false,
     viewNote: false,
@@ -250,28 +273,56 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   };
   const closeModal = (modalName) => setModals(prev => ({ ...prev, [modalName]: false }));
 
-  const generateReport = () => {
+  const handleSlotSelect = (slot) => {
+    // slot contains { date: 'YYYY-MM-DD', time: 'HH:MM' }
+    setPrefilledAppointment({ appointment_date: slot.date, appointment_time: slot.time });
+    setAvailabilityModalOpen(false); // Close availability modal
+    setAddAppointmentModalOpen(true);
+  };
+
+  const generateReport = async () => {
+    let generatedData;
     if (reportType === "caseload") {
-      setReportData({
+      generatedData = {
         totalClients: clients.length,
         activeClients: clients.filter(c => c.status === "Active").length,
         onHoldClients: clients.filter(c => c.status !== "Active").length,
-      });
+      };
     } else if (reportType === "sessions") {
-      setReportData({
+      generatedData = {
         sessions: schedule
-
-      });
+      };
     } else if (reportType === "outcomes") {
-      setReportData({
+      generatedData = {
         highRisk: clients.filter(c => c.riskLevel === "High").length,
         mediumRisk: clients.filter(c => c.riskLevel === "Medium").length,
         lowRisk: clients.filter(c => c.riskLevel === "Low").length,
-      });
+      };
     } else if (reportType === "crisis") {
-      setReportData({
+      generatedData = {
         crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
-      });
+      };
+    }
+
+    const newReportPayload = {
+      name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
+      type: "PDF", // Or determine dynamically
+      data: generatedData,
+    };
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newReportPayload),
+    });
+
+    if (res.ok) {
+      const savedReport = await res.json();
+      setRecentReports(prev => [savedReport, ...prev]);
+      setReportData(generatedData);
+    } else {
+      console.error("Failed to save the generated report.");
+      alert("Could not save the report. Please try again.");
     }
   };
 
@@ -487,15 +538,28 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
-                <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} />
+                <AddAppointmentModal
+                  isOpen={addAppointmentModalOpen}
+                  onOpenChange={setAddAppointmentModalOpen}
+                  onAdd={handleAddAppointment}
+                  clients={clients}
+                  prefilledSlot={prefilledSlot}
+                  onClose={() => setPrefilledSlot(null)}
+                />
                 <ViewAvailabilityModal
+                  isOpen={availabilityModalOpen}
+                  onOpenChange={setAvailabilityModalOpen}
+                  onSelect={handleSlotSelect}
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
                     { day: "Friday", time: "9:00 AM - 11:00 AM" },
                   ]}
+                  isOpen={isAvailabilityModalOpen}
+                  onOpenChange={setAvailabilityModalOpen}
+                  onSelect={handleSlotSelect}
                 />
-                <ViewCalendarModal schedule={schedule} />
+                <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
               </div>
 
               <div className="space-y-4">
@@ -728,11 +792,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    { name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB" },
-                    { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
-                    { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
-                  ].map((report, index) => (
+                  {recentReports.map((report, index) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded">
                       <div>
                         <p className="font-medium">{report.name}</p>
