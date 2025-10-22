@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTrigger,
@@ -22,25 +22,38 @@ import {
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
-export default function AddAppointmentModal({ onAdd, clients = [] }) {
-  console.log("Clients in modal:", clients);
-  const [open, setOpen] = useState(false);
-  const [appointment_date, setAppointmentDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [appointment_time, setAppointmentTime] = useState("");
-  const [client_id, setClientId] = useState("");
-  const [type, setType] = useState("Individual Session");
-  const [duration, setDuration] = useState("50 min");
-  const [details, setDetails] = useState("");
+export default function AddAppointmentModal({
+  onAdd,
+  clients = [],
+  isOpen,
+  onOpenChange,
+  appointmentDetails,
+  trigger,
+}) {
+  const getInitialState = () => ({
+    appointment_date: new Date().toISOString().split('T')[0],
+    appointment_time: '',
+    client_id: '',
+    type: 'Individual Session',
+    duration: '50 min',
+    details: '',
+  });
+
+  const [formData, setFormData] = useState(getInitialState());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (appointmentDetails) {
+      setFormData(prev => ({ ...prev, ...appointmentDetails }));
+    }
+  }, [appointmentDetails, isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!client_id || !appointment_time || !appointment_date) {
+    if (!formData.client_id || !formData.appointment_time || !formData.appointment_date) {
       setError("Please fill all required fields.");
       return;
     }
@@ -48,19 +61,15 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     try {
       setLoading(true);
 
-      const formData = {
-        client_id,
-        appointment_date,
-        appointment_time,
-        type,
-        duration,
-        details,
+      const submissionData = {
+        ...formData,
+        client_id: parseInt(formData.client_id, 10),
       };
 
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submissionData),
       });
 
       if (!res.ok) {
@@ -72,13 +81,8 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
 
       if (onAdd) onAdd(created);
 
-      setClientId("");
-      setAppointmentTime("");
-      setAppointmentDate(new Date().toISOString().split("T")[0]);
-      setType("Individual Session");
-      setDuration("50 min");
-      setDetails("");
-      setOpen(false);
+      setFormData(getInitialState());
+      onOpenChange(false);
     } catch (err) {
       console.error("Add appointment error:", err);
       setError(err.message || "Something went wrong");
@@ -87,11 +91,13 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     }
   };
 
+  const handleValueChange = (key, value) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="default">Add Appointment</Button>
-      </DialogTrigger>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
@@ -102,7 +108,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
         <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="client">Client</Label>
-            <Select onValueChange={setClientId} value={client_id}>
+            <Select onValueChange={(value) => handleValueChange('client_id', value)} value={formData.client_id}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
@@ -121,8 +127,8 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             <Input
               id="date"
               type="date"
-              value={appointment_date}
-              onChange={(e) => setAppointmentDate(e.target.value)}
+              value={formData.appointment_date}
+              onChange={(e) => handleValueChange('appointment_date', e.target.value)}
               required
             />
           </div>
@@ -132,15 +138,15 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             <Input
               id="time"
               type="time"
-              value={appointment_time}
-              onChange={(e) => setAppointmentTime(e.target.value)}
+              value={formData.appointment_time}
+              onChange={(e) => handleValueChange('appointment_time', e.target.value)}
               required
             />
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="type">Session Type</Label>
-            <Select value={type} onValueChange={setType}>
+            <Select value={formData.type} onValueChange={(value) => handleValueChange('type', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select session type" />
               </SelectTrigger>
@@ -158,8 +164,8 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             <Label htmlFor="duration">Duration</Label>
             <Input
               id="duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
+              value={formData.duration}
+              onChange={(e) => handleValueChange('duration', e.target.value)}
               placeholder="e.g., 50 min"
               required
             />
@@ -169,8 +175,8 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             <Label htmlFor="details">Details</Label>
             <Input
               id="details"
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
+              value={formData.details}
+              onChange={(e) => handleValueChange('details', e.target.value)}
               placeholder="Appointment details"
             />
           </div>
@@ -198,4 +204,3 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     </Dialog>
   );
 }
-
