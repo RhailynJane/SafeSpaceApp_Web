@@ -52,6 +52,12 @@ export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clien
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  useEffect(() => {
+    if (appointmentDetails) {
+      setFormData(prev => ({ ...prev, ...appointmentDetails }));
+    }
+  }, [appointmentDetails, isOpen]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);

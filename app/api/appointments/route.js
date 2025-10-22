@@ -25,7 +25,7 @@ export async function GET(req) {
         scheduled_by_user_id: dbUser.id,
       },
       include: {
-        client: true,
+        // client: true, // Temporarily removed to isolate the error
       },
       orderBy: {
         appointment_date: "asc",

@@ -74,6 +74,8 @@ function TimelineModal({ data, onClose }) {
 
 export default function ReferralTrackingPage() {
     const [referrals, setReferrals] = useState([]);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [filteredReferrals, setFilteredReferrals] = useState([]);
     const [showTimelineModal, setShowTimelineModal] = useState(false);
     const [selectedReferral, setSelectedReferral] = useState(null);
 
@@ -95,6 +97,18 @@ export default function ReferralTrackingPage() {
         };
         getReferrals();
     }, []);
+
+    useEffect(() => {
+        const lowercasedQuery = searchQuery.toLowerCase();
+        const filtered = referrals.filter(ref => {
+            return (
+                ref.client_first_name.toLowerCase().includes(lowercasedQuery) ||
+                ref.client_last_name.toLowerCase().includes(lowercasedQuery) ||
+                ref.referral_source.toLowerCase().includes(lowercasedQuery)
+            );
+        });
+        setFilteredReferrals(filtered);
+    }, [searchQuery, referrals]);
 
     const handleViewTimeline = async (referral) => {
         const res = await fetch(`/api/referrals/${referral.id}/timeline`);
@@ -127,7 +141,7 @@ export default function ReferralTrackingPage() {
                 <p className="text-gray-500 mb-6">Monitor the progress of all referrals from submission to completion</p>
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
                     <div className="relative flex-grow">
-                        <input type="text" placeholder="Search by client name or referral source" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500" />
+                        <input type="text" placeholder="Search by client name or referral source" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
                     </div>
                     <div className="relative">
@@ -142,7 +156,7 @@ export default function ReferralTrackingPage() {
                     </div>
                 </div>
                 <div className="space-y-4">
-                    {referrals.map(ref => (
+                    {filteredReferrals.map(ref => (
                         <div key={ref.id} className="bg-white p-6 rounded-lg border border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                             <div>
                                 <h3 className="font-bold text-lg text-gray-800 capitalize">{ref.client_first_name} {ref.client_last_name}</h3>

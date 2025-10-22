@@ -1,57 +1,27 @@
-
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getAuth } from '@clerk/nextjs/server';
 
-const prisma = new PrismaClient();
+// In-memory "database" for demonstration.
+let reports = [
+    { id: 1, name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB", data: { total_clients: 50, new_clients: 5, sessions_held: 120 } },
+    { id: 2, name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB", data: { high_risk_decreased: "15%", goals_met: "45%" } },
+    { id: 3, name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB", data: { crisis_events: 4, average_response_time: "15 mins" } },
+];
 
-export async function POST(req) {
-  try {
-    const { userId } = getAuth(req);
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+// GET /api/reports - Fetches all reports
+export async function GET() {
+  return NextResponse.json(reports);
+}
 
-    const { reportType, dateRange } = await req.json();
-
-    // Fetch user to check role
-    const user = await prisma.user.findUnique({ where: { clerk_user_id: userId }, include: { role: true } });
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    let reportData = {};
-
-    // TODO: Implement date range filtering
-
-    if (reportType === "caseload") {
-        const clients = await prisma.client.findMany({ where: { user_id: user.id } });
-        reportData = {
-            totalClients: clients.length,
-            activeClients: clients.filter(c => c.status === "Active").length,
-            onHoldClients: clients.filter(c => c.status !== "Active").length,
-        };
-    } else if (reportType === "sessions") {
-        const appointments = await prisma.appointment.findMany({ 
-            where: { scheduled_by_user_id: user.id },
-            include: { client: true }
-        });
-        reportData = { sessions: appointments };
-    } else if (reportType === "outcomes") {
-        const clients = await prisma.client.findMany({ where: { user_id: user.id } });
-        reportData = {
-            highRisk: clients.filter(c => c.risk_level === "High").length,
-            mediumRisk: clients.filter(c => c.risk_level === "Medium").length,
-            lowRisk: clients.filter(c => c.risk_level === "Low").length,
-        };
-    } else if (reportType === "crisis") {
-        const crisisEvents = await prisma.crisisEvent.findMany({ where: { initiator_user_id: user.id } });
-        reportData = { crisisEvents };
-    }
-
-    return NextResponse.json(reportData);
-  } catch (error) {
-    console.error('Error generating report:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
+// POST /api/reports - Adds a new report
+export async function POST(request) {
+    const newReport = await request.json();
+    
+    const reportToAdd = {
+      ...newReport,
+      id: reports.length + 1, // Simple ID generation
+      date: new Date().toISOString().split('T')[0],
+      size: `${(Math.random() * 2 + 0.5).toFixed(1)} MB`
+    };
+    reports.unshift(reportToAdd); // Add to the beginning of the list
+    return NextResponse.json(reportToAdd, { status: 201 });
 }

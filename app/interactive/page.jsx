@@ -37,11 +37,16 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [crisisEvents, setCrisisEvents] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [assignableUsers, setAssignableUsers] = useState([]);
+  const [referralSearchQuery, setReferralSearchQuery] = useState("");
+  const [filteredReferrals, setFilteredReferrals] = useState([]);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [filteredClients, setFilteredClients] = useState([]);
 
   const [reportType, setReportType] = useState("caseload");
   const [dateRange, setDateRange] = useState("month");
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [recentReports, setRecentReports] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -67,11 +72,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       }
 
       // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes] = await Promise.all([
+      const [clientRes, noteRes, crisisRes, appointmentRes, reportRes] = await Promise.all([
         fetch("/api/clients"),
         fetch("/api/notes"),
         fetch("/api/crisis-events"),
         fetch("/api/appointments"),
+        fetch("/api/reports"),
       ]);
 
       if (clientRes.ok) {
@@ -79,7 +85,8 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         console.log("Fetched client data:", clientData);
         setClients(Array.isArray(clientData) ? clientData : []);
       } else {
-        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText);
+        const errorData = await clientRes.json();
+        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText, errorData);
       }
 
       if (noteRes.ok) {
@@ -101,6 +108,13 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         setSchedule(Array.isArray(appointmentData) ? appointmentData : []);
       } else {
         console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText);
+      }
+
+      if (reportRes.ok) {
+        const reportData = await reportRes.json();
+        setRecentReports(Array.isArray(reportData) ? reportData : []);
+      } else {
+        console.error("Failed to fetch reports:", reportRes.status, reportRes.statusText);
       }
 
       // Conditionally fetch referrals and assignable users
@@ -136,6 +150,29 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const lowercasedQuery = referralSearchQuery.toLowerCase();
+    const filtered = referrals.filter(r => {
+      return (
+        r.client_first_name.toLowerCase().includes(lowercasedQuery) ||
+        r.client_last_name.toLowerCase().includes(lowercasedQuery) ||
+        r.referral_source.toLowerCase().includes(lowercasedQuery)
+      );
+    });
+    setFilteredReferrals(filtered);
+  }, [referralSearchQuery, referrals]);
+
+  useEffect(() => {
+    const lowercasedQuery = clientSearchQuery.toLowerCase();
+    const filtered = clients.filter(c => {
+      return (
+        c.client_first_name.toLowerCase().includes(lowercasedQuery) ||
+        c.client_last_name.toLowerCase().includes(lowercasedQuery)
+      );
+    });
+    setFilteredClients(filtered);
+  }, [clientSearchQuery, clients]);
 
   const handleAddAppointment = (newAppointment) => {
     setSchedule((prev) => [...prev, newAppointment]);
@@ -218,6 +255,11 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
 
+  const [isAddAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
+  const [prefilledAppointment, setPrefilledAppointment] = useState(null);
+  const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+
+
   const [modals, setModals] = useState({
     newNote: false,
     viewNote: false,
@@ -231,28 +273,56 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   };
   const closeModal = (modalName) => setModals(prev => ({ ...prev, [modalName]: false }));
 
-  const generateReport = () => {
+  const handleSlotSelect = (slot) => {
+    // slot contains { date: 'YYYY-MM-DD', time: 'HH:MM' }
+    setPrefilledAppointment({ appointment_date: slot.date, appointment_time: slot.time });
+    setAvailabilityModalOpen(false); // Close availability modal
+    setAddAppointmentModalOpen(true);
+  };
+
+  const generateReport = async () => {
+    let generatedData;
     if (reportType === "caseload") {
-      setReportData({
+      generatedData = {
         totalClients: clients.length,
         activeClients: clients.filter(c => c.status === "Active").length,
         onHoldClients: clients.filter(c => c.status !== "Active").length,
-      });
+      };
     } else if (reportType === "sessions") {
-      setReportData({
+      generatedData = {
         sessions: schedule
-
-      });
+      };
     } else if (reportType === "outcomes") {
-      setReportData({
+      generatedData = {
         highRisk: clients.filter(c => c.riskLevel === "High").length,
         mediumRisk: clients.filter(c => c.riskLevel === "Medium").length,
         lowRisk: clients.filter(c => c.riskLevel === "Low").length,
-      });
+      };
     } else if (reportType === "crisis") {
-      setReportData({
+      generatedData = {
         crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
-      });
+      };
+    }
+
+    const newReportPayload = {
+      name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
+      type: "PDF", // Or determine dynamically
+      data: generatedData,
+    };
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newReportPayload),
+    });
+
+    if (res.ok) {
+      const savedReport = await res.json();
+      setRecentReports(prev => [savedReport, ...prev]);
+      setReportData(generatedData);
+    } else {
+      console.error("Failed to save the generated report.");
+      alert("Could not save the report. Please try again.");
     }
   };
 
@@ -289,142 +359,148 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
 
         {/* Referrals Tab - Team Leaders Only */}
         {userRole === "team-leader" && (
-          <TabsContent value="Referrals" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Referral Management</h2>
-              <Badge variant="outline">{referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
-            </div>
-
-            <Tabs defaultValue="pending" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="processed">Processed</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="pending">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pending Referrals</CardTitle>
-                    <CardDescription>Review and process new client referrals</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
-                      <div key={referral.id} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-2">
-                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                              <div>Age: {referral.age}</div>
-                              <div>Source: {referral.referral_source}</div>
-                              <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
-                            </div>
+                    <TabsContent value="Referrals" className="space-y-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Referral Management</CardTitle>
+                          <CardDescription>Review and process new client referrals</CardDescription>
+                          <div className="relative w-full md:w-1/3 mt-4">
+                            <Input
+                              type="text"
+                              placeholder="Search by client name or referral source..."
+                              value={referralSearchQuery}
+                              onChange={(e) => setReferralSearchQuery(e.target.value)}
+                              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                            />
                           </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Reason for Referral:</h4>
-                          <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <h4 className="font-medium">Contact Information:</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                            <div className="flex items-center gap-2">
-                              <Phone className="h-4 w-4" />
-                              {referral.phone}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Mail className="h-4 w-4" />
-                              {referral.email}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4" />
-                              {referral.address}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}
-                            </div>
-                          </div>
-                        </div>
-
-                        {referral.additional_notes && (
-                          <div className="space-y-2">
-                            <h4 className="font-medium">Additional Notes:</h4>
-                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
-                          </div>
-                        )}
-
-                        <ReferralActions
-                          referral={referral}
-                          onStatusUpdate={handleReferralStatusUpdate}
-                          userRole={userRole}
-                          assignableUsers={assignableUsers}
-                        />
-                      </div>
-                    ))}
-
-                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
-                        <p className="text-sm">All referrals have been processed.</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="processed">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Processed Referrals</CardTitle>
-                    <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
-                      <div key={referral.id} className="border rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                          <Badge className={
-                            referral.status.toLowerCase() === "approved"
-                              ? "bg-teal-600 text-white"
-                              : referral.status.toLowerCase() === "rejected"
-                                ? "bg-red-500 text-white"
-                                : "bg-blue-500 text-white"
-                          }>
-                            {referral.status}
-                          </Badge>
-
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
-                        </div>
-                      </div>
-                    ))}
-                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
-                        <p className="text-sm">Process a referral from the 'Pending' tab.</p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-        )}
+                        </CardHeader>
+                        <CardContent>
+                          <Tabs defaultValue="pending" className="space-y-4">
+                            <TabsList>
+                              <TabsTrigger value="pending">Pending</TabsTrigger>
+                              <TabsTrigger value="processed">Processed</TabsTrigger>
+                            </TabsList>
+          
+                                              <TabsContent value="pending">
+                                                <CardContent className="space-y-4">
+                                                  {filteredReferrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
+                                                    <div key={referral.id} className="border rounded-lg p-4 space-y-4">
+                                                      <div className="flex items-start justify-between">
+                                                        <div className="space-y-2">
+                                                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                                                          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                                            <div>Age: {referral.age}</div>
+                                                            <div>Source: {referral.referral_source}</div>
+                                                            <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                            
+                                                      <div className="space-y-2">
+                                                        <h4 className="font-medium">Reason for Referral:</h4>
+                                                        <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
+                                                      </div>
+                            
+                                                      <div className="space-y-2">
+                                                        <h4 className="font-medium">Contact Information:</h4>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                                          <div className="flex items-center gap-2">
+                                                            <Phone className="h-4 w-4" />
+                                                            {referral.phone}
+                                                          </div>
+                                                          <div className="flex items-center gap-2">
+                                                            <Mail className="h-4 w-4" />
+                                                            {referral.email}
+                                                          </div>
+                                                          <div className="flex items-center gap-2">
+                                                            <MapPin className="h-4 w-4" />
+                                                            {referral.address}
+                                                          </div>
+                                                          <div className="flex items-center gap-2">
+                                                            <User className="h-4 w-4" />
+                                                            {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}
+                                                          </div>
+                                                        </div>
+                                                      </div>
+                            
+                                                      {referral.additional_notes && (
+                                                        <div className="space-y-2">
+                                                          <h4 className="font-medium">Additional Notes:</h4>
+                                                          <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
+                                                        </div>
+                                                      )}
+                            
+                                                      <ReferralActions
+                                                        referral={referral}
+                                                        onStatusUpdate={handleReferralStatusUpdate}
+                                                        userRole={userRole}
+                                                        assignableUsers={assignableUsers}
+                                                      />
+                                                    </div>
+                                                  ))}
+                            
+                                                  {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
+                                                    <div className="text-center py-8 text-gray-500">
+                                                      <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                                                      <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
+                                                      <p className="text-sm">All referrals have been processed.</p>
+                                                    </div>
+                                                  )}
+                                                </CardContent>
+                                              </TabsContent>          
+                                              <TabsContent value="processed">
+                                                <CardContent className="space-y-4">
+                                                  {filteredReferrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
+                                                    <div key={referral.id} className="border rounded-lg p-4 space-y-2">
+                                                      <div className="flex items-center justify-between">
+                                                        <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                                                        <Badge className={
+                                                          referral.status.toLowerCase() === "approved"
+                                                            ? "bg-teal-600 text-white"
+                                                            : referral.status.toLowerCase() === "rejected"
+                                                              ? "bg-red-500 text-white"
+                                                              : "bg-blue-500 text-white"
+                                                        }>
+                                                          {referral.status}
+                                                        </Badge>
+                            
+                                                      </div>
+                                                      <div className="text-sm text-gray-600">
+                                                        Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                  {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
+                                                    <div className="text-center py-8 text-gray-500">
+                                                      <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                                                      <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
+                                                      <p className="text-sm">Process a referral from the 'Pending' tab.</p>
+                                                    </div>
+                                                  )}
+                                                </CardContent>
+                                              </TabsContent>                          </Tabs>
+                        </CardContent>
+                      </Card>
+                    </TabsContent>        )}
 
         <TabsContent value="Clients" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Client Management</CardTitle>
               <CardDescription>Manage your active clients and their information</CardDescription>
+              <div className="relative w-full md:w-1/3 mt-4">
+                <Input
+                  type="text"
+                  placeholder="Search by client name..."
+                  value={clientSearchQuery}
+                  onChange={(e) => setClientSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {clients.map((client) => (
+                {filteredClients.map((client) => (
                   <div key={client.id} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
@@ -479,6 +555,9 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
                     { day: "Friday", time: "9:00 AM - 11:00 AM" },
                   ]}
+                  isOpen={isAvailabilityModalOpen}
+                  onOpenChange={setAvailabilityModalOpen}
+                  onSelect={handleSlotSelect}
                 />
                 <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
               </div>
@@ -713,11 +792,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    { name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB" },
-                    { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
-                    { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
-                  ].map((report, index) => (
+                  {recentReports.map((report, index) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded">
                       <div>
                         <p className="font-medium">{report.name}</p>

@@ -1,6 +1,7 @@
 // middleware.ts
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma'; // Import prisma
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)']);
 const isDashboardRoute = createRouteMatcher(['/dashboard(.*)', '/interactive(.*)']);
@@ -25,10 +26,19 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   if (isAdminRoute(req)) {
-    const { sessionClaims } = await auth();
-    
-    // FIXED: Changed from metadata.role to publicMetadata.role
-    const role = sessionClaims?.publicMetadata?.role;
+    const { userId } = auth(); // Get userId directly
+    if (!userId) {
+      const homeUrl = new URL('/', req.url);
+      return NextResponse.redirect(homeUrl);
+    }
+
+    // Fetch user role directly from the database
+    const user = await prisma.user.findUnique({
+      where: { clerk_user_id: userId },
+      include: { role: true },
+    });
+
+    const role = user?.role?.role_name; // Get role from database
     
     if (role !== 'admin') {
       const homeUrl = new URL('/', req.url);

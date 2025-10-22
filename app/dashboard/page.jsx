@@ -122,10 +122,11 @@ export default function DashboardPage({ clients, onAdd }) {
 
   if (isLoading) return <p className="text-gray-600">Loading dashboard...</p>;
   if (error) return <p className="text-red-600">Failed to load dashboard data.</p>;
+  if (!data) return <p className="text-gray-600">Loading dashboard...</p>; // Add a check for data
 
-  const { metrics, notifications, upcomingAppointments, role } = data;
+  const { metrics, notifications, upcomingAppointments, role } = data || {};
 
-  const formattedMetrics = formatMetrics(metrics);
+  const formattedMetrics = formatMetrics(metrics || {});
 
   return (
     <div className="space-y-6">

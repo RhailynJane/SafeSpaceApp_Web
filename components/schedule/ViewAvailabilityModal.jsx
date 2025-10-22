@@ -65,7 +65,7 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline">
-          <Clock className="h-4 w-4 mr-2" /> View Availability
+          <Clock className="h-4 w-4 mr-2" />View Availability
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
