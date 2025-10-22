@@ -58,7 +58,6 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
         time: selectedSlot.toTimeString().substring(0, 5)
       });
       setSelectedSlot(null); // Reset selection
-      onOpenChange(false); // Close the availability modal
     }
   };
 

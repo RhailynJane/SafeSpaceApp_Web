@@ -50,6 +50,9 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [addAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
+  const [prefilledSlot, setPrefilledSlot] = useState(null);
 
   const fetchData = useCallback(async () => {
     if (!getToken) {
@@ -176,6 +179,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     mutate("/api/dashboard");
   };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
+
+  const handleSlotSelect = (slot) => {
+    setPrefilledSlot(slot);
+    setAvailabilityModalOpen(false); // Close availability modal
+    setAddAppointmentModalOpen(true); // Open appointment modal
+  };
 
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
     setReferrals(prev =>
@@ -530,14 +539,17 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
             <CardContent>
               <div className="flex gap-2 mb-4">
                 <AddAppointmentModal
+                  isOpen={addAppointmentModalOpen}
+                  onOpenChange={setAddAppointmentModalOpen}
                   onAdd={handleAddAppointment}
                   clients={clients}
-                  isOpen={isAddAppointmentModalOpen}
-                  onOpenChange={setAddAppointmentModalOpen}
-                  appointmentDetails={prefilledAppointment}
-                  trigger={<Button variant="default">Add Appointment</Button>}
+                  prefilledSlot={prefilledSlot}
+                  onClose={() => setPrefilledSlot(null)}
                 />
                 <ViewAvailabilityModal
+                  isOpen={availabilityModalOpen}
+                  onOpenChange={setAvailabilityModalOpen}
+                  onSelect={handleSlotSelect}
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
@@ -547,7 +559,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                   onOpenChange={setAvailabilityModalOpen}
                   onSelect={handleSlotSelect}
                 />
-                <ViewCalendarModal schedule={schedule} />
+                <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
               </div>
 
               <div className="space-y-4">
