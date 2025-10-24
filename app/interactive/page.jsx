@@ -13,7 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Calendar } from "lucide-react";
 
 import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
@@ -50,9 +50,6 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
-  const [addAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
-  const [prefilledSlot, setPrefilledSlot] = useState(null);
 
   const fetchData = useCallback(async () => {
     if (!getToken) {
@@ -71,77 +68,50 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         return;
       }
 
-      // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes, reportRes] = await Promise.all([
-        fetch("/api/clients"),
-        fetch("/api/notes"),
-        fetch("/api/crisis-events"),
-        fetch("/api/appointments"),
-        fetch("/api/reports"),
-      ]);
+      const endpoints = [
+        { key: 'clients', url: '/api/clients' },
+        { key: 'notes', url: '/api/notes' },
+        { key: 'crisisEvents', url: '/api/crisis-events' },
+        { key: 'schedule', url: '/api/appointments' },
+        { key: 'recentReports', url: '/api/reports' },
+      ];
 
-      if (clientRes.ok) {
-        const clientData = await clientRes.json();
-        console.log("Fetched client data:", clientData);
-        setClients(Array.isArray(clientData) ? clientData : []);
-      } else {
-        const errorData = await clientRes.json();
-        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText, errorData);
+      if (userRole === 'team-leader') {
+        endpoints.push(
+          { key: 'referrals', url: '/api/referrals' },
+          { key: 'assignableUsers', url: '/api/assignable-users' }
+        );
       }
 
-      if (noteRes.ok) {
-        const noteData = await noteRes.json();
-        setNotes(Array.isArray(noteData) ? noteData : []);
-      } else {
-        console.error("Failed to fetch notes:", noteRes.status, noteRes.statusText);
-      }
+      const results = await Promise.allSettled(endpoints.map(e => fetch(e.url).then(res => {
+        if (!res.ok) throw new Error(`Failed to fetch ${e.key}: ${res.statusText}`);
+        return res.json();
+      })));
 
-      if (crisisRes.ok) {
-        const crisisData = await crisisRes.json();
-        setCrisisEvents(Array.isArray(crisisData) ? crisisData : []);
-      } else {
-        console.error("Failed to fetch crisis events:", crisisRes.status, crisisRes.statusText);
-      }
+      const setters = {
+        clients: setClients,
+        notes: setNotes,
+        crisisEvents: setCrisisEvents,
+        schedule: setSchedule,
+        recentReports: setRecentReports,
+        referrals: setReferrals,
+        assignableUsers: setAssignableUsers,
+      };
 
-      if (appointmentRes.ok) {
-        const appointmentData = await appointmentRes.json();
-        setSchedule(Array.isArray(appointmentData) ? appointmentData : []);
-      } else {
-        console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText);
-      }
-
-      if (reportRes.ok) {
-        const reportData = await reportRes.json();
-        setRecentReports(Array.isArray(reportData) ? reportData : []);
-      } else {
-        console.error("Failed to fetch reports:", reportRes.status, reportRes.statusText);
-      }
-
-      // Conditionally fetch referrals and assignable users
-      if (userRole === "team-leader") {
-        const [refRes, usersRes] = await Promise.all([
-            fetch("/api/referrals"),
-            fetch("/api/assignable-users")
-        ]);
-
-        if (refRes.ok) {
-          const refData = await refRes.json();
-          setReferrals(Array.isArray(refData) ? refData : []);
+      results.forEach((result, index) => {
+        const { key } = endpoints[index];
+        if (result.status === 'fulfilled') {
+          const data = result.value;
+          setters[key](Array.isArray(data) ? data : []);
         } else {
-          console.error("Failed to fetch referrals:", refRes.status, refRes.statusText);
+          console.error("Failed to fetch " + key + ":", result.reason);
+          throw new Error(`Failed to fetch ${key}`);
         }
-
-        if (usersRes.ok) {
-            const usersData = await usersRes.json();
-            setAssignableUsers(Array.isArray(usersData) ? usersData : []);
-        } else {
-            console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText);
-        }
-      }
+      });
 
     } catch (error) {
       console.error("Error fetching data:", error);
-      setError("Failed to load data. Please try again.");
+      setError(error.message || "Failed to load data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -174,17 +144,15 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     setFilteredClients(filtered);
   }, [clientSearchQuery, clients]);
 
-  const handleAddAppointment = (newAppointment) => {
-    setSchedule((prev) => [...prev, newAppointment]);
-    mutate("/api/dashboard");
+  const handleAddAppointment = async (newAppointment) => {
+    // Optimistically update the UI
+    mutate('/api/appointments', (currentData = []) => [...currentData, newAppointment], false);
+
+    // Revalidate the data from the server to ensure consistency
+    // The `true` here tells SWR to re-fetch the data.
+    await mutate('/api/appointments', true);
   };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
-
-  const handleSlotSelect = (slot) => {
-    setPrefilledSlot(slot);
-    setAvailabilityModalOpen(false); // Close availability modal
-    setAddAppointmentModalOpen(true); // Open appointment modal
-  };
 
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
     setReferrals(prev =>
@@ -258,6 +226,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [isAddAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
   const [prefilledAppointment, setPrefilledAppointment] = useState(null);
   const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [isCalendarModalOpen, setCalendarModalOpen] = useState(false);
 
 
   const [modals, setModals] = useState({
@@ -274,7 +243,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const closeModal = (modalName) => setModals(prev => ({ ...prev, [modalName]: false }));
 
   const handleSlotSelect = (slot) => {
-    // slot contains { date: 'YYYY-MM-DD', time: 'HH:MM' }
+    // slot contains { date: 'YYYY-MM-DD', time: 'HH:MM' } from ViewAvailabilityModal
     setPrefilledAppointment({ appointment_date: slot.date, appointment_time: slot.time });
     setAvailabilityModalOpen(false); // Close availability modal
     setAddAppointmentModalOpen(true);
@@ -539,17 +508,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
             <CardContent>
               <div className="flex gap-2 mb-4">
                 <AddAppointmentModal
-                  isOpen={addAppointmentModalOpen}
+                  isOpen={isAddAppointmentModalOpen}
                   onOpenChange={setAddAppointmentModalOpen}
                   onAdd={handleAddAppointment}
                   clients={clients}
-                  prefilledSlot={prefilledSlot}
-                  onClose={() => setPrefilledSlot(null)}
-                />
-                <ViewAvailabilityModal
-                  isOpen={availabilityModalOpen}
-                  onOpenChange={setAvailabilityModalOpen}
-                  onSelect={handleSlotSelect}
+                  prefilledSlot={prefilledAppointment}
+                  onClose={() => setPrefilledAppointment(null)} />                <ViewAvailabilityModal
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
@@ -559,7 +523,14 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                   onOpenChange={setAvailabilityModalOpen}
                   onSelect={handleSlotSelect}
                 />
-                <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
+                <Button variant="outline" onClick={() => setCalendarModalOpen(true)}>
+                  <Calendar className="h-4 w-4 mr-2" /> View Calendar
+                </Button>
+                <ViewCalendarModal 
+                  schedule={schedule} 
+                  isOpen={isCalendarModalOpen}
+                  onOpenChange={setCalendarModalOpen}
+                />
               </div>
 
               <div className="space-y-4">

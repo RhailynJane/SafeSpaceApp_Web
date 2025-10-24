@@ -8,9 +8,6 @@
     "start": "next start",
     "lint": "eslint"
   },
-  "prisma": {
-    "seed": "node prisma/seed.js"
-  },
   "dependencies": {
     "@clerk/backend": "^2.16.0",
     "@clerk/clerk-sdk-node": "^4.13.23",

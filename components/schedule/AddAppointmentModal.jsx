@@ -52,26 +52,19 @@ export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clien
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  useEffect(() => {
-    if (appointmentDetails) {
-      setFormData(prev => ({ ...prev, ...appointmentDetails }));
-    }
-  }, [appointmentDetails, isOpen]);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const appointmentTime = `${formData.date}T${formData.time}:00`;
-
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           client_id: parseInt(formData.clientId),
-          appointment_time: appointmentTime,
+          appointment_date: new Date(formData.date).toISOString(),
+          appointment_time: `${formData.time}:00`,
           type: formData.type,
           duration: formData.duration,
           details: formData.details,

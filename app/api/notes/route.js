@@ -19,7 +19,39 @@ export async function GET(request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    if (!user.role) {
+      return NextResponse.json({ error: "User has no role" }, { status: 403 });
+    }
+
     const userRole = user.role.role_name.replace(/_/g, "-");
+
+    const noteSelect = {
+      id: true,
+      client_id: true,
+      author_user_id: true,
+      note_date: true,
+      session_type: true,
+      summary: true,
+      detailed_notes: true,
+      risk_assessment: true,
+      next_steps: true,
+      created_at: true,
+      updated_at: true,
+      client: {
+        select: {
+          id: true,
+          client_first_name: true,
+          client_last_name: true,
+        },
+      },
+      author: {
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+        },
+      },
+    };
 
     let notes;
     if (userRole === "support-worker") {
@@ -31,64 +63,12 @@ export async function GET(request) {
 
       notes = await prisma.note.findMany({
         where: { client_id: { in: clientIds } },
-        select: {
-          id: true,
-          client_id: true,
-          author_user_id: true,
-          note_date: true,
-          session_type: true,
-          summary: true,
-          detailed_notes: true,
-          risk_assessment: true,
-          next_steps: true,
-          created_at: true,
-          updated_at: true,
-          client: {
-            select: {
-              id: true,
-              client_first_name: true,
-              client_last_name: true,
-            },
-          },
-          author: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-            },
-          },
-        },
+        select: noteSelect,
         orderBy: { created_at: "desc" },
       });
     } else {
       notes = await prisma.note.findMany({
-        select: {
-          id: true,
-          client_id: true,
-          author_user_id: true,
-          note_date: true,
-          session_type: true,
-          summary: true,
-          detailed_notes: true,
-          risk_assessment: true,
-          next_steps: true,
-          created_at: true,
-          updated_at: true,
-          client: {
-            select: {
-              id: true,
-              client_first_name: true,
-              client_last_name: true,
-            },
-          },
-          author: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-            },
-          },
-        },
+        select: noteSelect,
         orderBy: { created_at: "desc" },
       });
     }

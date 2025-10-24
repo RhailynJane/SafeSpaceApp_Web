@@ -25,7 +25,7 @@ export async function GET(req) {
         scheduled_by_user_id: dbUser.id,
       },
       include: {
-        // client: true, // Temporarily removed to isolate the error
+        client: true,
       },
       orderBy: {
         appointment_date: "asc",
@@ -79,17 +79,12 @@ export async function POST(req) {
       clientId = parseInt(clientId, 10);
     }
 
-    // Construct appointment date and time
-    const date = new Date(appointment_date);
-    const [hours, minutes] = appointment_time.split(':').map(Number);
-    date.setHours(hours, minutes, 0, 0);
-
     // ✅ Create appointment
     const appointment = await prisma.appointment.create({
       data: {
         client_id: clientId,
-        appointment_date: date,
-        appointment_time: date,
+        appointment_date: new Date(appointment_date),
+        appointment_time: new Date(`1970-01-01T${appointment_time}Z`),
         type: type || "Individual Session",
         duration: duration || "50 min",
         details: details || "Routine check-in session",
