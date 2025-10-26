@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User } from "lucide-react";
+import Sendbird from 'sendbird';
 
 function getInitials(name) {
   if (!name) return "SS";
@@ -27,6 +28,19 @@ export default function SiteHeader() {
   const [signOutLoading, setSignOutLoading] = useState(false);
   const clerk = useClerk();
   const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    const sb = new Sendbird({ appId: '201BD956-A3BA-448A-B8A2-8E1A23404303' });
+    if (user) {
+      sb.connect(user.id, (user, error) => {
+        if (error) {
+          console.error("Sendbird connection error:", error);
+        } else {
+          console.log("Sendbird connected for user:", user);
+        }
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchNotifications = async () => {
