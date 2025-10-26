@@ -298,6 +298,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         <SendbirdChat
           appId="201BD956-A3BA-448A-B8A2-8E1A23404303"
           channelUrl={channelUrl}
+          onClose={() => setShowChat(false)}
         />
       )}
       <div className="flex items-center justify-between">
