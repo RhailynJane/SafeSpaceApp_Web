@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import AddAppointmentModal from "@/components/schedule/AddAppointmentModal";
 
+import SendbirdChat from '@/components/SendbirdChat';
+
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Helpers
@@ -299,6 +301,7 @@ export default function DashboardPage({ clients, onAdd }) {
           </div>
         </CardContent>
       </Card>
+
     </div>
   )
 }

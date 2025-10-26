@@ -13,7 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search } from "lucide-react";
 
 import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
@@ -26,10 +26,11 @@ import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal";
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 import ViewReportModal from "@/components/reports/ViewReportModal";
+import SendbirdChat from "@/components/SendbirdChat";
 
 import jsPDF from "jspdf";
 
-function InteractiveDashboardContent({ userRole = "support-worker", userName = "User", getToken, defaultTab }) {
+function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
   const [referrals, setReferrals] = useState([]);
   const [clients, setClients] = useState([]);
@@ -45,6 +46,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [riskLevelFilter, setRiskLevelFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showChat, setShowChat] = useState(false);
+  const [channelUrl, setChannelUrl] = useState("");
+
 
   const fetchData = useCallback(async () => {
     if (!getToken) {
@@ -251,10 +258,48 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     setReferrals(prev => prev.map(r => r.id === id ? { ...r, status: "pending" } : r));
   };
 
+  const openChat = async (otherUserIdentifier) => {
+    let otherUserId = otherUserIdentifier;
 
+    if (String(otherUserIdentifier).includes('@')) {
+      const response = await fetch(`/api/users/${otherUserIdentifier}`);
+      const data = await response.json();
+      if (data.userId) {
+        otherUserId = data.userId;
+      } else {
+        console.error('User not found for email:', otherUserIdentifier);
+        return;
+      }
+    }
+
+    const response = await fetch('/api/sendbird', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userIds: [user.id, otherUserId] }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Error creating chat channel:', errorData.error);
+      alert('Failed to create chat channel. Please try again later.');
+      return;
+    }
+
+    const data = await response.json();
+    setChannelUrl(data.channelUrl);
+    setShowChat(true);
+  };
 
   return (
     <main className="p-6 space-y-6">
+      {showChat && (
+        <SendbirdChat
+          appId="201BD956-A3BA-448A-B8A2-8E1A23404303"
+          channelUrl={channelUrl}
+        />
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Welcome back, {userName}</h1>
@@ -351,6 +396,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                           onStatusUpdate={handleReferralStatusUpdate}
                           userRole={userRole}
                           assignableUsers={assignableUsers}
+                          onStartChat={openChat}
                         />
                       </div>
                     ))}
@@ -414,8 +460,51 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
               <CardDescription>Manage your active clients and their information</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="flex space-x-4 mb-4">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search clients by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <Select value={riskLevelFilter} onValueChange={setRiskLevelFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by risk level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Risk Levels</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                    <SelectItem value="On-Hold">On-Hold</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-4">
-                {clients.map((client) => (
+                {clients
+                  .filter(client => 
+                    `${client.client_first_name} ${client.client_last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  .filter(client => 
+                    riskLevelFilter === "all" || client.risk_level === riskLevelFilter
+                  )
+                  .filter(client =>
+                    statusFilter === "all" || client.status === statusFilter
+                  )
+                  .map((client) => (
                   <div key={client.id} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
@@ -436,7 +525,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                       </div>
                     </div>
                     <div className="mt-4">
-                      <ClientActionButtons client={client} />
+                      <ClientActionButtons client={client} onMessage={() => openChat(client.user_id)} />
                     </div>
                   </div>
                 ))}
@@ -864,7 +953,7 @@ function InteractiveDashboard() {
   console.log("Normalized role:", normalized);
   console.log("Final userRole for UI:", userRole);
 
-  return <InteractiveDashboardContent userRole={userRole} userName={userName} getToken={getToken} defaultTab={tab || 'Overview'} />;
+  return <InteractiveDashboardContent user={user} userRole={userRole} userName={userName} getToken={getToken} defaultTab={tab || 'Overview'} />;
 }
 
 export default function InteractiveDashboardPage() {
