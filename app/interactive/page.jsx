@@ -28,6 +28,7 @@ import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 import ViewReportModal from "@/components/reports/ViewReportModal";
 
 import jsPDF from "jspdf";
+import * as XLSX from 'xlsx';
 
 function InteractiveDashboardContent({ userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
@@ -250,48 +251,28 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   };
 
   const generateReport = async () => {
-    let generatedData;
-    if (reportType === "caseload") {
-      generatedData = {
-        totalClients: clients.length,
-        activeClients: clients.filter(c => c.status === "Active").length,
-        onHoldClients: clients.filter(c => c.status !== "Active").length,
-      };
-    } else if (reportType === "sessions") {
-      generatedData = {
-        sessions: schedule
-      };
-    } else if (reportType === "outcomes") {
-      generatedData = {
-        highRisk: clients.filter(c => c.riskLevel === "High").length,
-        mediumRisk: clients.filter(c => c.riskLevel === "Medium").length,
-        lowRisk: clients.filter(c => c.riskLevel === "Low").length,
-      };
-    } else if (reportType === "crisis") {
-      generatedData = {
-        crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
-      };
-    }
-
-    const newReportPayload = {
-      name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
-      type: "PDF", // Or determine dynamically
-      data: generatedData,
-    };
-
-    const res = await fetch('/api/reports', {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/reports/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newReportPayload),
+        body: JSON.stringify({ reportType, dateRange }),
     });
-
+  
     if (res.ok) {
       const savedReport = await res.json();
       setRecentReports(prev => [savedReport, ...prev]);
-      setReportData(generatedData);
+        setReportData(savedReport.data); // Use data from the backend response
     } else {
-      console.error("Failed to save the generated report.");
-      alert("Could not save the report. Please try again.");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate report.');
+    }
+    } catch (err) {
+      console.error("Error generating report:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -740,9 +721,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                     </Select>
                   </div>
                 </div>
-                <Button className="w-full" onClick={generateReport}>
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Generate Report
+                <Button className="w-full" onClick={generateReport} disabled={loading}>
+                  {loading ? (
+                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> Generating...</>
+                  ) : (
+                    <><BarChart3 className="h-4 w-4 mr-2" /> Generate Report</>
+                  )}
                 </Button>
 
                 {reportData && (
@@ -786,15 +770,17 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            if (report.type === "PDF") {
-                              const doc = new jsPDF()
-                              doc.text(`Report Name: ${report.name}`, 10, 10)
-                              doc.text(`Date: ${report.date}`, 10, 20)
-                              doc.text(`Type: ${report.type}`, 10, 30)
-                              doc.text(`Size: ${report.size}`, 10, 40)
-                              doc.save(`${report.name}.pdf`)
+                            if (report.type === 'PDF') {
+                              const doc = new jsPDF();
+                              doc.text(JSON.stringify(report.data, null, 2), 10, 10);
+                              doc.save(`${report.name}.pdf`);
+                            } else if (report.type === 'Excel') {
+                              const worksheet = XLSX.utils.json_to_sheet(report.data.sessions);
+                              const workbook = XLSX.utils.book_new();
+                              XLSX.utils.book_append_sheet(workbook, worksheet, "Sessions");
+                              XLSX.writeFile(workbook, `${report.name}.xlsx`);
                             } else {
-                              alert("Downloading non-PDF files is not yet supported")
+                              alert(`Downloading ${report.type} files is not yet supported.`);
                             }
                           }}
                         >
