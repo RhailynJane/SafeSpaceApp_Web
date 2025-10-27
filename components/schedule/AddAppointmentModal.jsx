@@ -20,10 +20,10 @@ import {
   SelectContent,
   SelectItem,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
 
 export default function AddAppointmentModal({ onAdd, clients = [] }) {
-  console.log("Clients in modal:", clients);
   const [open, setOpen] = useState(false);
   const [appointment_date, setAppointmentDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -90,20 +90,27 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">Add Appointment</Button>
+        <Button variant="default" size="default" className="font-medium">
+          Add Appointment
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New Appointment</DialogTitle>
+          <DialogTitle className="text-teal-800">New Appointment</DialogTitle>
           <DialogDescription>
             Fill in the details for the new appointment.
           </DialogDescription>
         </DialogHeader>
-        <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
-          <div className="grid gap-2">
-            <Label htmlFor="client">Client</Label>
+          
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Client - Full width first row */}
+          <div className="space-y-2">
+            <Label htmlFor="client" className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              Client
+            </Label>
             <Select onValueChange={setClientId} value={client_id}>
-              <SelectTrigger>
+              <SelectTrigger id="client" className="h-11">
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
               <SelectContent>
@@ -116,80 +123,108 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
             </Select>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={appointment_date}
-              onChange={(e) => setAppointmentDate(e.target.value)}
-              required
-            />
+          {/* Date and Time - Second row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="date" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                Date
+              </Label>
+              <Input
+                id="date"
+                type="date"
+                value={appointment_date}
+                onChange={(e) => setAppointmentDate(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="time" className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                Time
+              </Label>
+              <Input
+                id="time"
+                type="time"
+                value={appointment_time}
+                onChange={(e) => setAppointmentTime(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="time">Time</Label>
-            <Input
-              id="time"
-              type="time"
-              value={appointment_time}
-              onChange={(e) => setAppointmentTime(e.target.value)}
-              required
-            />
+          {/* Session Type and Duration - Third row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="type">Session Type</Label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger id="type" className="h-11">
+                  <SelectValue placeholder="Select session type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Individual Session">
+                    Individual Session
+                  </SelectItem>
+                  <SelectItem value="Group Therapy">Group Therapy</SelectItem>
+                  <SelectItem value="Assessment">Assessment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="duration">Duration</Label>
+              <Input
+                id="duration"
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                placeholder="e.g., 50 min"
+                required
+                className="h-11"
+              />
+            </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="type">Session Type</Label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select session type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Individual Session">
-                  Individual Session
-                </SelectItem>
-                <SelectItem value="Group Therapy">Group Therapy</SelectItem>
-                <SelectItem value="Assessment">Assessment</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="duration">Duration</Label>
-            <Input
-              id="duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="e.g., 50 min"
-              required
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="details">Details</Label>
-            <Input
+          {/* Details - Fourth row, full width textarea */}
+          <div className="space-y-2">
+            <Label htmlFor="details" className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              Details
+            </Label>
+            <Textarea
               id="details"
               value={details}
               onChange={(e) => setDetails(e.target.value)}
-              placeholder="Appointment details"
+              placeholder="Appointment details (optional)"
+              rows={4}
+              className="resize-none"
             />
           </div>
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {/* Error message */}
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+              <p className="text-red-600 text-sm font-medium">{error}</p>
+            </div>
+          )}
 
-          <div className="flex justify-end gap-2 mt-4">
+          {/* Footer buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" size="default">
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} size="default" className="bg-teal-800 hover:bg-teal-900">
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
                 </>
               ) : (
-                "Add"
+                "Add Appointment"
               )}
             </Button>
           </div>
@@ -198,4 +233,3 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     </Dialog>
   );
 }
-

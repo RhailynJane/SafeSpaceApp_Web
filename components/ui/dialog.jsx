@@ -7,6 +7,33 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Custom scrollbar styles
+const scrollbarStyles = `
+  .dialog-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .dialog-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 8px 0;
+  }
+  
+  .dialog-scrollbar::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 100px;
+  }
+  
+  .dialog-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+  
+  /* Firefox scrollbar */
+  .dialog-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+`;
+
 /**
  * Dialog Root component
  * Wraps Radix's Root, which manages open/close state for the dialog.
@@ -61,7 +88,7 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/60 backdrop-blur-md transition-all duration-300",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-white bg-opacity-50 backdrop-blur-lg transition-all duration-300",
         className
       )}
       {...props} />
