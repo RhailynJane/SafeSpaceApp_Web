@@ -92,7 +92,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
       <DialogTrigger asChild>
         <Button variant="default">Add Appointment</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
           <DialogDescription>

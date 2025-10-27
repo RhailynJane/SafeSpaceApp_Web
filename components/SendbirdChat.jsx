@@ -202,7 +202,7 @@ const SendbirdChat = ({ channelUrl, onClose }) => {
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">
-                  {getOtherParticipant()?.nickname || channel.name || 'Chat'}
+                  {getDisplayName()}
                 </h3>
                 <p className="text-xs text-gray-500">Active now</p>
               </div>
