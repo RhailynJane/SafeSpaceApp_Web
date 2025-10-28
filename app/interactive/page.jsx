@@ -13,7 +13,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
 
 import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
@@ -111,8 +112,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       // Conditionally fetch referrals and assignable users
       if (userRole === "team-leader") {
         const [refRes, usersRes] = await Promise.all([
-            fetch("/api/referrals"),
-            fetch("/api/assignable-users")
+          fetch("/api/referrals"),
+          fetch("/api/assignable-users")
         ]);
 
         if (refRes.ok) {
@@ -123,10 +124,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         }
 
         if (usersRes.ok) {
-            const usersData = await usersRes.json();
-            setAssignableUsers(Array.isArray(usersData) ? usersData : []);
+          const usersData = await usersRes.json();
+          setAssignableUsers(Array.isArray(usersData) ? usersData : []);
         } else {
-            console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText);
+          console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText);
         }
       }
 
@@ -264,8 +265,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     let dynamicChannelName = channelName;
 
     if (typeof otherUser === 'object' && otherUser !== null) {
-        otherUserId = otherUser.user_id;
-        dynamicChannelName = `${otherUser.client_first_name} ${otherUser.client_last_name}`;
+      otherUserId = otherUser.user_id;
+      dynamicChannelName = `${otherUser.client_first_name} ${otherUser.client_last_name}`;
     } else if (String(otherUser).includes('@')) {
       const response = await fetch(`/api/users/${otherUser}`);
       const data = await response.json();
@@ -284,10 +285,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
-          userIds: [user.id, otherUserId],
-          name: dynamicChannelName 
-        }),
+      body: JSON.stringify({
+        userIds: [user.id, otherUserId],
+        name: dynamicChannelName
+      }),
     });
 
     if (!response.ok) {
@@ -304,22 +305,165 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   return (
     <main className="p-6 space-y-6">
-      <Dialog open={showChat} onOpenChange={setShowChat}>
-        <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle>{chatChannelName}</DialogTitle>
-          </DialogHeader>
-          <div className="flex-grow overflow-y-auto">
-            {channelUrl && (
-              <SendbirdChat
-                appId="201BD956-A3BA-448A-B8A2-8E1A23404303"
-                channelUrl={channelUrl}
-                onClose={() => setShowChat(false)}
-              />
+
+      {/* Floating chat window (bottom-right */}
+      {showChat && (
+        <div className="fixed bottom-5 right-5 w-[380px] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden z-[9999]">
+          {/* Header */}
+          <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative flex-shrink-0">
+                <img
+                  src="/images/logo.png"
+                  alt="profile"
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-teal-100"
+                />
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-gray-900 text-sm truncate">{chatChannelName}</h3>
+                <p className="text-xs text-gray-500">Active now</p>
+              </div>
+            </div>
+
+            {/* Right-side controls */}
+            <div className="flex items-center gap-1">
+              {/* Dropdown Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="hover:bg-gray-100 rounded-full h-8 w-8">
+                    <MoreVertical size={16} className="text-gray-600" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      try {
+                        const res = await fetch("/api/sendbird/mute", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ channelUrl, userId: user.id, mute: true }),
+                        });
+                        if (!res.ok) throw new Error("mute failed");
+                        alert("Notifications muted for this chat.");
+                      } catch (err) {
+                        console.error(err);
+                        alert("Failed to mute notifications.");
+                      }
+                    }}
+                  >
+                    Mute notifications
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      if (!window.confirm("Clear all messages from this chat?")) return;
+                      try {
+                        const res = await fetch("/api/sendbird/clear", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ channelUrl, userId: user.id }),
+                        });
+                        if (!res.ok) throw new Error("clear failed");
+                        alert("Chat history cleared.");
+                        setShowChat(false);
+                      } catch (err) {
+                        console.error(err);
+                        alert("Failed to clear chat history.");
+                      }
+                    }}
+                  >
+                    Clear chat history
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      const term = prompt("Enter a keyword to search for:");
+                      if (!term) return;
+                      try {
+                        const res = await fetch("/api/sendbird/search", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ channelUrl, keyword: term }),
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          alert(`Found ${data.count ?? data.messages?.length ?? 0} results for "${term}"`);
+                        } else {
+                          alert("Search not implemented yet.");
+                        }
+                      } catch {
+                        alert("Search route not available.");
+                      }
+                    }}
+                  >
+                    Search in conversation
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                    onClick={async () => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      if (!window.confirm("Are you sure you want to block this user?")) return;
+                      try {
+                        const mRes = await fetch("/api/sendbird/members", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ channelUrl }),
+                        });
+                        const mData = await mRes.json();
+                        const others = (mData.members || []).filter(
+                          (m) => String(m.user_id) !== String(user.id)
+                        );
+                        if (others.length === 0) return alert("No other member found.");
+                        const targetId = others[0].user_id;
+                        const bRes = await fetch("/api/sendbird/block", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ userId: user.id, targetId }),
+                        });
+                        if (!bRes.ok) throw new Error("block failed");
+                        alert("User blocked.");
+                        setShowChat(false);
+                      } catch (err) {
+                        console.error(err);
+                        alert("Failed to block user.");
+                      }
+                    }}
+                  >
+                    Block user
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* ✅ Working close button */}
+              <button
+                onClick={() => setShowChat(false)}
+                className="ml-1 text-gray-400 hover:text-gray-600 rounded"
+                aria-label="Close chat"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Chat Body */}
+          <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-300 bg-white">
+            {channelUrl ? (
+              <SendbirdChat channelUrl={channelUrl} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                Loading chat...
+              </div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
+
+
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Welcome back, {userName}</h1>
@@ -444,9 +588,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
                           <Badge className={
-                            referral.status.toLowerCase() === "approved"
+                            referral.status.toLowerCase() === "accepted"
                               ? "bg-teal-600 text-white"
-                              : referral.status.toLowerCase() === "rejected"
+                              : referral.status.toLowerCase() === "declined"
                                 ? "bg-red-500 text-white"
                                 : "bg-blue-500 text-white"
                           }>
@@ -515,40 +659,40 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </div>
               <div className="space-y-4">
                 {clients
-                  .filter(client => 
+                  .filter(client =>
                     `${client.client_first_name} ${client.client_last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
                   )
-                  .filter(client => 
+                  .filter(client =>
                     riskLevelFilter === "all" || client.risk_level === riskLevelFilter
                   )
                   .filter(client =>
                     statusFilter === "all" || client.status === statusFilter
                   )
                   .map((client) => (
-                  <div key={client.id} className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
-                        <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                    <div key={client.id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
+                          <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            className={client.risk_level === "High" ? "bg-red-200 text-red-800" : client.risk_level === "Medium" ? "bg-yellow-200 text-yellow-800" : "bg-teal-200 text-teal-800"}
+                          >
+                            {client.risk_level} Risk
+                          </Badge>
+                          <Badge
+                            className={client.status === "Active" ? "bg-green-200 text-green-800" : client.status === "Inactive" ? "bg-orange-200 text-orange-800" : "bg-gray-200 text-gray-800"}
+                          >
+                            {client.status}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          className={client.risk_level === "High" ? "bg-red-200 text-red-800" : client.risk_level === "Medium" ? "bg-yellow-200 text-yellow-800" : "bg-teal-200 text-teal-800"}
-                        >
-                          {client.risk_level} Risk
-                        </Badge>
-                        <Badge
-                          className={client.status === "Active" ? "bg-green-200 text-green-800" : client.status === "Inactive" ? "bg-orange-200 text-orange-800" : "bg-gray-200 text-gray-800"}
-                        >
-                          {client.status}
-                        </Badge>
+                      <div className="mt-4">
+                        <ClientActionButtons client={client} onMessage={() => openChat(client)} />
                       </div>
                     </div>
-                    <div className="mt-4">
-                      <ClientActionButtons client={client} onMessage={() => openChat(client)} />
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </CardContent>
           </Card>
