@@ -13,15 +13,19 @@ export async function GET(req) {
     // Check if the user is an admin
     const user = await prisma.user.findUnique({
       where: { clerk_user_id: userId },
-      include: { role: true },
+      include: { roles: true },
     });
 
-    if (user?.role?.role_name !== 'admin') {
+    if (user?.roles?.role_name !== 'admin') {
         return new Response(JSON.stringify({ error: "Unauthorized: User is not an admin" }), { status: 403 });
     }
 
 
-    const auditLogs = await prisma.auditLog.findMany({
+    const { searchParams } = new URL(req.url);
+    const limit = searchParams.get('limit');
+
+    const auditLogsPromise = prisma.auditLog.findMany({
+      take: limit ? parseInt(limit) : undefined,
       include: {
         user: {
           select: {
@@ -36,17 +40,43 @@ export async function GET(req) {
       },
     });
 
-    const formattedLogs = auditLogs.map(log => ({
+    const systemAlertsPromise = prisma.systemAlert.findMany({
+      take: limit ? parseInt(limit) : undefined,
+      orderBy: {
+        timestamp: 'desc',
+      },
+    });
+
+    const [auditLogs, systemAlerts] = await Promise.all([
+      auditLogsPromise,
+      systemAlertsPromise,
+    ]);
+
+    const formattedAuditLogs = auditLogs.map(log => ({
       id: log.id,
+      type: 'audit',
       action: log.action,
       user: log.user ? `${log.user.first_name} ${log.user.last_name} (${log.user.email})` : 'System',
       timestamp: log.timestamp,
       details: log.details,
     }));
 
-    return NextResponse.json(formattedLogs);
+    const formattedSystemAlerts = systemAlerts.map(alert => ({
+      id: alert.id,
+      type: 'alert',
+      action: `System Alert: ${alert.type}`,
+      user: 'System',
+      timestamp: alert.timestamp,
+      details: alert.message,
+    }));
+
+    const combinedLogs = [...formattedAuditLogs, ...formattedSystemAlerts].sort((a, b) =>
+      b.timestamp.getTime() - a.timestamp.getTime()
+    );
+
+    return NextResponse.json(combinedLogs);
   } catch (error) {
     console.error('Error fetching audit logs:', error);
-    return new Response(JSON.stringify({ error: 'Failed to fetch audit logs' }), { status: 500 });
+    return new Response(JSON.stringify({ error: 'Failed to fetch audit logs', details: error.message }), { status: 500 });
   }
 }

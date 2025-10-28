@@ -82,7 +82,6 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
 
       if (clientRes.ok) {
         const clientData = await clientRes.json();
-        console.log("Fetched client data:", clientData);
         setClients(Array.isArray(clientData) ? clientData : []);
       } else {
         const errorData = await clientRes.json();

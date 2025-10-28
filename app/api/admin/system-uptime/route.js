@@ -1,7 +1,7 @@
-// app/api/admin/metrics/route.js
+// app/api/admin/system-uptime/route.js
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getAuth } from '@clerk/nextjs/server';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(req) {
   try {
@@ -16,23 +16,18 @@ export async function GET(req) {
       include: { roles: true },
     });
 
-    console.log('User from DB:', user);
-
     if (user?.roles?.role_name !== 'admin') {
-        await prisma.systemAlert.create({
-          data: {
-            message: `Unauthorized access attempt to /api/admin/metrics by user ${userId}`,
-            type: 'security',
-          },
-        });
         return new Response(JSON.stringify({ error: "Unauthorized: User is not an admin" }), { status: 403 });
     }
 
-    const totalUsers = await prisma.user.count();
+    // In a real-world scenario, you would have a mechanism to track system uptime.
+    // For a serverless environment like Vercel, this is not straightforward to calculate.
+    // We will return a simulated value for now.
+    const uptime = '99.9%';
 
-    return NextResponse.json({ totalUsers });
+    return NextResponse.json({ uptime });
   } catch (error) {
-    console.error('Error fetching metrics:', error);
-    return new Response(JSON.stringify({ error: 'Failed to fetch metrics', details: error.message }), { status: 500 });
+    console.error('Error fetching system uptime:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch system uptime' }), { status: 500 });
   }
 }

@@ -95,7 +95,10 @@ const ActivityItem = ({ title, description, time }) => (
 
 const DetailedMetricsModal = ({ onClose }) => {
     const [metrics, setMetrics] = useState({ totalUsers: 0 });
-    const [loading, setLoading] = useState(true);
+    const [databaseStatus, setDatabaseStatus] = useState('checking');
+    const [clerkStatus, setClerkStatus] = useState('checking');
+    const [apiResponseTime, setApiResponseTime] = useState(0);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -105,7 +108,7 @@ const DetailedMetricsModal = ({ onClose }) => {
                 const response = await fetch('/api/admin/metrics');
                 if (!response.ok) {
                     throw new Error('Failed to fetch metrics');
-                }
+                } 
                 const data = await response.json();
                 setMetrics(data);
             } catch (error) {
@@ -115,7 +118,42 @@ const DetailedMetricsModal = ({ onClose }) => {
             }
         };
 
+        const fetchDatabaseHealth = async () => {
+            try {
+                const response = await fetch('/api/admin/database-health');
+                const data = await response.json();
+                setDatabaseStatus(data.status);
+            } catch (error) {
+                setDatabaseStatus('error');
+            }
+        };
+
+        const fetchClerkHealth = async () => {
+            try {
+                const response = await fetch('/api/admin/clerk-health');
+                const data = await response.json();
+                setClerkStatus(data.status);
+            } catch (error) {
+                console.error('Error fetching Clerk Health:', error);
+                setClerkStatus('error');
+            }
+        };
+
+        const fetchApiResponseTime = async () => {
+            try {
+                const startTime = Date.now();
+                await fetch('/api/admin/ping');
+                const endTime = Date.now();
+                setApiResponseTime(endTime - startTime);
+            } catch (error) {
+                setApiResponseTime(-1);
+            }
+        };
+
         fetchMetrics();
+        fetchDatabaseHealth();
+        fetchClerkHealth();
+        fetchApiResponseTime();
     }, []);
 
     const MetricBar = ({ label, value, threshold, percentage, status = "normal" }) => (
@@ -152,12 +190,10 @@ const DetailedMetricsModal = ({ onClose }) => {
                     {error && <p className="text-red-500">{error}</p>}
                     {!loading && !error && (
                         <>
-                            <MetricBar label="CPU Usage" value="N/A" threshold="80%" percentage={0} />
-                            <MetricBar label="Memory Usage" value="N/A" threshold="85%" percentage={0} />
-                            <MetricBar label="Database Response Time" value="N/A" threshold="500 ms" percentage={0} />
+                            <MetricBar label="Database Status" value={databaseStatus} threshold="" percentage={databaseStatus === 'ok' ? 100 : 0} status={databaseStatus === 'ok' ? 'normal' : 'error'} />
+                            <MetricBar label="Clerk.js Status" value={clerkStatus} threshold="" percentage={clerkStatus === 'connected' ? 100 : 0} status={clerkStatus === 'connected' ? 'normal' : 'error'} />
                             <MetricBar label="Users" value={`${metrics.totalUsers} users`} threshold="5000 users" percentage={(metrics.totalUsers / 5000) * 100} />
-                            <MetricBar label="API Response Time" value="N/A" threshold="1000 ms" percentage={0} />
-                            <MetricBar label="Error Rate" value="N/A" threshold="5%" percentage={0} />
+                            <MetricBar label="API Response Time" value={`${apiResponseTime} ms`} threshold="1000 ms" percentage={Math.min(100, (apiResponseTime / 1000) * 100)} status={apiResponseTime > 1000 ? 'error' : 'normal'} />
                         </>
                     )}
                 </div>
@@ -204,7 +240,7 @@ const AuditLogModal = ({ onClose }) => {
                     {error && <p className="text-red-500">{error}</p>}
                     {!loading && !error && auditLogs.map(log => (
                         <div key={log.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                            <p className="font-semibold text-gray-800">{log.action} by {log.user}</p>
+                            <p className="font-semibold text-gray-800">[{log.type === 'alert' ? 'ALERT' : 'AUDIT'}] {log.action} {log.type === 'audit' ? `by ${log.user}` : ''}</p>
                             <p className="text-sm text-gray-500">{log.details}</p>
                             <p className="text-xs text-gray-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
                         </div>
@@ -227,6 +263,84 @@ export default function OverviewPage() {
     const [showMetricsModal, setShowMetricsModal] = useState(false);
     // State to control the visibility of the full audit log modal.
     const [showAuditLogModal, setShowAuditLogModal] = useState(false);
+    const [totalUsers, setTotalUsers] = useState(0);
+    const [recentActivities, setRecentActivities] = useState([]);
+    const [systemUptime, setSystemUptime] = useState('0.0%');
+    const [securityAlerts, setSecurityAlerts] = useState(0);
+    const [activeSessions, setActiveSessions] = useState(0);
+
+    useEffect(() => {
+        const fetchTotalUsers = async () => {
+            try {
+                const response = await fetch('/api/admin/metrics');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch total users');
+                }
+                const data = await response.json();
+                setTotalUsers(data.totalUsers);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        const fetchRecentActivities = async () => {
+            try {
+                const response = await fetch('/api/admin/audit-logs?limit=2');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch recent activities');
+                }
+                const data = await response.json();
+                setRecentActivities(data);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        const fetchSystemUptime = async () => {
+            try {
+                const response = await fetch('/api/admin/system-uptime');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch system uptime');
+                }
+                const data = await response.json();
+                setSystemUptime(data.uptime);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        const fetchSecurityAlerts = async () => {
+            try {
+                const response = await fetch('/api/admin/security-alerts');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch security alerts');
+                }
+                const data = await response.json();
+                setSecurityAlerts(data.unreadAlerts);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        const fetchActiveSessions = async () => {
+            try {
+                const response = await fetch('/api/admin/active-sessions');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch active sessions');
+                }
+                const data = await response.json();
+                setActiveSessions(data.activeSessions);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        fetchTotalUsers();
+        fetchRecentActivities();
+        fetchSystemUptime();
+        fetchSecurityAlerts();
+        fetchActiveSessions();
+    }, []);
 
     return (
         <>
@@ -236,10 +350,10 @@ export default function OverviewPage() {
 
                 {/* Section for key statistics */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard title="Total Users" value="200" />
-                    <StatCard title="System Uptime" value="99.9%" />
-                    <StatCard title="Security Alerts" value="3" />
-                    <StatCard title="Active Sessions" value="89" />
+                    <StatCard title="Total Users" value={totalUsers} />
+                    <StatCard title="System Uptime" value={systemUptime} />
+                    <StatCard title="Security Alerts" value={securityAlerts} />
+                    <StatCard title="Active Sessions" value={activeSessions} />
                 </div>
 
                 {/* Section for system health overview */}
@@ -262,8 +376,9 @@ export default function OverviewPage() {
                 <div className="bg-gray-50 border border-gray-100 p-6 rounded-2xl">
                     <h2 className="font-bold text-lg text-gray-800 mb-4">Recent Admin Activities</h2>
                     <div className="space-y-4 mb-6">
-                        <ActivityItem title="User Created" description="Created a new support worker" time="2025-08-11 14:30:00" />
-                        <ActivityItem title="Client Access" description="Access client profile for Emma Wilson" time="2025-08-11 11:30:34" />
+                        {recentActivities.map(activity => (
+                            <ActivityItem key={activity.id} title={activity.action} description={activity.details} time={new Date(activity.timestamp).toLocaleString()} />
+                        ))}
                     </div>
                     {/* Button to open the full audit log modal */}
                     <button 

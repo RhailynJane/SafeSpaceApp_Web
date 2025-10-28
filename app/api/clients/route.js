@@ -22,7 +22,7 @@ export async function GET(request) {
 
       where: { clerk_user_id: userId },
 
-      include: { role: true },
+      include: { roles: true },
 
     });
 
@@ -106,7 +106,7 @@ export async function GET(request) {
 
 
 
-    if (!user.role) {
+    if (!user.roles) {
 
       return NextResponse.json({ error: `User with clerk_user_id ${userId} has an invalid role_id.` }, { status: 500 });
 
@@ -114,7 +114,7 @@ export async function GET(request) {
 
 
 
-    const userRole = user.role.role_name.replace(/_/g, "-");
+    const userRole = user.roles.role_name.replace(/_/g, "-");
 
 
 

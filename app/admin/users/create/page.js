@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
@@ -27,7 +27,7 @@ export default function CreateUserPage() {
         password: '',
     });
     const router = useRouter();
-    const { session } = useAuth();
+    const { user } = useUser();
 
     /**
      * Handles changes in the form fields and updates the formData state.
@@ -69,7 +69,7 @@ export default function CreateUserPage() {
         });
 
         if (res.ok) {
-            await session.reload();
+            await user.reload();
             setShowSuccessModal(true);
         } else {
             // If the server response is not OK, parse the error and display it
