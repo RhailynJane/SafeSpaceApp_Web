@@ -93,13 +93,6 @@ const ActivityItem = ({ title, description, time }) => (
     </div>
 );
 
-/**
- * A modal component that displays detailed system metrics.
- * This modal appears as an overlay on the page.
- * @param {object} props - The component props.
- * @param {Function} props.onClose - The function to call to close the modal.
- * @returns {JSX.Element} The DetailedMetricsModal component.
- */
 const DetailedMetricsModal = ({ onClose }) => {
     const [metrics, setMetrics] = useState({ totalUsers: 0 });
     const [loading, setLoading] = useState(true);
@@ -156,116 +149,12 @@ const DetailedMetricsModal = ({ onClose }) => {
                 {/* Grid of metric bars */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {loading && <p>Loading...</p>}
-                    {error && <p className="text-red-500">Failed to edit, 0 occurrences found for old_string (const DetailedMetricsModal = ({ onClose }) => {
-    /**
-     * A component to display a single metric with a progress bar, value, and threshold.
-     * Used inside the DetailedMetricsModal.
-     * @param {object} props - The component props.
-     * @param {string} props.label - The label for the metric (e.g., \"CPU Usage\").
-     * @param {string} props.value - The current value of the metric (e.g., \"45%\").
-     * @param {string} props.threshold - The acceptable threshold for the metric (e.g., \"80%\").
-     * @param {number} props.percentage - The percentage value to determine the width of the progress bar.
-     * @param {string} [props.status='normal'] - The status of the metric, which affects the color of the status indicator.
-     * @returns {JSX.Element} The MetricBar component.
-     */
-    const MetricBar = ({ label, value, threshold, percentage, status = "normal" }) => (
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-            {/* Header with label and status */}
-            <div className="flex justify-between items-center mb-1">
-                <p className="text-sm font-semibold text-gray-700">{label}</p>
-                <span className={`px-2 py-0.5 text-xs font-medium rounded ${status === 'normal' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{status}</span>
-            </div>
-            {/* Current value */}
-            <p className="text-2xl font-bold text-gray-800 mb-2">{value}</p>
-            {/* Progress bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-teal-500 h-2 rounded-full" style={{ width: `${percentage}%` }}></div>
-            </div>
-            {/* Threshold information */}
-            <p className="text-right text-xs text-gray-500 mt-1">Threshold: {threshold}</p>
-        </div>
-    );
-
-    return (
-        // Modal container with a semi-transparent background
-      <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-
-            {/* Modal content */}
-            <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl">
-                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-gray-800">Detailed System Metrics</h2>
-                    <button onClick={onClose}><CloseIcon /></button>
-                </div>
-                {/* Grid of metric bars */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <MetricBar label="CPU Usage" value="45%" threshold="80%" percentage={45} />
-                    <MetricBar label="Memory Usage" value="67%" threshold="85%" percentage={67} />
-                    <MetricBar label="Database Response Time" value="120 ms" threshold="500 ms" percentage={24} />
-                    <MetricBar label="Users" value="200 users" threshold="5000 users" percentage={4} />
-                    <MetricBar label="API Response Time" value="350 ms" threshold="1000 ms" percentage={35} />
-                    <MetricBar label="Error Rate" value="0.99%" threshold="5%" percentage={19.8} />
-                </div>
-            </div>
-        </div>
-    );
-};). Original old_string was (const DetailedMetricsModal = ({ onClose }) => {
-    /**
-     * A component to display a single metric with a progress bar, value, and threshold.
-     * Used inside the DetailedMetricsModal.
-     * @param {object} props - The component props.
-     * @param {string} props.label - The label for the metric (e.g., \"CPU Usage\").
-     * @param {string} props.value - The current value of the metric (e.g., \"45%\").
-     * @param {string} props.threshold - The acceptable threshold for the metric (e.g., \"80%\").
-     * @param {number} props.percentage - The percentage value to determine the width of the progress bar.
-     * @param {string} [props.status='normal'] - The status of the metric, which affects the color of the status indicator.
-     * @returns {JSX.Element} The MetricBar component.
-     */
-    const MetricBar = ({ label, value, threshold, percentage, status = "normal" }) => (
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-            {/* Header with label and status */}
-            <div className="flex justify-between items-center mb-1">
-                <p className="text-sm font-semibold text-gray-700">{label}</p>
-                <span className={`px-2 py-0.5 text-xs font-medium rounded ${status === 'normal' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{status}</span>
-            </div>
-            {/* Current value */}
-            <p className="text-2xl font-bold text-gray-800 mb-2">{value}</p>
-            {/* Progress bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-teal-500 h-2 rounded-full" style={{ width: `${percentage}%` }}></div>
-            </div>
-            {/* Threshold information */}
-            <p className="text-right text-xs text-gray-500 mt-1">Threshold: {threshold}</p>
-        </div>
-    );
-
-    return (
-        // Modal container with a semi-transparent background
-      <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-
-            {/* Modal content */}
-            <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl">
-                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-gray-800">Detailed System Metrics</h2>
-                    <button onClick={onClose}><CloseIcon /></button>
-                </div>
-                {/* Grid of metric bars */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <MetricBar label="CPU Usage" value="45%" threshold="80%" percentage={45} />
-                    <MetricBar label="Memory Usage" value="67%" threshold="85%" percentage={67} />
-                    <MetricBar label="Database Response Time" value="120 ms" threshold="500 ms" percentage={24} />
-                    <MetricBar label="Users" value="200 users" threshold="5000 users" percentage={4} />
-                    <MetricBar label="API Response Time" value="350 ms" threshold="1000 ms" percentage={35} />
-                    <MetricBar label="Error Rate" value="0.99%" threshold="5%" percentage={19.8} />
-                </div>
-            </div>
-        </div>
-    );
-};)</p>}
+                    {error && <p className="text-red-500">{error}</p>}
                     {!loading && !error && (
                         <>
                             <MetricBar label="CPU Usage" value="N/A" threshold="80%" percentage={0} />
                             <MetricBar label="Memory Usage" value="N/A" threshold="85%" percentage={0} />
-                            <MetricBar label="Database Response Time" value={`${metrics.avgDbResponseTime.toFixed(2)} ms`} threshold="500 ms" percentage={(metrics.avgDbResponseTime / 500) * 100} />
+                            <MetricBar label="Database Response Time" value="N/A" threshold="500 ms" percentage={0} />
                             <MetricBar label="Users" value={`${metrics.totalUsers} users`} threshold="5000 users" percentage={(metrics.totalUsers / 5000) * 100} />
                             <MetricBar label="API Response Time" value="N/A" threshold="1000 ms" percentage={0} />
                             <MetricBar label="Error Rate" value="N/A" threshold="5%" percentage={0} />
@@ -278,14 +167,6 @@ const DetailedMetricsModal = ({ onClose }) => {
 };
 
 
-
-/**
- * A modal component to display the full audit log.
- * This modal is scrollable to accommodate a long list of log entries.
- * @param {object} props - The component props.
- * @param {Function} props.onClose - The function to call to close the modal.
- * @returns {JSX.Element} The AuditLogModal component.
- */
 const AuditLogModal = ({ onClose }) => {
     const [auditLogs, setAuditLogs] = useState([]);
     const [loading, setLoading] = useState(true);
