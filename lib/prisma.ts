@@ -1,25 +1,59 @@
 // lib/prisma.ts
-// REFERENCE:
-// This Prisma client setup was generated with assistance from ChatGPT (OpenAI GPT-5)
-// Prompt: help me with correct integration of PostgreSQL (via pgAdmin) with the backend and frontend.
-// Purpose: Initializes and manages a singleton PrismaClient instance to interact with PostgreSQL efficiently.
-
 import { PrismaClient } from "@prisma/client";
 
-// Ensure a single instance of PrismaClient is used across the application
-// to prevent exhausting database connections in development with hot-reloading.
+interface DbMetrics {
+  dbResponseTime: number;
+  dbQueries: number;
+}
+
+const metrics: DbMetrics = {
+  dbResponseTime: 0,
+  dbQueries: 0,
+};
+
+const createPrismaClient = () => {
+  const prisma = new PrismaClient({
+    log: ["query", "error", "warn"],
+  });
+
+  prisma.$use(async (params, next) => {
+    const before = Date.now();
+    const result = await next(params);
+    const after = Date.now();
+    const duration = after - before;
+
+    metrics.dbResponseTime += duration;
+    metrics.dbQueries++;
+
+    return result;
+  });
+
+  return prisma;
+};
+
+
 const globalForPrisma = global as unknown as {
   prisma?: PrismaClient;
 };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ["query", "error", "warn"], // print/Logs queries, warnings, and errors
-  });
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
-  // In development mode, attach PrismaClient to the global object
-  // for production, it's not necessary
+}
+
+
+export const getDbMetrics = (): { avgDbResponseTime: number; totalDbQueries: number } => {
+  if (metrics.dbQueries === 0) {
+    return { avgDbResponseTime: 0, totalDbQueries: 0 };
+  }
+  return {
+    avgDbResponseTime: metrics.dbResponseTime / metrics.dbQueries,
+    totalDbQueries: metrics.dbQueries,
+  };
+};
+
+export const resetDbMetrics = (): void => {
+    metrics.dbResponseTime = 0;
+    metrics.dbQueries = 0;
 }

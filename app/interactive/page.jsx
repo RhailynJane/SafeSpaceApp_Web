@@ -255,9 +255,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
 
-  const [isAddAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
   const [prefilledAppointment, setPrefilledAppointment] = useState(null);
-  const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
 
 
   const [modals, setModals] = useState({
@@ -273,12 +271,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   };
   const closeModal = (modalName) => setModals(prev => ({ ...prev, [modalName]: false }));
 
-  const handleSlotSelect = (slot) => {
-    // slot contains { date: 'YYYY-MM-DD', time: 'HH:MM' }
-    setPrefilledAppointment({ appointment_date: slot.date, appointment_time: slot.time });
-    setAvailabilityModalOpen(false); // Close availability modal
-    setAddAppointmentModalOpen(true);
-  };
+
 
   const generateReport = async () => {
     let generatedData;
@@ -555,9 +548,6 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
                     { day: "Friday", time: "9:00 AM - 11:00 AM" },
                   ]}
-                  isOpen={isAvailabilityModalOpen}
-                  onOpenChange={setAvailabilityModalOpen}
-                  onSelect={handleSlotSelect}
                 />
                 <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
               </div>

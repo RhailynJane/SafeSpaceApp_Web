@@ -1,21 +1,52 @@
+// app/api/admin/audit-logs/route.js
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuth } from '@clerk/nextjs/server';
 
-/**
- * @file This API route handles fetching audit logs from the database.
- * It is intended for admin use to review user activities.
- */
-export async function GET() {
+export async function GET(req) {
   try {
-    // Query the database to get all records from the audit_logs table.
-    // The results are ordered by timestamp in descending order to show the most recent logs first.
-    const logs = await prisma.$queryRaw`SELECT * FROM audit_logs ORDER BY timestamp DESC`;
-    return NextResponse.json(logs);
-  } catch (error) {
-    // If there is an error during the database query, log the error to the console.
-    console.error('Error fetching audit logs:', error);
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized: No user ID in request" }), { status: 401 });
+    }
 
-    // Return a JSON response with an error message and a 500 Internal Server Error status.
-    return NextResponse.json({ message: 'Error fetching audit logs' }, { status: 500 });
+    // Check if the user is an admin
+    const user = await prisma.user.findUnique({
+      where: { clerk_user_id: userId },
+      include: { role: true },
+    });
+
+    if (user?.role?.role_name !== 'admin') {
+        return new Response(JSON.stringify({ error: "Unauthorized: User is not an admin" }), { status: 403 });
+    }
+
+
+    const auditLogs = await prisma.auditLog.findMany({
+      include: {
+        user: {
+          select: {
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        timestamp: 'desc',
+      },
+    });
+
+    const formattedLogs = auditLogs.map(log => ({
+      id: log.id,
+      action: log.action,
+      user: log.user ? `${log.user.first_name} ${log.user.last_name} (${log.user.email})` : 'System',
+      timestamp: log.timestamp,
+      details: log.details,
+    }));
+
+    return NextResponse.json(formattedLogs);
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch audit logs' }), { status: 500 });
   }
 }

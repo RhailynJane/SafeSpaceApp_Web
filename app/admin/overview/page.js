@@ -7,7 +7,7 @@
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // --- ICONS ---
 // These are simple, stateless functional components that render SVG icons.
@@ -101,13 +101,69 @@ const ActivityItem = ({ title, description, time }) => (
  * @returns {JSX.Element} The DetailedMetricsModal component.
  */
 const DetailedMetricsModal = ({ onClose }) => {
+    const [metrics, setMetrics] = useState({ totalUsers: 0 });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchMetrics = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch('/api/admin/metrics');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch metrics');
+                }
+                const data = await response.json();
+                setMetrics(data);
+            } catch (error) {
+                setError(error.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMetrics();
+    }, []);
+
+    const MetricBar = ({ label, value, threshold, percentage, status = "normal" }) => (
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            {/* Header with label and status */}
+            <div className="flex justify-between items-center mb-1">
+                <p className="text-sm font-semibold text-gray-700">{label}</p>
+                <span className={`px-2 py-0.5 text-xs font-medium rounded ${status === 'normal' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{status}</span>
+            </div>
+            {/* Current value */}
+            <p className="text-2xl font-bold text-gray-800 mb-2">{value}</p>
+            {/* Progress bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-teal-500 h-2 rounded-full" style={{ width: `${percentage}%` }}></div>
+            </div>
+            {/* Threshold information */}
+            <p className="text-right text-xs text-gray-500 mt-1">Threshold: {threshold}</p>
+        </div>
+    );
+
+    return (
+        // Modal container with a semi-transparent background
+      <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+
+            {/* Modal content */}
+            <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl">
+                 <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-gray-800">Detailed System Metrics</h2>
+                    <button onClick={onClose}><CloseIcon /></button>
+                </div>
+                {/* Grid of metric bars */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {loading && <p>Loading...</p>}
+                    {error && <p className="text-red-500">Failed to edit, 0 occurrences found for old_string (const DetailedMetricsModal = ({ onClose }) => {
     /**
      * A component to display a single metric with a progress bar, value, and threshold.
      * Used inside the DetailedMetricsModal.
      * @param {object} props - The component props.
-     * @param {string} props.label - The label for the metric (e.g., "CPU Usage").
-     * @param {string} props.value - The current value of the metric (e.g., "45%").
-     * @param {string} props.threshold - The acceptable threshold for the metric (e.g., "80%").
+     * @param {string} props.label - The label for the metric (e.g., \"CPU Usage\").
+     * @param {string} props.value - The current value of the metric (e.g., \"45%\").
+     * @param {string} props.threshold - The acceptable threshold for the metric (e.g., \"80%\").
      * @param {number} props.percentage - The percentage value to determine the width of the progress bar.
      * @param {string} [props.status='normal'] - The status of the metric, which affects the color of the status indicator.
      * @returns {JSX.Element} The MetricBar component.
@@ -152,16 +208,76 @@ const DetailedMetricsModal = ({ onClose }) => {
             </div>
         </div>
     );
+};). Original old_string was (const DetailedMetricsModal = ({ onClose }) => {
+    /**
+     * A component to display a single metric with a progress bar, value, and threshold.
+     * Used inside the DetailedMetricsModal.
+     * @param {object} props - The component props.
+     * @param {string} props.label - The label for the metric (e.g., \"CPU Usage\").
+     * @param {string} props.value - The current value of the metric (e.g., \"45%\").
+     * @param {string} props.threshold - The acceptable threshold for the metric (e.g., \"80%\").
+     * @param {number} props.percentage - The percentage value to determine the width of the progress bar.
+     * @param {string} [props.status='normal'] - The status of the metric, which affects the color of the status indicator.
+     * @returns {JSX.Element} The MetricBar component.
+     */
+    const MetricBar = ({ label, value, threshold, percentage, status = "normal" }) => (
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            {/* Header with label and status */}
+            <div className="flex justify-between items-center mb-1">
+                <p className="text-sm font-semibold text-gray-700">{label}</p>
+                <span className={`px-2 py-0.5 text-xs font-medium rounded ${status === 'normal' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{status}</span>
+            </div>
+            {/* Current value */}
+            <p className="text-2xl font-bold text-gray-800 mb-2">{value}</p>
+            {/* Progress bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-teal-500 h-2 rounded-full" style={{ width: `${percentage}%` }}></div>
+            </div>
+            {/* Threshold information */}
+            <p className="text-right text-xs text-gray-500 mt-1">Threshold: {threshold}</p>
+        </div>
+    );
+
+    return (
+        // Modal container with a semi-transparent background
+      <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+
+            {/* Modal content */}
+            <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl">
+                 <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-gray-800">Detailed System Metrics</h2>
+                    <button onClick={onClose}><CloseIcon /></button>
+                </div>
+                {/* Grid of metric bars */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <MetricBar label="CPU Usage" value="45%" threshold="80%" percentage={45} />
+                    <MetricBar label="Memory Usage" value="67%" threshold="85%" percentage={67} />
+                    <MetricBar label="Database Response Time" value="120 ms" threshold="500 ms" percentage={24} />
+                    <MetricBar label="Users" value="200 users" threshold="5000 users" percentage={4} />
+                    <MetricBar label="API Response Time" value="350 ms" threshold="1000 ms" percentage={35} />
+                    <MetricBar label="Error Rate" value="0.99%" threshold="5%" percentage={19.8} />
+                </div>
+            </div>
+        </div>
+    );
+};)</p>}
+                    {!loading && !error && (
+                        <>
+                            <MetricBar label="CPU Usage" value="N/A" threshold="80%" percentage={0} />
+                            <MetricBar label="Memory Usage" value="N/A" threshold="85%" percentage={0} />
+                            <MetricBar label="Database Response Time" value={`${metrics.avgDbResponseTime.toFixed(2)} ms`} threshold="500 ms" percentage={(metrics.avgDbResponseTime / 500) * 100} />
+                            <MetricBar label="Users" value={`${metrics.totalUsers} users`} threshold="5000 users" percentage={(metrics.totalUsers / 5000) * 100} />
+                            <MetricBar label="API Response Time" value="N/A" threshold="1000 ms" percentage={0} />
+                            <MetricBar label="Error Rate" value="N/A" threshold="5%" percentage={0} />
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 };
 
-// This is mock data for the audit log. In a real application, this would be fetched from an API.
-const fullAuditLogData = [
-    { id: 1, action: "User Login", user: "admin@safespace.com", timestamp: "2025-08-11 14:30:00", details: "Successful login from IP: 192.168.1.100" },
-    { id: 2, action: "User Created", user: "admin@safespace.com", timestamp: "2025-08-11 14:35:15", details: "New user 'John Doe' (john.doe@example.com) created." },
-    { id: 3, action: "Client Profile Access", user: "therapist@safespace.com", timestamp: "2025-08-11 11:30:34", details: "Accessed client profile for Emma Wilson." },
-    { id: 4, action: "Data Export", user: "admin@safespace.com", timestamp: "2025-08-10 09:00:00", details: "Exported user data to CSV." },
-    { id: 5, action: "Password Change", user: "user@safespace.com", timestamp: "2025-08-09 18:00:00", details: "User changed their password." },
-];
+
 
 /**
  * A modal component to display the full audit log.
@@ -171,6 +287,30 @@ const fullAuditLogData = [
  * @returns {JSX.Element} The AuditLogModal component.
  */
 const AuditLogModal = ({ onClose }) => {
+    const [auditLogs, setAuditLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchAuditLogs = async () => {
+            try {
+                setLoading(true);
+                const response = await fetch('/api/admin/audit-logs');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch audit logs');
+                }
+                const data = await response.json();
+                setAuditLogs(data);
+            } catch (error) {
+                setError(error.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchAuditLogs();
+    }, []);
+
     return (
        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl h-3/4 overflow-y-auto">
@@ -178,14 +318,14 @@ const AuditLogModal = ({ onClose }) => {
                     <h2 className="text-xl font-bold text-gray-800">Full Audit Log</h2>
                     <button onClick={onClose}><CloseIcon /></button>
                 </div>
-                {/* Container for the list of log items */}
                 <div className="space-y-4">
-                    {/* Map over the mock data to render each log entry */}
-                    {fullAuditLogData.map(log => (
+                    {loading && <p>Loading...</p>}
+                    {error && <p className="text-red-500">{error}</p>}
+                    {!loading && !error && auditLogs.map(log => (
                         <div key={log.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                             <p className="font-semibold text-gray-800">{log.action} by {log.user}</p>
                             <p className="text-sm text-gray-500">{log.details}</p>
-                            <p className="text-xs text-gray-400 mt-1">{log.timestamp}</p>
+                            <p className="text-xs text-gray-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
                         </div>
                     ))}
                 </div>
