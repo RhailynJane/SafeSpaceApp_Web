@@ -7,12 +7,14 @@ import { useSWRConfig } from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Calendar } from "lucide-react";
 
 import DashboardOverview from "../dashboard/page";
@@ -27,6 +29,8 @@ import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 import ViewReportModal from "@/components/reports/ViewReportModal";
 
+import { cn } from "@/lib/utils";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import jsPDF from "jspdf";
 import * as XLSX from 'xlsx';
 
@@ -44,7 +48,10 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [filteredClients, setFilteredClients] = useState([]);
 
   const [reportType, setReportType] = useState("caseload");
-  const [dateRange, setDateRange] = useState("month");
+  const [dateRange, setDateRange] = useState({
+    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+    to: new Date(),
+  });
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [recentReports, setRecentReports] = useState([]);
@@ -74,7 +81,6 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         { key: 'notes', url: '/api/notes' },
         { key: 'crisisEvents', url: '/api/crisis-events' },
         { key: 'schedule', url: '/api/appointments' },
-        { key: 'recentReports', url: '/api/reports' },
       ];
 
       if (userRole === 'team-leader') {
@@ -85,8 +91,10 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       }
 
       const results = await Promise.allSettled(endpoints.map(e => fetch(e.url).then(res => {
-        if (!res.ok) throw new Error(`Failed to fetch ${e.key}: ${res.statusText}`);
-        return res.json();
+        if (res.ok) {
+          return res.json();
+        }
+        throw new Error(`Failed to fetch ${e.key}: ${res.statusText}`);
       })));
 
       const setters = {
@@ -94,7 +102,6 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         notes: setNotes,
         crisisEvents: setCrisisEvents,
         schedule: setSchedule,
-        recentReports: setRecentReports,
         referrals: setReferrals,
         assignableUsers: setAssignableUsers,
       };
@@ -254,20 +261,15 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/reports/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      const res = await fetch('/api/reports', { // This should be a POST request
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportType, dateRange }),
-    });
-  
-    if (res.ok) {
-      const savedReport = await res.json();
-      setRecentReports(prev => [savedReport, ...prev]);
-        setReportData(savedReport.data); // Use data from the backend response
-    } else {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to generate report.');
-    }
+      });
+      if (!res.ok) throw new Error('Failed to generate report.');
+      const newReport = await res.json();
+      setRecentReports(prev => [newReport, ...prev]);
+      setReportData(JSON.parse(newReport.data)); // The 'data' field is a JSON string
     } catch (err) {
       console.error("Error generating report:", err);
       setError(err.message);
@@ -708,17 +710,26 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                   </div>
                   <div className="space-y-2">
                     <Label>Date Range</Label>
-                    <Select value={dateRange} onValueChange={setDateRange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="week">Last Week</SelectItem>
-                        <SelectItem value="month">Last Month</SelectItem>
-                        <SelectItem value="quarter">Last Quarter</SelectItem>
-                        <SelectItem value="year">Last Year</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date"
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !dateRange && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange?.from ? (
+                            dateRange.to ? `${new Date(dateRange.from).toLocaleDateString()} - ${new Date(dateRange.to).toLocaleDateString()}` : new Date(dateRange.from).toLocaleDateString()
+                          ) : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <Button className="w-full" onClick={generateReport} disabled={loading}>
