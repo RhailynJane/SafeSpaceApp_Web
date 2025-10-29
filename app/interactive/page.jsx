@@ -13,7 +13,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
 
 import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
@@ -26,10 +27,14 @@ import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal";
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 import ViewReportModal from "@/components/reports/ViewReportModal";
+import SendbirdChat from "@/components/SendbirdChat";
 
 import jsPDF from "jspdf";
+import AuditLogTab from "../auditlogtab/page";
 
-function InteractiveDashboardContent({ userRole = "support-worker", userName = "User", getToken, defaultTab }) {
+import VoiceCallModal from "@/components/crisis/VoiceCallModal";
+
+function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
   const [referrals, setReferrals] = useState([]);
   const [clients, setClients] = useState([]);
@@ -37,6 +42,8 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [crisisEvents, setCrisisEvents] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [assignableUsers, setAssignableUsers] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [supervisor, setSupervisor] = useState(null);
   const [referralSearchQuery, setReferralSearchQuery] = useState("");
   const [filteredReferrals, setFilteredReferrals] = useState([]);
   const [clientSearchQuery, setClientSearchQuery] = useState("");
@@ -50,6 +57,31 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [riskLevelFilter, setRiskLevelFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showChat, setShowChat] = useState(false);
+  const [channelUrl, setChannelUrl] = useState("");
+  const [chatChannelName, setChatChannelName] = useState("Chat");
+
+  useEffect(() => {
+    const fetchSupervisor = async () => {
+      try {
+        const response = await fetch('/api/supervisor');
+        if (response.ok) {
+          const data = await response.json();
+          setSupervisor(data);
+        } else {
+          console.error("Failed to fetch supervisor");
+        }
+      } catch (error) {
+        console.error("Error fetching supervisor:", error);
+      }
+    };
+
+    fetchSupervisor();
+  }, []);
+
   const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [addAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
   const [prefilledSlot, setPrefilledSlot] = useState(null);
@@ -72,11 +104,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       }
 
       // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes, reportRes] = await Promise.all([
+      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes] = await Promise.all([
         fetch("/api/clients"),
         fetch("/api/notes"),
         fetch("/api/crisis-events"),
         fetch("/api/appointments"),
+        fetch("/api/audit-logs"),
         fetch("/api/reports"),
       ]);
 
@@ -109,6 +142,11 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText);
       }
 
+      if (auditRes.ok) {
+        const auditData = await auditRes.json();
+        setAuditLogs(Array.isArray(auditData) ? auditData : []);
+      } else {
+        console.error("Failed to fetch audit logs:", auditRes.status, auditRes.statusText);
       if (reportRes.ok) {
         const reportData = await reportRes.json();
         setRecentReports(Array.isArray(reportData) ? reportData : []);
@@ -119,8 +157,8 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
       // Conditionally fetch referrals and assignable users
       if (userRole === "team-leader") {
         const [refRes, usersRes] = await Promise.all([
-            fetch("/api/referrals"),
-            fetch("/api/assignable-users")
+          fetch("/api/referrals"),
+          fetch("/api/assignable-users"),
         ]);
 
         if (refRes.ok) {
@@ -131,10 +169,10 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
         }
 
         if (usersRes.ok) {
-            const usersData = await usersRes.json();
-            setAssignableUsers(Array.isArray(usersData) ? usersData : []);
+          const usersData = await usersRes.json();
+          setAssignableUsers(Array.isArray(usersData) ? usersData : []);
         } else {
-            console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText);
+          console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText);
         }
       }
 
@@ -251,7 +289,7 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
   };
 
   const tabs = userRole === "team-leader"
-    ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Tracking"]
+    ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Audit Log"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
 
   const [prefilledAppointment, setPrefilledAppointment] = useState(null);
@@ -322,10 +360,214 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     setReferrals(prev => prev.map(r => r.id === id ? { ...r, status: "pending" } : r));
   };
 
+  const handleCallEnd = () => {
+    console.log("Call ended");
+  };
 
+  const openChat = async (otherUser, channelName) => {
+    let otherUserId = otherUser;
+    let dynamicChannelName = channelName;
+
+    if (typeof otherUser === 'object' && otherUser !== null) {
+      otherUserId = otherUser.user_id;
+      dynamicChannelName = `${otherUser.client_first_name} ${otherUser.client_last_name}`;
+    } else if (String(otherUser).includes('@')) {
+      const response = await fetch(`/api/users/${otherUser}`);
+      const data = await response.json();
+      if (data.userId) {
+        otherUserId = data.userId;
+      } else {
+        console.error('User not found for email:', otherUser);
+        return;
+      }
+    }
+
+    setChatChannelName(dynamicChannelName || "Chat");
+
+    const response = await fetch('/api/sendbird', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userIds: [user.id, otherUserId],
+        name: dynamicChannelName
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Error creating chat channel:', errorData.error);
+      alert('Failed to create chat channel. Please try again later.');
+      return;
+    }
+
+    const data = await response.json();
+    setChannelUrl(data.channelUrl);
+    setShowChat(true);
+  };
 
   return (
     <main className="p-6 space-y-6">
+
+      {/* Floating chat window (bottom-right */}
+      {showChat && (
+        <div className="fixed bottom-5 right-5 w-[380px] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden z-[9999]">
+          {/* Header */}
+          <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative flex-shrink-0">
+                <img
+                  src="/images/logo.png"
+                  alt="profile"
+                  className="w-9 h-9 rounded-full object-cover ring-2 ring-teal-100"
+                />
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-gray-900 text-sm truncate">{chatChannelName}</h3>
+                <p className="text-xs text-gray-500">Active now</p>
+              </div>
+            </div>
+
+            {/* Right-side controls */}
+            <div className="flex items-center gap-1">
+              {/* Dropdown Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="hover:bg-gray-100 rounded-full h-8 w-8">
+                    <MoreVertical size={16} className="text-gray-600" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      try {
+                        const res = await fetch("/api/sendbird/mute", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ channelUrl, userId: user.id, mute: true }),
+                        });
+                        if (!res.ok) throw new Error("mute failed");
+                        alert("Notifications muted for this chat.");
+                      } catch (err) {
+                        console.error(err);
+                        alert("Failed to mute notifications.");
+                      }
+                    }}
+                  >
+                    Mute notifications
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      if (!window.confirm("Clear all messages from this chat?")) return;
+                      try {
+                        const res = await fetch("/api/sendbird/clear", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ channelUrl, userId: user.id }),
+                        });
+                        if (!res.ok) throw new Error("clear failed");
+                        alert("Chat history cleared.");
+                        setShowChat(false);
+                      } catch (err) {
+                        console.error(err);
+                        alert("Failed to clear chat history.");
+                      }
+                    }}
+                  >
+                    Clear chat history
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      const term = prompt("Enter a keyword to search for:");
+                      if (!term) return;
+                      try {
+                        const res = await fetch("/api/sendbird/search", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ channelUrl, keyword: term }),
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          alert(`Found ${data.count ?? data.messages?.length ?? 0} results for "${term}"`);
+                        } else {
+                          alert("Search not implemented yet.");
+                        }
+                      } catch {
+                        alert("Search route not available.");
+                      }
+                    }}
+                  >
+                    Search in conversation
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                    onClick={async () => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      if (!window.confirm("Are you sure you want to block this user?")) return;
+                      try {
+                        const mRes = await fetch("/api/sendbird/members", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ channelUrl }),
+                        });
+                        const mData = await mRes.json();
+                        const others = (mData.members || []).filter(
+                          (m) => String(m.user_id) !== String(user.id)
+                        );
+                        if (others.length === 0) return alert("No other member found.");
+                        const targetId = others[0].user_id;
+                        const bRes = await fetch("/api/sendbird/block", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ userId: user.id, targetId }),
+                        });
+                        if (!bRes.ok) throw new Error("block failed");
+                        alert("User blocked.");
+                        setShowChat(false);
+                      } catch (err) {
+                        console.error(err);
+                        alert("Failed to block user.");
+                      }
+                    }}
+                  >
+                    Block user
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* ✅ Working close button */}
+              <button
+                onClick={() => setShowChat(false)}
+                className="ml-1 text-gray-400 hover:text-gray-600 rounded"
+                aria-label="Close chat"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Chat Body */}
+          <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-300 bg-white">
+            {channelUrl ? (
+              <SendbirdChat channelUrl={channelUrl} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                Loading chat...
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Welcome back, {userName}</h1>
@@ -365,115 +607,103 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
                           </div>
-                        </CardHeader>
-                        <CardContent>
-                          <Tabs defaultValue="pending" className="space-y-4">
-                            <TabsList>
-                              <TabsTrigger value="pending">Pending</TabsTrigger>
-                              <TabsTrigger value="processed">Processed</TabsTrigger>
-                            </TabsList>
-          
-                                              <TabsContent value="pending">
-                                                <CardContent className="space-y-4">
-                                                  {filteredReferrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
-                                                    <div key={referral.id} className="border rounded-lg p-4 space-y-4">
-                                                      <div className="flex items-start justify-between">
-                                                        <div className="space-y-2">
-                                                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                                                          <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                                            <div>Age: {referral.age}</div>
-                                                            <div>Source: {referral.referral_source}</div>
-                                                            <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
-                                                          </div>
-                                                        </div>
-                                                      </div>
-                            
-                                                      <div className="space-y-2">
-                                                        <h4 className="font-medium">Reason for Referral:</h4>
-                                                        <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
-                                                      </div>
-                            
-                                                      <div className="space-y-2">
-                                                        <h4 className="font-medium">Contact Information:</h4>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                                                          <div className="flex items-center gap-2">
-                                                            <Phone className="h-4 w-4" />
-                                                            {referral.phone}
-                                                          </div>
-                                                          <div className="flex items-center gap-2">
-                                                            <Mail className="h-4 w-4" />
-                                                            {referral.email}
-                                                          </div>
-                                                          <div className="flex items-center gap-2">
-                                                            <MapPin className="h-4 w-4" />
-                                                            {referral.address}
-                                                          </div>
-                                                          <div className="flex items-center gap-2">
-                                                            <User className="h-4 w-4" />
-                                                            {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}
-                                                          </div>
-                                                        </div>
-                                                      </div>
-                            
-                                                      {referral.additional_notes && (
-                                                        <div className="space-y-2">
-                                                          <h4 className="font-medium">Additional Notes:</h4>
-                                                          <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
-                                                        </div>
-                                                      )}
-                            
-                                                      <ReferralActions
-                                                        referral={referral}
-                                                        onStatusUpdate={handleReferralStatusUpdate}
-                                                        userRole={userRole}
-                                                        assignableUsers={assignableUsers}
-                                                      />
-                                                    </div>
-                                                  ))}
-                            
-                                                  {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
-                                                    <div className="text-center py-8 text-gray-500">
-                                                      <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                                                      <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
-                                                      <p className="text-sm">All referrals have been processed.</p>
-                                                    </div>
-                                                  )}
-                                                </CardContent>
-                                              </TabsContent>          
-                                              <TabsContent value="processed">
-                                                <CardContent className="space-y-4">
-                                                  {filteredReferrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
-                                                    <div key={referral.id} className="border rounded-lg p-4 space-y-2">
-                                                      <div className="flex items-center justify-between">
-                                                        <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                                                        <Badge className={
-                                                          referral.status.toLowerCase() === "approved"
-                                                            ? "bg-teal-600 text-white"
-                                                            : referral.status.toLowerCase() === "rejected"
-                                                              ? "bg-red-500 text-white"
-                                                              : "bg-blue-500 text-white"
-                                                        }>
-                                                          {referral.status}
-                                                        </Badge>
-                            
-                                                      </div>
-                                                      <div className="text-sm text-gray-600">
-                                                        Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
-                                                      </div>
-                                                    </div>
-                                                  ))}
-                                                  {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
-                                                    <div className="text-center py-8 text-gray-500">
-                                                      <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                                                      <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
-                                                      <p className="text-sm">Process a referral from the 'Pending' tab.</p>
-                                                    </div>
-                                                  )}
-                                                </CardContent>
-                                              </TabsContent>                          </Tabs>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>        )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Reason for Referral:</h4>
+                          <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Contact Information:</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4" />
+                              {referral.phone}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4" />
+                              {referral.email}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              {referral.address}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4" />
+                              {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}
+                            </div>
+                          </div>
+                        </div>
+
+                        {referral.additional_notes && (
+                          <div className="space-y-2">
+                            <h4 className="font-medium">Additional Notes:</h4>
+                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
+                          </div>
+                        )}
+
+                        <ReferralActions
+                          referral={referral}
+                          onStatusUpdate={handleReferralStatusUpdate}
+                          userRole={userRole}
+                          assignableUsers={assignableUsers}
+                          onStartChat={openChat}
+                        />
+                      </div>
+                    ))}
+
+                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                        <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
+                        <p className="text-sm">All referrals have been processed.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="processed">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Processed Referrals</CardTitle>
+                    <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
+                      <div key={referral.id} className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                          <Badge className={
+                            referral.status.toLowerCase() === "accepted"
+                              ? "bg-teal-600 text-white"
+                              : referral.status.toLowerCase() === "declined"
+                                ? "bg-red-500 text-white"
+                                : "bg-blue-500 text-white"
+                          }>
+                            {referral.status}
+                          </Badge>
+
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                        <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
+                        <p className="text-sm">Process a referral from the 'Pending' tab.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
+        )}
 
         <TabsContent value="Clients" className="space-y-6">
           <Card>
@@ -491,32 +721,75 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
               </div>
             </CardHeader>
             <CardContent>
+              <div className="flex space-x-4 mb-4">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search clients by name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <Select value={riskLevelFilter} onValueChange={setRiskLevelFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by risk level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Risk Levels</SelectItem>
+                    <SelectItem value="High">High</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                    <SelectItem value="On-Hold">On-Hold</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-4">
-                {filteredClients.map((client) => (
-                  <div key={client.id} className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
-                        <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                {clients
+                  .filter(client =>
+                    `${client.client_first_name} ${client.client_last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  .filter(client =>
+                    riskLevelFilter === "all" || client.risk_level === riskLevelFilter
+                  )
+                  .filter(client =>
+                    statusFilter === "all" || client.status === statusFilter
+                  )
+                  .map((client) => (
+                    <div key={client.id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
+                          <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            className={client.risk_level === "High" ? "bg-red-200 text-red-800" : client.risk_level === "Medium" ? "bg-yellow-200 text-yellow-800" : "bg-teal-200 text-teal-800"}
+                          >
+                            {client.risk_level} Risk
+                          </Badge>
+                          <Badge
+                            className={client.status === "Active" ? "bg-green-200 text-green-800" : client.status === "Inactive" ? "bg-orange-200 text-orange-800" : "bg-gray-200 text-gray-800"}
+                          >
+                            {client.status}
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          className={client.risk_level === "High" ? "bg-red-200 text-red-800" : client.risk_level === "Medium" ? "bg-yellow-200 text-yellow-800" : "bg-teal-200 text-teal-800"}
-                        >
-                          {client.risk_level} Risk
-                        </Badge>
-                        <Badge
-                          className={client.status === "Active" ? "bg-green-200 text-green-800" : client.status === "Inactive" ? "bg-orange-200 text-orange-800" : "bg-gray-200 text-gray-800"}
-                        >
-                          {client.status}
-                        </Badge>
+                      <div className="mt-4">
+                        <ClientActionButtons client={client} onMessage={() => openChat(client)} />
                       </div>
                     </div>
-                    <div className="mt-4">
-                      <ClientActionButtons client={client} />
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </CardContent>
           </Card>
@@ -678,13 +951,9 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
                       <div className="text-xs">988</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
-                    <div className="text-center">
-                      <User className="h-6 w-6 mx-auto mb-1" />
-                      <div className="text-sm">Supervisor</div>
-                      <div className="text-xs">On-call</div>
-                    </div>
-                  </Button>
+                  {supervisor && (
+                    <VoiceCallModal user={user} supervisor={supervisor} onCallEnd={handleCallEnd} />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -842,58 +1111,12 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
           </div>
         </TabsContent>
 
-        {userRole === "team-leader" && (
-          <TabsContent value="Tracking" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Client Tracking</CardTitle>
-                <CardDescription>Monitor client progress and activities</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Progress Metrics</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Sessions Completed</span>
-                        <span className="font-semibold">156</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Goals Achieved</span>
-                        <span className="font-semibold">23</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Improvement Rate</span>
-                        <span className="font-semibold">78%</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Team Performance</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Active Staff</span>
-                        <span className="font-semibold">12</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Avg. Caseload</span>
-                        <span className="font-semibold">15</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Satisfaction Score</span>
-                        <span className="font-semibold">4.2/5</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
+        <TabsContent value="Audit Log" className="space-y-6">
+          <AuditLogTab
+            auditLogs={auditLogs}
+            currentUser={user}
+          />
+        </TabsContent>
       </Tabs>
     </main>
   );
@@ -947,7 +1170,7 @@ function InteractiveDashboard() {
   console.log("Normalized role:", normalized);
   console.log("Final userRole for UI:", userRole);
 
-  return <InteractiveDashboardContent userRole={userRole} userName={userName} getToken={getToken} defaultTab={tab || 'Overview'} />;
+  return <InteractiveDashboardContent user={user} userRole={userRole} userName={userName} getToken={getToken} defaultTab={tab || 'Overview'} />;
 }
 
 export default function InteractiveDashboardPage() {

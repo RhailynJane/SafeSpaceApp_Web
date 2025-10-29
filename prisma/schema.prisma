@@ -8,24 +8,24 @@ datasource db {
 }
 
 model User {
-  id                       Int            @id @default(autoincrement())
-  clerk_user_id            String?        @unique
-  first_name               String
-  last_name                String
-  email                    String         @unique
-  last_login               DateTime?
-  created_at               DateTime       @default(now())
-  updated_at               DateTime       @updatedAt
-  role_id                  Int
-  appointments             Appointment[]  @relation("ScheduledAppointments")
-  audit_logs               AuditLog[]
-  clients                  Client[]
-  initiated_crisis_events  CrisisEvent[]  @relation("InitiatedCrisisEvents")
-  supervised_crisis_events CrisisEvent[]  @relation("SupervisedCrisisEvents")
-  notes                    Note[]         @relation("AuthoredNotes")
-  notifications            Notification[]
-  processed_referrals      Referral[]     @relation("ProcessedByUser")
-  roles                    Role           @relation(fields: [role_id], references: [id])
+  id                         Int           @id @default(autoincrement())
+  clerk_user_id              String?       @unique
+  first_name                 String
+  last_name                  String
+  email                      String        @unique
+  profile_image_url          String?
+  last_login                 DateTime?
+  created_at                 DateTime      @default(now())
+  updated_at                 DateTime      @updatedAt
+  role_id                    Int
+  role                       Role          @relation(fields: [role_id], references: [id])
+  clients                    Client[]
+  notes                      Note[]        @relation("AuthoredNotes")
+  processed_referrals        Referral[]    @relation("ProcessedByUser")
+  appointments               Appointment[] @relation("ScheduledAppointments")
+  initiated_crisis_events    CrisisEvent[] @relation("InitiatedCrisisEvents")
+  supervised_crisis_events   CrisisEvent[] @relation("SupervisedCrisisEvents")
+  notifications              Notification[]
 
   @@map("users")
 }

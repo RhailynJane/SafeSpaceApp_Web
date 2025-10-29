@@ -4,10 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useClerk, useAuth, useUser } from "@clerk/nextjs";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User } from "lucide-react";
+import Sendbird from 'sendbird';
 
 function getInitials(name) {
   if (!name) return "SS";
@@ -27,6 +28,34 @@ export default function SiteHeader() {
   const [signOutLoading, setSignOutLoading] = useState(false);
   const clerk = useClerk();
   const [notifications, setNotifications] = useState([]);
+  const [profileData, setProfileData] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const res = await fetch("/api/profile");
+      if (res.ok) {
+        const data = await res.json();
+        setProfileData(data);
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchProfile();
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    const sb = new Sendbird({ appId: '201BD956-A3BA-448A-B8A2-8E1A23404303' });
+    if (user) {
+      sb.connect(user.id, (user, error) => {
+        if (error) {
+          console.error("Sendbird connection error:", error);
+        } else {
+          console.log("Sendbird connected for user:", user);
+        }
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -90,6 +119,18 @@ export default function SiteHeader() {
 
   const handleProfileClick = () => {
     router.push('/profile');
+  };
+
+  const handleClearAll = async () => {
+    if (confirm('Are you sure you want to clear all notifications?')) {
+      try {
+        await fetch('/api/notifications', { method: 'DELETE' });
+        setNotifications([]);
+        setNotificationModal(false);
+      } catch (error) {
+        console.error("Error clearing notifications:", error);
+      }
+    }
   };
 
   const handleMarkAllAsRead = async () => {
@@ -177,6 +218,7 @@ export default function SiteHeader() {
                   aria-label="Open profile"
                 >
                   <Avatar className="h-8 w-8">
+                    <AvatarImage src={profileData?.profile_image_url} alt={userName} />
                     <AvatarFallback className="bg-teal-100 text-teal-700 text-xs">
                       {getInitials(userName)}
                     </AvatarFallback>
@@ -259,13 +301,20 @@ export default function SiteHeader() {
               </div>
             )}
           </div>
-          <div className="flex-shrink-0 mt-4">
+          <div className="flex-shrink-0 mt-4 grid grid-cols-2 gap-2">
             <Button 
               variant="outline" 
               className="w-full"
               onClick={handleMarkAllAsRead}
             >
               Mark all as read
+            </Button>
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleClearAll}
+            >
+              Clear All
             </Button>
           </div>
         </DialogContent>
