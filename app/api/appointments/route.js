@@ -1,9 +1,7 @@
 // app/api/appointments/route.js
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma.js";
 import { getAuth } from "@clerk/nextjs/server";
-
-const prisma = new PrismaClient();
 
 export async function GET(req) {
   try {
@@ -25,7 +23,7 @@ export async function GET(req) {
         scheduled_by_user_id: dbUser.id,
       },
       include: {
-        client: true,
+        // client: true, // Temporarily removed to isolate the error
       },
       orderBy: {
         appointment_date: "asc",

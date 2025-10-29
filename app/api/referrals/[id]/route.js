@@ -55,7 +55,7 @@ export async function PATCH(req, { params }) {
         // Find the local user record to get their integer ID
         let localUser = await prisma.user.findUnique({ 
             where: { clerk_user_id: user.id },
-            include: { role: true },
+            include: { roles: true },
         });
         if (!localUser) {
           // User not found, let's try to create them
@@ -92,7 +92,7 @@ export async function PATCH(req, { params }) {
         }
     
             // Check the role of the logged-in user
-            const userRole = localUser.role.role_name;
+            const userRole = localUser.roles.role_name;
             const isAdmin = userRole === "admin";
             const isTeamLeader = userRole === "team_leader";
             // Check if the referral is assigned to the logged-in user

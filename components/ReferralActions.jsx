@@ -34,7 +34,7 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
         <Dialog open={true} onOpenChange={onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Accept and Assign Referral</DialogTitle>
+                    <DialogTitle className="text-3xl text-teal-900">Accept and Assign Referral</DialogTitle>
                     <DialogDescription>
                         Accept the referral for {referral.client_first_name} {referral.client_last_name} and assign it to a team member.
                     </DialogDescription>
@@ -45,13 +45,13 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
                         <select id="assignee" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
                             <option value="">Select a team member...</option>
                             {assignableUsers.map(user => (
-                                <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.role.role_name})</option>
+                                <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.roles.role_name})</option>
                             ))}
                         </select>
                     </div>
                     <div className="flex justify-end gap-4 pt-4">
                         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit">Accept and Assign</Button>
+                        <Button type="submit" className="bg-teal-800 hover:bg-teal-900">Accept and Assign</Button>
                     </div>
                 </form>
             </DialogContent>
@@ -64,7 +64,7 @@ const RequestInfoDialog = ({ referral, onClose, onSendMessage, onSendEmail }) =>
         <Dialog open={true} onOpenChange={onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Request More Information</DialogTitle>
+                    <DialogTitle className="text-3xl text-teal-900">Request More Information</DialogTitle>
                     <DialogDescription>
                         How would you like to contact the source of the referral for {referral.client_first_name} {referral.client_last_name}?
                     </DialogDescription>
@@ -72,8 +72,8 @@ const RequestInfoDialog = ({ referral, onClose, onSendMessage, onSendEmail }) =>
                 <div className="py-4 space-y-4">
                     <p>Please select your preferred method to request more information.</p>
                     <div className="grid grid-cols-2 gap-4">
-                        <Button onClick={onSendMessage}>
-                            <MessageCircle className="h-4 w-4 mr-2" />
+                        <Button onClick={onSendMessage} className="bg-teal-800 hover:bg-teal-900">
+                            <MessageCircle className="h-4 w-4 mr-2 bg-text" />
                             Send In-App Message
                         </Button>
                         <Button onClick={onSendEmail} variant="outline">
@@ -82,9 +82,6 @@ const RequestInfoDialog = ({ referral, onClose, onSendMessage, onSendEmail }) =>
                         </Button>
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -114,7 +111,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
   // ------------------------ Action Click ------------------------
   const handleActionClick = (action) => {
     setSelectedAction(action);
-    if (action === "more-info-requested") {
+    if (action === "info-requested") {
       setShowRequestInfoDialog(true);
     } else if (action === "accepted") {
       setShowAssignDialog(true);
@@ -199,9 +196,36 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async() => {
     setShowRequestInfoDialog(false);
     setShowEmailComposer(true);
+
+    try {
+    const body = { 
+      status: selectedAction};
+
+    const res = await fetch(`/api/referrals/${referral.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to update referral status");
+    }
+
+    const updatedReferral = await res.json();
+    onStatusUpdate?.(referral.id, updatedReferral);
+
+    // Then open email composer
+    setShowEmailComposer(true);
+  } catch (error) {
+    console.error("Error updating referral:", error);
+    alert(`Error: ${error.message}`);
+  } finally {
+    setIsProcessing(false);
+  }
   };
 
   const handleSendEmail = () => {
@@ -240,7 +264,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
           className: "",
           description: "Decline this referral with reason",
         };
-      case "more-info-requested":
+      case "info-requested":
         return {
           label: "Request Info",
           icon: Info,
@@ -267,7 +291,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
         <Button
           size="sm"
           variant="outline"
-          onClick={() => handleActionClick("more-info-requested")}
+          onClick={() => handleActionClick("info-requested")}
           className="border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-100"
         >
           <MessageCircle className="h-4 w-4 mr-1" />
@@ -323,9 +347,9 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
 
       {/* ------------------------ Confirmation Dialog ------------------------ */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-3xl text-teal-800">
               Confirm {getActionConfig(selectedAction)?.label} Referral
             </DialogTitle>
             <DialogDescription>

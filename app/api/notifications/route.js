@@ -28,3 +28,29 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE() {
+  try {
+    const { userId } = await auth();
+
+    // Find local user mapped to Clerk account
+    const user = await prisma.user.findUnique({
+      where: { clerk_user_id: userId },
+    });
+
+    if (!user) {
+      console.error("User not found for Clerk ID:", userId);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Delete all notifications for the user
+    await prisma.notification.deleteMany({
+      where: { user_id: user.id },
+    });
+
+    return NextResponse.json({ message: "All notifications cleared" });
+  } catch (error) {
+    console.error("Error clearing notifications:", error);
+    return NextResponse.json({ error: "Failed to clear notifications" }, { status: 500 });
+  }
+}

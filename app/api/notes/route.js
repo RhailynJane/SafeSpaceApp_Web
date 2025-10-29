@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma.js";
 import { NextResponse } from "next/server";
 
 export async function GET(request) {
@@ -12,18 +12,14 @@ export async function GET(request) {
 
     const user = await prisma.user.findUnique({
       where: { clerk_user_id: userId },
-      include: { role: true },
+      include: { roles: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (!user.role) {
-      return NextResponse.json({ error: "User has no role" }, { status: 403 });
-    }
-
-    const userRole = user.role.role_name.replace(/_/g, "-");
+    const userRole = user.roles.role_name.replace(/_/g, "-");
 
     const noteSelect = {
       id: true,

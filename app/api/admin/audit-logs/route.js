@@ -1,21 +1,86 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+// app/api/admin/audit-logs/route.js
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/prisma.js";
+import { NextResponse } from "next/server";
 
-/**
- * @file This API route handles fetching audit logs from the database.
- * It is intended for admin use to review user activities.
- */
 export async function GET() {
   try {
-    // Query the database to get all records from the audit_logs table.
-    // The results are ordered by timestamp in descending order to show the most recent logs first.
-    const logs = await prisma.$queryRaw`SELECT * FROM audit_logs ORDER BY timestamp DESC`;
-    return NextResponse.json(logs);
-  } catch (error) {
-    // If there is an error during the database query, log the error to the console.
-    console.error('Error fetching audit logs:', error);
+    const { userId, sessionClaims } = await auth();
 
-    // Return a JSON response with an error message and a 500 Internal Server Error status.
-    return NextResponse.json({ message: 'Error fetching audit logs' }, { status: 500 });
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Role check: Only team leaders can access all audit logs
+    const userRole = sessionClaims?.metadata?.role;
+    if (userRole !== "team-leader") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const auditLogs = await prisma.auditLog.findMany({
+      orderBy: {
+        created_at: "desc",
+      },
+      include: {
+        actor: {
+          select: {
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json(auditLogs);
+  } catch (error) {
+    console.error("Error fetching audit logs:", error);
+    return NextResponse.json(
+      { message: "Error fetching audit logs", error: error.message },
+      { status: 500 }
+    );
+      orderBy: {
+        timestamp: 'desc',
+      },
+    });
+
+    const systemAlertsPromise = prisma.systemAlert.findMany({
+      take: limit ? parseInt(limit) : undefined,
+      orderBy: {
+        timestamp: 'desc',
+      },
+    });
+
+    const [auditLogs, systemAlerts] = await Promise.all([
+      auditLogsPromise,
+      systemAlertsPromise,
+    ]);
+
+    const formattedAuditLogs = auditLogs.map(log => ({
+      id: log.id,
+      type: 'audit',
+      action: log.action,
+      user: log.user ? `${log.user.first_name} ${log.user.last_name} (${log.user.email})` : 'System',
+      timestamp: log.timestamp,
+      details: log.details,
+    }));
+
+    const formattedSystemAlerts = systemAlerts.map(alert => ({
+      id: alert.id,
+      type: 'alert',
+      action: `System Alert: ${alert.type}`,
+      user: 'System',
+      timestamp: alert.timestamp,
+      details: alert.message,
+    }));
+
+    const combinedLogs = [...formattedAuditLogs, ...formattedSystemAlerts].sort((a, b) =>
+      b.timestamp.getTime() - a.timestamp.getTime()
+    );
+
+    return NextResponse.json(combinedLogs);
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    return new Response(JSON.stringify({ error: 'Failed to fetch audit logs', details: error.message }), { status: 500 });
   }
 }

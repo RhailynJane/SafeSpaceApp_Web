@@ -104,3 +104,17 @@ export async function POST(request) {
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+
+// POST /api/reports - Adds a new report
+export async function POST(request) {
+    const newReport = await request.json();
+    
+    const reportToAdd = {
+      ...newReport,
+      id: reports.length + 1, // Simple ID generation
+      date: new Date().toISOString().split('T')[0],
+      size: `${(Math.random() * 2 + 0.5).toFixed(1)} MB`
+    };
+    reports.unshift(reportToAdd); // Add to the beginning of the list
+    return NextResponse.json(reportToAdd, { status: 201 });
+}

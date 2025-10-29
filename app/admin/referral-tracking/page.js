@@ -1,14 +1,19 @@
 
 "use client";
 import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Search, Filter, Calendar, Clock, Eye, CheckCircle, X } from "lucide-react";
 
 // --- ICONS ---
-const SearchIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>);
-const FilterIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>);
-const CalendarIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>);
-const ClockIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>);
-const EyeIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>);
-const CheckCircleIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>);
+const SearchIcon = () => (<Search className="h-5 w-5 text-gray-400" />);
+const FilterIcon = () => (<Filter className="h-5 w-5" />);
+const CalendarIcon = () => (<Calendar className="h-4 w-4" />);
+const ClockIcon = () => (<Clock className="h-4 w-4" />);
+const EyeIcon = () => (<Eye className="h-4 w-4" />);
+const CheckCircleIcon = () => (<CheckCircle className="h-4 w-4" />);
 
 function TimelineModal({ data, onClose }) {
     const getStatusColor = (status) => {
@@ -30,19 +35,21 @@ function TimelineModal({ data, onClose }) {
         }
     };
     const iconMap = {
-        ClockIcon: <ClockIcon />,
-        EyeIcon: <EyeIcon />,
-        CheckCircleIcon: <CheckCircleIcon />,
+        ClockIcon: <Clock className="h-5 w-5" />,
+        EyeIcon: <Eye className="h-5 w-5" />,
+        CheckCircleIcon: <CheckCircle className="h-5 w-5" />,
     };
     const eventsWithIcons = data.events.map(event => ({
         ...event,
-        iconComponent: iconMap[event.icon] || <ClockIcon />,
+        iconComponent: iconMap[event.icon] || <Clock className="h-5 w-5" />,
     }));
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl">
-                <h2 className="text-2xl font-bold text-gray-800 text-center capitalize">Referral Timeline - {data.client_first_name} {data.client_last_name}</h2>
-                <p className="text-center text-gray-500 mb-6">Complete status history and processing timeline</p>
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent className="w-full max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle className="capitalize">Referral Timeline - {data.client_first_name} {data.client_last_name}</DialogTitle>
+                    <DialogDescription>Complete status history and processing timeline</DialogDescription>
+                </DialogHeader>
                 <div className="text-sm space-y-2 mb-8 text-center bg-gray-50 p-4 rounded-lg">
                     <p className="capitalize"><span className="font-semibold text-gray-600">Client:</span> {data.client_first_name} {data.client_last_name}</p>
                     <p><span className="font-semibold text-gray-600">Submitted by:</span> {data.processed_by_user_id}</p>
@@ -66,9 +73,11 @@ function TimelineModal({ data, onClose }) {
                         </div>
                     ))}
                 </div>
-                <button onClick={onClose} className="w-full mt-6 bg-gray-200 text-gray-800 font-semibold py-3 rounded-lg hover:bg-gray-300 transition-colors">Close</button>
-            </div>
-        </div>
+                <DialogFooter>
+                    <Button onClick={onClose}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -145,13 +154,18 @@ export default function ReferralTrackingPage() {
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
                     </div>
                     <div className="relative">
-                        <select className="w-full md:w-auto appearance-none pl-10 pr-4 py-3 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
-                            <option>All Status</option>
-                            <option>Pending</option>
-                            <option>In Review</option>
-                            <option>Accepted</option>
-                            <option>Declined</option>
-                        </select>
+                        <Select>
+                        <SelectTrigger className="w-full md:w-auto appearance-none pl-10 pr-4 py-3">
+                            <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Status</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="in_review">In Review</SelectItem>
+                            <SelectItem value="accepted">Accepted</SelectItem>
+                            <SelectItem value="declined">Declined</SelectItem>
+                        </SelectContent>
+                    </Select>
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FilterIcon /></div>
                     </div>
                 </div>
@@ -168,7 +182,7 @@ export default function ReferralTrackingPage() {
                                     <CalendarIcon />
                                     <span>Submitted: {new Date(ref.submitted_date).toLocaleDateString()}</span>
                                 </div>
-                                <button onClick={() => handleViewTimeline(ref)} className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100 transition-colors">View Timeline</button>
+                                <Button onClick={() => handleViewTimeline(ref)} variant="outline" size="sm">View Timeline</Button>
                             </div>
                         </div>
                     ))}

@@ -4,19 +4,27 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Search, Plus, X } from "lucide-react";
 
 // --- ICONS ---
+/** Renders a search icon. */
+const SearchIcon = () => ( <Search className="h-5 w-5 text-gray-400" /> );
 /**
  * Renders a plus icon. Used for 'Create New Referral' button.
  * @returns {JSX.Element} The plus icon SVG.
  */
-const PlusIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>);
+const PlusIcon = () => ( <Plus className="h-5 w-5" /> );
 
 /**
  * Renders a close icon ('X'). Used for closing modals.
  * @returns {JSX.Element} The close icon SVG.
  */
-const CloseIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>);
+const CloseIcon = () => (<X className="h-5 w-5" />);
 
 // --- MODAL COMPONENTS ---
 
@@ -28,7 +36,7 @@ const CloseIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" heig
  * @param {Function} props.onClose - The function to call to close the modal.
  * @returns {JSX.Element} The AcceptReferralModal component.
  */
-const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
+const AcceptReferralModal = ({ referral, onClose, onAccept, therapists, loadingTherapists, errorTherapists }) => {
     const [selectedTherapist, setSelectedTherapist] = useState('');
 
     const handleSubmit = (e) => {
@@ -37,33 +45,45 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-white/30 backdrop-blur-2xl flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800">Submit Referral to Team Leader for {referral.client_first_name} {referral.client_last_name}</h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon /></button>
-                </div>
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Submit Referral to Team Leader for {referral.client_first_name} {referral.client_last_name}</DialogTitle>
+                    <DialogDescription>
+                        {/* Optional: Add a description if needed */}
+                    </DialogDescription>
+                </DialogHeader>
                 <form className="space-y-4" onSubmit={handleSubmit}>
                     <div>
                         <label htmlFor="assignTherapist" className="block text-sm font-medium text-gray-700">Assign to Team Leader</label>
-                        <select id="assignTherapist" value={selectedTherapist} onChange={(e) => setSelectedTherapist(e.target.value)} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
-                            <option value="">Select Team Leader...</option>
-                            {therapists.map(therapist => (
-                                <option key={therapist.id} value={therapist.id}>{therapist.email}</option>
-                            ))}
-                        </select>
+                        {loadingTherapists ? (
+                            <p>Loading team leaders...</p>
+                        ) : errorTherapists ? (
+                            <p className="text-red-500">Error: {errorTherapists}</p>
+                        ) : (
+                            <Select onValueChange={setSelectedTherapist} value={selectedTherapist}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Team Leader..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {therapists.map(therapist => (
+                                    <SelectItem key={therapist.id} value={therapist.id.toString()}>{therapist.email}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
                     <div>
                         <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes (optional)</label>
-                        <textarea id="notes" rows="3" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg" placeholder="Add any relevant notes..."></textarea>
+                        <Textarea id="notes" rows="3" placeholder="Add any relevant notes..."></Textarea>
                     </div>
-                    <div className="flex justify-end gap-4 pt-4">
-                        <button type="button" onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                        <button type="submit" className="px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-teal-600 hover:bg-teal-700">Submit to Team Leader</button>
-                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                        <Button type="submit" disabled={!selectedTherapist || loadingTherapists}>Submit to Team Leader</Button>
+                    </DialogFooter>
                 </form>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -76,34 +96,40 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
  * @returns {JSX.Element} The DeclineReferralModal component.
  */
 const DeclineReferralModal = ({ referral, onClose, onDecline }) => (
-   <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">Decline Referral for {referral.client_name}</h2>
-                <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><CloseIcon /></button>
-            </div>
+   <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Decline Referral for {referral.client_name}</DialogTitle>
+                <DialogDescription>
+                    {/* Optional: Add a description if needed */}
+                </DialogDescription>
+            </DialogHeader>
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); onDecline(); }}>
                 <div>
                     <label htmlFor="declineReason" className="block text-sm font-medium text-gray-700">Reason for Decline</label>
-                    <select id="declineReason" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
-                        <option>Select Reason...</option>
-                        <option>Outside of scope</option>
-                        <option>Client not reachable</option>
-                        <option>Duplicate referral</option>
-                        <option>Other</option>
-                    </select>
+                    <Select onValueChange={() => {}}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select Reason..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="outside_scope">Outside of scope</SelectItem>
+                            <SelectItem value="client_not_reachable">Client not reachable</SelectItem>
+                            <SelectItem value="duplicate_referral">Duplicate referral</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div>
                     <label htmlFor="declineNotes" className="block text-sm font-medium text-gray-700">Notes</label>
-                    <textarea id="declineNotes" rows="3" className="mt-1 block w-full p-3 border border-gray-300 rounded-lg" placeholder="Please provide a brief explanation..."></textarea>
+                    <Textarea id="declineNotes" rows="3" placeholder="Please provide a brief explanation..."></Textarea>
                 </div>
-                <div className="flex justify-end gap-4 pt-4">
-                    <button type="button" onClick={onClose} className="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button type="submit" className="px-6 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700">Decline Referral</button>
-                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                    <Button type="submit">Decline Referral</Button>
+                </DialogFooter>
             </form>
-        </div>
-    </div>
+        </DialogContent>
+    </Dialog>
 );
 
 /**
@@ -115,7 +141,10 @@ const DeclineReferralModal = ({ referral, onClose, onDecline }) => (
 export default function ReferralIntakePage() {
     const [referrals, setReferrals] = useState([]);
     const [therapists, setTherapists] = useState([]);
+    const [loadingTherapists, setLoadingTherapists] = useState(true);
+    const [errorTherapists, setErrorTherapists] = useState(null);
     const [modal, setModal] = useState({ type: null, data: null });
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         const getReferrals = async () => {
@@ -134,9 +163,27 @@ export default function ReferralIntakePage() {
             }
         };
         const getTherapists = async () => {
-            const res = await fetch('/api/admin/therapists');
-            const data = await res.json();
-            setTherapists(data);
+            try {
+                setLoadingTherapists(true);
+                const res = await fetch('/api/admin/therapists');
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch therapists: ${res.status} ${res.statusText}`);
+                }
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setTherapists(data);
+                } else {
+                    console.error("Fetched therapists data is not an array:", data);
+                    setTherapists([]);
+                    setErrorTherapists("Invalid data format for therapists.");
+                }
+            } catch (error) {
+                console.error('Error fetching therapists:', error);
+                setTherapists([]);
+                setErrorTherapists(error.message);
+            } finally {
+                setLoadingTherapists(false);
+            }
         };
         getReferrals();
         getTherapists();
@@ -191,13 +238,35 @@ export default function ReferralIntakePage() {
         }
     };
 
+    const filteredReferrals = Array.isArray(referrals) ? referrals.filter(referral => {
+        const lowercasedQuery = searchQuery.toLowerCase();
+        return (
+            referral.client_first_name.toLowerCase().includes(lowercasedQuery) ||
+            referral.client_last_name.toLowerCase().includes(lowercasedQuery) ||
+            referral.referral_source.toLowerCase().includes(lowercasedQuery) ||
+            referral.status.toLowerCase().includes(lowercasedQuery)
+        );
+    }) : [];
+
     return (
         <div className="bg-white p-8 rounded-2xl shadow-lg">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-xl font-bold text-gray-800">New Referrals</h1>
-                <Link href="/admin/referral-intake/create" className="flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors">
-                    <PlusIcon />
-                    Create New Referral
+            <div className="flex flex-col md:flex-row items-center mb-6 gap-4">
+                <h1 className="text-xl font-bold text-gray-800 mr-4">New Referrals</h1>
+                <div className="relative w-full md:w-1/3">
+                    <Input
+                        type="text"
+                        placeholder="Search Referrals..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3"
+                    />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
+                </div>
+                <Link href="/admin/referral-intake/create" passHref>
+                    <Button className="ml-auto">
+                        <Plus className="h-5 w-5 mr-2" />
+                        Create New Referral
+                    </Button>
                 </Link>
             </div>
 
@@ -211,26 +280,41 @@ export default function ReferralIntakePage() {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {referrals.map(referral => (
-                            <tr key={referral.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{referral.id}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 capitalize">{referral.client_first_name} {referral.client_last_name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{referral.referral_source}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(referral.submitted_date).toLocaleDateString()}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                    <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">{referral.status}</span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <button onClick={() => openModal('accept', referral)} className="px-4 py-1.5 border border-transparent rounded-md text-xs text-white bg-teal-600 hover:bg-teal-700">Submit to Team Leader</button>
-                                    <button onClick={() => openModal('decline', referral)} className="px-4 py-1.5 border border-gray-300 rounded-md text-xs text-gray-700 bg-white hover:bg-gray-100">Decline</button>
-                                </td>
+                        {filteredReferrals.length > 0 ? (
+                            filteredReferrals.map(referral => (
+                                <tr key={referral.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{referral.id}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 capitalize">{referral.client_first_name} {referral.client_last_name}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{referral.referral_source}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(referral.submitted_date).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">{referral.status}</span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <Button size="sm" onClick={() => openModal('accept', referral)}>Submit to Team Leader</Button>
+                                        <Button size="sm" variant="outline" onClick={() => openModal('decline', referral)}>Decline</Button>
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No referrals found.</td>
                             </tr>
-                        ))}
+                        )}
                     </tbody>
                 </table>
             </div>
 
-            {modal.type === 'accept' && <AcceptReferralModal referral={modal.data} onClose={closeModal} onAccept={handleAcceptReferral} therapists={therapists} />}
+            {modal.type === 'accept' && (
+                <AcceptReferralModal 
+                    referral={modal.data} 
+                    onClose={closeModal} 
+                    onAccept={handleAcceptReferral} 
+                    therapists={therapists} 
+                    loadingTherapists={loadingTherapists}
+                    errorTherapists={errorTherapists}
+                />
+            )}
             {modal.type === 'decline' && <DeclineReferralModal referral={modal.data} onClose={closeModal} onDecline={handleDeclineReferral} />}
         </div>
     );
