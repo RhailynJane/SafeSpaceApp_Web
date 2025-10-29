@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, Info, MessageCircle, Clock } from "lucide-react";
+import { CheckCircle, XCircle, Info, MessageCircle, Clock, Mail } from "lucide-react";
+import EmailComposerModal from "./EmailComposerModal";
 
 const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) => {
     const [selectedUserId, setSelectedUserId] = useState('');
@@ -58,6 +59,37 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
     );
 }
 
+const RequestInfoDialog = ({ referral, onClose, onSendMessage, onSendEmail }) => {
+    return (
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Request More Information</DialogTitle>
+                    <DialogDescription>
+                        How would you like to contact the source of the referral for {referral.client_first_name} {referral.client_last_name}?
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                    <p>Please select your preferred method to request more information.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Button onClick={onSendMessage}>
+                            <MessageCircle className="h-4 w-4 mr-2" />
+                            Send In-App Message
+                        </Button>
+                        <Button onClick={onSendEmail} variant="outline">
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Email
+                        </Button>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // -----------------------------------------------------------------------------
 // Component: ReferralActions
 // Props:
@@ -65,14 +97,14 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
 //   - onStatusUpdate: callback to update parent state when referral status changes
 //   - userRole: identifies the actor (default: "team-leader")
 // -----------------------------------------------------------------------------
-const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", assignableUsers = [] }) => {
+const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", assignableUsers = [], onStartChat }) => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [showNotesDialog, setShowNotesDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showRequestInfoDialog, setShowRequestInfoDialog] = useState(false);
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
 
   const [selectedAction, setSelectedAction] = useState(null);
-  const [actionNotes, setActionNotes] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
   if (!referral || !['pending', 'in-review'].includes(referral.status.toLowerCase())) {
@@ -83,7 +115,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
   const handleActionClick = (action) => {
     setSelectedAction(action);
     if (action === "more-info-requested") {
-      setShowNotesDialog(true);
+      setShowRequestInfoDialog(true);
     } else if (action === "accepted") {
       setShowAssignDialog(true);
     } else {
@@ -133,17 +165,14 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
 
   // ------------------------ Confirm Action ------------------------
   const handleConfirmAction = async () => {
-    if (!selectedAction || !["declined", "more-info-requested"].includes(selectedAction)) {
-      alert("Please select a valid action: Decline, or Request Info.");
+    if (!selectedAction || !["declined"].includes(selectedAction)) {
+      alert("Please select a valid action: Decline.");
       return;
     }
 
     setIsProcessing(true);
     try {
       const body = { status: selectedAction };
-      if (selectedAction === "more-info-requested") {
-        body.additional_notes = actionNotes;
-      }
 
       const res = await fetch(`/api/referrals/${referral.id}`, {
         method: "PATCH",
@@ -161,7 +190,6 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
       onStatusUpdate?.(referral.id, updatedReferral);
 
       setShowConfirmDialog(false);
-      setShowNotesDialog(false);
       setShowSuccessDialog(true);
     } catch (error) {
       console.error("Error updating referral:", error);
@@ -171,23 +199,26 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     }
   };
 
-  // ------------------------ Notes Submit ------------------------
-  const handleNotesSubmit = () => {
-    if (actionNotes.trim()) {
-      handleConfirmAction();
-    } else {
-      alert("Please enter a note before submitting.");
-    }
+  const handleSendMessage = () => {
+    setShowRequestInfoDialog(false);
+    setShowEmailComposer(true);
+  };
+
+  const handleSendEmail = () => {
+    const subject = `Request for more information regarding referral: ${referral.client_first_name} ${referral.client_last_name}`;
+    const body = `Dear referrer,\n\nWe require more information regarding the referral for ${referral.client_first_name} ${referral.client_last_name}.\n\nPlease provide the following information:\n[Specify what information you need here]\n\nThank you,\nSafe Space Team`;
+    window.location.href = `mailto:${referral.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    resetState();
   };
 
   // ------------------------ Reset ------------------------
   const resetState = () => {
     setSelectedAction(null);
-    setActionNotes("");
     setShowConfirmDialog(false);
-    setShowNotesDialog(false);
     setShowSuccessDialog(false);
     setShowAssignDialog(false);
+    setShowRequestInfoDialog(false);
+    setShowEmailComposer(false);
   };
 
   // ------------------------ Action Config ------------------------
@@ -233,7 +264,16 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     <>
       {/* ------------------------ Action Buttons ------------------------ */}
       <div className="flex gap-2 pt-4 border-t">
-        {["accepted", "declined", "more-info-requested"].map((action) => {
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => handleActionClick("more-info-requested")}
+          className="border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-100"
+        >
+          <MessageCircle className="h-4 w-4 mr-1" />
+          Request Info
+        </Button>
+        {["accepted", "declined"].map((action) => {
           const config = getActionConfig(action);
           const Icon = config.icon;
           return (
@@ -259,6 +299,25 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
             onClose={resetState} 
             onAssign={handleAssignAction} 
             assignableUsers={assignableUsers} 
+        />
+      )}
+
+      {/* ------------------------ Request Info Dialog ------------------------ */}
+      {showRequestInfoDialog && (
+        <RequestInfoDialog
+          referral={referral}
+          onClose={resetState}
+          onSendMessage={handleSendMessage}
+          onSendEmail={handleSendEmail}
+        />
+      )}
+
+      {/* ------------------------ Email Composer Dialog ------------------------ */}
+      {showEmailComposer && (
+        <EmailComposerModal
+          isOpen={showEmailComposer}
+          onClose={resetState}
+          referral={referral}
         />
       )}
 
@@ -296,58 +355,6 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
                 <>
                   {React.createElement(getActionConfig(selectedAction)?.icon, { className: "h-4 w-4 mr-2" })}
                   Confirm {getActionConfig(selectedAction)?.label}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ------------------------ Notes Dialog ------------------------ */}
-      <Dialog open={showNotesDialog} onOpenChange={setShowNotesDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Request Additional Information</DialogTitle>
-            <DialogDescription>
-              Please specify what additional information is needed for{" "}
-              <strong>{referral.client_first_name} {referral.client_last_name}</strong>'s referral.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="notes">Information Needed</Label>
-              <Textarea
-                id="notes"
-                placeholder="Please describe what additional information or documentation is required..."
-                value={actionNotes}
-                onChange={(e) => setActionNotes(e.target.value)}
-                className="min-h-[100px]"
-              />
-            </div>
-            <div className="text-sm text-gray-500">
-              This message will be sent to the referral source.
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={resetState} disabled={isProcessing}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleNotesSubmit}
-              disabled={!actionNotes.trim() || isProcessing}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              {isProcessing ? (
-                <>
-                  <Clock className="h-4 w-4 mr-2 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Send Request
                 </>
               )}
             </Button>

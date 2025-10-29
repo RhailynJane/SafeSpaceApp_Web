@@ -1,26 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuth } from '@clerk/nextjs/server';
-import { clerkClient } from '@clerk/nextjs';
 import { prisma } from '@/lib/prisma';
-
-export async function GET(request) {
-  try {
-    const { userId } = getAuth(request);
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const reports = await prisma.report.findMany({
-      orderBy: {
-        date: 'desc',
-      },
-    });
-    return NextResponse.json(reports);
-  } catch (error) {
-    console.error("[REPORTS_GET_ERROR]", error);
-    return new NextResponse("Internal Error", { status: 500 });
-  }
-}
 
 export async function POST(request) {
   try {
@@ -40,59 +20,87 @@ export async function POST(request) {
       lte: new Date(dateRange.to),
     };
 
-    // Data generation logic based on reportType and dateRange
     let data;
+
     switch (reportType) {
-      case 'caseload':
-        const clientsInDateRange = await prisma.client.count({ where: { last_session_date: dateFilter } });
+      case 'caseload': {
+        const clientsInDateRange = await prisma.client.count({
+          where: { last_session_date: dateFilter },
+        });
+        const totalClients = await prisma.client.count();
+
         data = {
+          reportType: 'Caseload',
           clientsWithSessions: clientsInDateRange,
-          totalClients: await prisma.client.count(),
+          totalClients,
         };
         break;
-      case 'sessions':
-        const totalSessions = await prisma.appointment.count({ where: { appointment_date: dateFilter } });
-        const individualSessions = await prisma.appointment.count({ where: { type: 'Individual Session', appointment_date: dateFilter } });
+      }
+
+      case 'sessions': {
+        const totalSessions = await prisma.appointment.count({
+          where: { appointment_date: dateFilter },
+        });
+        const individualSessions = await prisma.appointment.count({
+          where: { type: 'Individual Session', appointment_date: dateFilter },
+        });
+
         data = {
+          reportType: 'Sessions',
           totalSessions,
-          averageDuration: 50, // This could be calculated if you store end times
-          sessionsByType: { 'Individual': individualSessions, 'Group': totalSessions - individualSessions },
+          sessionsByType: {
+            Individual: individualSessions,
+            Group: totalSessions - individualSessions,
+          },
         };
         break;
-      case 'crisis':
-        const totalEvents = await prisma.crisisEvent.count({ where: { event_date: dateFilter } });
-        const resolvedEvents = await prisma.crisisEvent.count({ where: { resolved: true, event_date: dateFilter } });
+      }
+
+      case 'crisis': {
+        const totalEvents = await prisma.crisisEvent.count({
+          where: { event_date: dateFilter },
+        });
+        const resolvedEvents = await prisma.crisisEvent.count({
+          where: { resolved: true, event_date: dateFilter },
+        });
+
         data = {
+          reportType: 'Crisis Events',
           totalEvents,
           resolved: resolvedEvents,
           pending: totalEvents - resolvedEvents,
         };
         break;
-      case 'outcomes':
-        // This is more complex and depends on your data model for outcomes.
-        // Here's a placeholder for what it might look like.
+      }
+
+      case 'outcomes': {
+        // Example: dynamic stats based on outcomes table (replace with real fields)
+        const totalOutcomes = await prisma.outcome.count({
+          where: { created_at: dateFilter },
+        });
+
         data = {
-          goalsAchieved: 42,
-          satisfactionScore: 4.5,
+          reportType: 'Outcomes',
+          totalOutcomes,
+          satisfactionScore: 4.5, // placeholder example
           improvementRate: '85%',
         };
         break;
+      }
+
       default:
         return new NextResponse("Invalid report type", { status: 400 });
     }
 
-    // Save the generated report to the database
-    const newReport = await prisma.report.create({
-      data: {
-        name: `${reportType} Report`,
-        type: 'PDF', // Or determine dynamically
-        data: JSON.stringify(data), // Store data as a JSON string
-        date: new Date(),
-      }
+    // Return generated data directly (no saving to DB)
+    return NextResponse.json({
+      success: true,
+      generatedAt: new Date(),
+      data,
     });
-    return NextResponse.json(newReport);
+
   } catch (error) {
     console.error("[REPORTS_POST_ERROR]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

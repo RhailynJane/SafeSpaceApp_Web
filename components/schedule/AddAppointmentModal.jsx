@@ -18,18 +18,21 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-} from '@/components/ui/select';
-import { PlusCircle } from 'lucide-react';
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
+import { DialogClose } from "@radix-ui/react-dialog";
 
 export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clients = [], prefilledSlot, onClose }) {
   const [formData, setFormData] = useState({
     clientId: '',
-    date: '',
-    time: '',
+    date: prefilledSlot?.date || new Date().toISOString().split("T")[0],
+    time: prefilledSlot?.time || '',
     type: 'Individual Session',
     duration: '50',
     details: '',
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -37,8 +40,8 @@ export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clien
     if (prefilledSlot) {
       setFormData(prev => ({
         ...prev,
-        date: prefilledSlot.date,
-        time: prefilledSlot.time,
+        date: prefilledSlot.date || prev.date,
+        time: prefilledSlot.time || prev.time,
       }));
     }
   }, [prefilledSlot]);
@@ -63,7 +66,7 @@ export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clien
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           client_id: parseInt(formData.clientId),
-          appointment_date: new Date(formData.date).toISOString(),
+          appointment_date: new Date(`${formData.date}T00:00:00.000Z`).toISOString(),
           appointment_time: `${formData.time}:00`,
           type: formData.type,
           duration: formData.duration,
@@ -99,17 +102,19 @@ export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clien
   return (
     <Dialog open={isOpen} onOpenChange={handleModalOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="default"><PlusCircle className="h-4 w-4 mr-2" />Add Appointment</Button>
+        <Button variant="default">Add Appointment</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>New Appointment</DialogTitle>
-          <DialogDescription>Fill in the details for the new appointment.</DialogDescription>
+          <DialogDescription>
+            Fill in the details for the new appointment
+          </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4 py-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
             <Label htmlFor="client">Client</Label>
-            <Select name="clientId" value={formData.clientId} onValueChange={(value) => handleSelectChange('clientId', value)}>
+            <Select onValueChange={(value) => handleSelectChange('clientId', value)} value={formData.clientId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
@@ -123,25 +128,40 @@ export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clien
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="date">Date</Label>
-              <Input id="date" name="date" type="date" value={formData.date} onChange={handleChange} required />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="time">Time</Label>
-              <Input id="time" name="time" type="time" value={formData.time} onChange={handleChange} required />
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="date">Date</Label>
+            <Input
+              id="date"
+              name="date"
+              type="date"
+              value={formData.date}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="time">Time</Label>
+            <Input
+              id="time"
+              name="time"
+              type="time"
+              value={formData.time}
+              onChange={handleChange}
+              required
+            />
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="type">Session Type</Label>
-            <Select name="type" value={formData.type} onValueChange={(value) => handleSelectChange('type', value)}>
+            <Select value={formData.type} onValueChange={(value) => handleSelectChange('type', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select session type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Individual Session">Individual Session</SelectItem>
+                <SelectItem value="Individual Session">
+                  Individual Session
+                </SelectItem>
                 <SelectItem value="Group Therapy">Group Therapy</SelectItem>
                 <SelectItem value="Assessment">Assessment</SelectItem>
               </SelectContent>
@@ -150,27 +170,43 @@ export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clien
 
           <div className="grid gap-2">
             <Label htmlFor="duration">Duration</Label>
-            <Select name="duration" value={formData.duration} onValueChange={(value) => handleSelectChange('duration', value)}>
-              <SelectTrigger><SelectValue placeholder="Select duration" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="30">30 minutes</SelectItem>
-                <SelectItem value="50">50 minutes</SelectItem>
-                <SelectItem value="60">60 minutes</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input
+              name="duration"
+              id="duration"
+              value={formData.duration}
+              onChange={handleChange}
+              placeholder="e.g., 50 min"
+              required
+            />
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="details">Details</Label>
-            <Input id="details" name="details" value={formData.details} onChange={handleChange} placeholder="e.g., Follow-up session" />
+            <Input
+              name="details"
+              id="details"
+              value={formData.details}
+              onChange={handleChange}
+              placeholder="Appointment details"
+            />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <div className="flex justify-end gap-2 mt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={loading} className="bg-teal-600 hover:bg-teal-700">
-              {loading ? 'Adding...' : 'Add Appointment'}
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button type="submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Add"
+              )}
             </Button>
           </div>
         </form>

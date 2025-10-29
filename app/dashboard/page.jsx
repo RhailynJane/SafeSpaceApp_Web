@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import AddAppointmentModal from "@/components/schedule/AddAppointmentModal";
 
+import SendbirdChat from '@/components/SendbirdChat';
+
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 // Helpers
@@ -196,7 +198,7 @@ export default function DashboardPage({ onAdd }) {
                     <div className="flex-1">
                       <p className="text-sm text-gray-900">{notification.message}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {new Date(notification.timestamp).toLocaleTimeString()}
+                        {new Date(notification.created_at).toLocaleTimeString()}
                       </p>
                     </div>
                   </div>
@@ -313,6 +315,7 @@ export default function DashboardPage({ onAdd }) {
           </div>
         </CardContent>
       </Card>
+
     </div>
   )
 }
