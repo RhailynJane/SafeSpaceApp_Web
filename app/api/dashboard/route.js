@@ -1,5 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma.js";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -54,7 +54,7 @@ export async function GET() {
       prisma.client.count({ where: { risk_level: "High", ...(dbUser.role.role_name === "team_leader" ? {} : { user_id: dbUser.id }) } }),
       prisma.crisisEvent.count({ where: { initiator_user_id: dbUser.id } }),
       dbUser.role.role_name === "team_leader" ? prisma.referral.count({ where: { status: "Pending" } }) : Promise.resolve(0),
-      prisma.client.count({ where: { status: "Active" } }),
+      prisma.client.count({ where: { status: "Active", ...(dbUser.role.role_name === "team_leader" ? {} : { user_id: dbUser.id }) } }),
       // Count only today's sessions (24-hour range)
       prisma.appointment.count({ where: { appointment_date: { gte: today, lt: nextDay }, ...(dbUser.role.role_name === "team_leader" ? {} : { scheduled_by_user_id: dbUser.id }) } }),
       prisma.notification.findMany({

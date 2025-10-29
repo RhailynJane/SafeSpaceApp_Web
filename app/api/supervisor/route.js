@@ -18,6 +18,7 @@ export async function GET(req) {
         role: { role_name: 'team_leader' },
       },
       select: {
+        id: true,
         first_name: true,
         last_name: true,
         email: true,

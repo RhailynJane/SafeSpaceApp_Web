@@ -1,9 +1,7 @@
 // app/api/appointments/route.js
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma.js";
 import { getAuth } from "@clerk/nextjs/server";
-
-const prisma = new PrismaClient();
 
 export async function GET(req) {
   try {
@@ -32,11 +30,16 @@ export async function GET(req) {
       },
     });
 
-    // Map appointments to include a `date` string (YYYY-MM-DD) for client consumption
     const mapped = appointments.map((a) => {
       const date = a.appointment_date instanceof Date ? a.appointment_date : new Date(a.appointment_date);
-      const dateStr = date.toISOString().split("T")[0];
-      return { ...a, date: dateStr };
+      const time = a.appointment_time instanceof Date ? a.appointment_time : new Date(a.appointment_time);
+
+      return {
+        ...a,
+        date: date.toISOString().split("T")[0],
+        time: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        clientName: `${a.client.client_first_name} ${a.client.client_last_name}`,
+      };
     });
 
     return NextResponse.json(mapped);

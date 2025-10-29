@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Calendar as CalendarIcon } from "lucide-react";
 import AddAppointmentModal from '@/components/schedule/AddAppointmentModal';
 import ViewAvailabilityModal from '@/components/schedule/ViewAvailabilityModal';
+import ViewDetailsModal from '@/components/schedule/ViewDetailsModal';
 
 export default function SchedulePage() {
   const [appointments, setAppointments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
 
   useEffect(() => {
     async function fetchAppointments() {
@@ -38,6 +40,10 @@ export default function SchedulePage() {
 
   const handleSelectSlot = (slot) => {
     setPrefilledSlot(slot);
+  };
+
+  const handleViewDetails = (appointment) => {
+    setSelectedAppointment(appointment);
   };
 
   const getStatusColor = (status) => {
@@ -95,6 +101,7 @@ export default function SchedulePage() {
                     <Badge className={getStatusColor(appointment.status)}>
                       {appointment.status}
                     </Badge>
+                    <Button variant="outline" onClick={() => handleViewDetails(appointment)}>View Details</Button>
                   </div>
                 </div>
               ))
@@ -103,6 +110,7 @@ export default function SchedulePage() {
           )}
         </CardContent>
       </Card>
+      {selectedAppointment && <ViewDetailsModal appointment={selectedAppointment} />}
     </div>
   );
 }
