@@ -89,22 +89,17 @@ export async function POST(req) {
       clientId = parseInt(clientId, 10);
     }
 
-    // Construct appointment date-only and time values to avoid timezone offset issues
-    const dateOnly = new Date(`${appointment_date}T00:00:00`);
-
+    // Construct appointment date and time
+    const date = new Date(appointment_date);
     const [hours, minutes] = appointment_time.split(':').map(Number);
-    // appointment_time as a Date object representing the time on the same date
-    const timeVal = new Date(dateOnly);
-    timeVal.setHours(hours, minutes, 0, 0);
+    date.setHours(hours, minutes, 0, 0);
 
     // ✅ Create appointment
     const appointment = await prisma.appointment.create({
       data: {
         client_id: clientId,
-        // store the date without time component for consistent comparisons
-        appointment_date: dateOnly,
-        // store the full datetime for appointment_time (DB column mapped to time)
-        appointment_time: timeVal,
+        appointment_date: date,
+        appointment_time: date,
         type: type || "Individual Session",
         duration: duration || "50 min",
         details: details || "Routine check-in session",

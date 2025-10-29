@@ -22,7 +22,7 @@ export async function GET(request) {
 
       where: { clerk_user_id: userId },
 
-      include: { roles: true },
+      include: { role: true },
 
     });
 
@@ -115,6 +115,8 @@ export async function GET(request) {
 
 
     const userRole = user.roles.role_name.replace(/_/g, "-");
+
+
 
 
 
