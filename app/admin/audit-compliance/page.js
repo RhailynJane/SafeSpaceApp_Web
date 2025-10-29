@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
 
@@ -33,15 +34,38 @@ const StatCard = ({ title, value, subtitle, valueColor = 'text-gray-900' }) => (
  */
 export default function AuditCompliancePage() {
     const [auditEvents, setAuditEvents] = useState([]);
+    const [activeAlerts, setActiveAlerts] = useState(0);
+    const [securityScore, setSecurityScore] = useState('N/A');
+    const [complianceStatus, setComplianceStatus] = useState('N/A');
 
     useEffect(() => {
         const getAuditEvents = async () => {
             const res = await fetch('/api/admin/audit-logs');
             const data = await res.json();
-            // The API returns the data in a property named after the variable in the route, in this case 'logs'.
-            setAuditEvents(data.logs || []);
+            setAuditEvents(data || []);
         };
+
+        const fetchActiveAlerts = async () => {
+            try {
+                const response = await fetch('/api/admin/security-alerts');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch security alerts.');
+                    setActiveAlerts(0);
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error('Failed to fetch security alerts');
+                }
+                const data = await response.json();
+                setActiveAlerts(data.unreadAlerts);
+            } catch (error) {
+                console.error(error);
+                setActiveAlerts(0);
+            }
+        };
+
         getAuditEvents();
+        fetchActiveAlerts();
     }, []);
 
     return (
@@ -53,9 +77,33 @@ export default function AuditCompliancePage() {
                 
                 {/* Grid of key statistics using the StatCard component. */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <StatCard title="Security Score" value="98%" subtitle="Last audit: 2 days ago" valueColor="text-blue-600" />
-                    <StatCard title="Active Alerts" value="1" subtitle="Requires attention" valueColor="text-yellow-600" />
-                    <StatCard title="Compliance" value="100%" subtitle="All requirements met" valueColor="text-green-600" />
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Security Score</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-4xl font-bold mt-2 text-blue-600">{securityScore}</p>
+                            <p className="text-xs text-gray-500 mt-1">Last audit: N/A</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Active Alerts</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-4xl font-bold mt-2 text-yellow-600">{activeAlerts}</p>
+                            <p className="text-xs text-gray-500 mt-1">Requires attention</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Compliance</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-4xl font-bold mt-2 text-green-600">{complianceStatus}</p>
+                            <p className="text-xs text-gray-500 mt-1">All requirements met</p>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
             
@@ -67,7 +115,7 @@ export default function AuditCompliancePage() {
                     {auditEvents.map(event => (
                         <div key={event.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-center">
                             <div>
-                                <p className="font-semibold text-gray-800">{event.action}</p>
+                                <p className="font-semibold text-gray-800">[{event.type === 'alert' ? 'ALERT' : 'AUDIT'}] {event.action}</p>
                                 <p className="text-sm text-gray-600">{event.details}</p>
                             </div>
                             <p className="text-sm text-gray-500">{new Date(event.timestamp).toLocaleString()}</p>

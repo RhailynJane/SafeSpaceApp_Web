@@ -8,6 +8,9 @@
 
 'use client';
 import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { X, Server, Database } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
 // --- ICONS ---
 // These are simple, stateless functional components that render SVG icons.
@@ -17,19 +20,19 @@ import React, { useState, useEffect } from 'react';
  * Renders a server icon. This is a visual representation of a server.
  * @returns {JSX.Element} The server icon SVG.
  */
-const ServerIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg> );
+const ServerIcon = () => ( <Server className="h-5 w-5 text-gray-400" /> );
 
 /**
  * Renders a database icon. This is a visual representation of a database.
  * @returns {JSX.Element} The database icon SVG.
  */
-const DatabaseIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg> );
+const DatabaseIcon = () => ( <Database className="h-5 w-5 text-gray-400" /> );
 
 /**
  * Renders a close icon (an 'X'). Used for closing modals or dismissing elements.
  * @returns {JSX.Element} The close icon SVG.
  */
-const CloseIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 hover:text-gray-800"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> );
+const CloseIcon = () => ( <X className="h-5 w-5 text-gray-500 hover:text-gray-800" /> );
 
 // --- MOCK DATA & REUSABLE UI COMPONENTS ---
 // These components are used to build the UI of the overview page.
@@ -106,6 +109,11 @@ const DetailedMetricsModal = ({ onClose }) => {
             try {
                 setLoading(true);
                 const response = await fetch('/api/admin/metrics');
+                if (response.status === 403) {
+                    setError('Unauthorized to fetch metrics.');
+                    setMetrics({ totalUsers: 0 }); // Set default values
+                    return;
+                }
                 if (!response.ok) {
                     throw new Error('Failed to fetch metrics');
                 } 
@@ -175,15 +183,14 @@ const DetailedMetricsModal = ({ onClose }) => {
     );
 
     return (
-        // Modal container with a semi-transparent background
-      <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-
-            {/* Modal content */}
-            <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl">
-                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-gray-800">Detailed System Metrics</h2>
-                    <button onClick={onClose}><CloseIcon /></button>
-                </div>
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Detailed System Metrics</DialogTitle>
+                    <DialogDescription>
+                        {/* Optional: Add a description if needed */}
+                    </DialogDescription>
+                </DialogHeader>
                 {/* Grid of metric bars */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {loading && <p>Loading...</p>}
@@ -197,8 +204,11 @@ const DetailedMetricsModal = ({ onClose }) => {
                         </>
                     )}
                 </div>
-            </div>
-        </div>
+                <DialogFooter>
+                    <Button onClick={onClose}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 
@@ -229,12 +239,14 @@ const AuditLogModal = ({ onClose }) => {
     }, []);
 
     return (
-       <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-50 p-6 rounded-2xl shadow-xl w-full max-w-3xl h-3/4 overflow-y-auto">
-                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-gray-800">Full Audit Log</h2>
-                    <button onClick={onClose}><CloseIcon /></button>
-                </div>
+        <Dialog open={true} onOpenChange={onClose}>
+            <DialogContent className="w-full max-w-3xl h-3/4 overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Full Audit Log</DialogTitle>
+                    <DialogDescription>
+                        {/* Optional: Add a description if needed */}
+                    </DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
                     {loading && <p>Loading...</p>}
                     {error && <p className="text-red-500">{error}</p>}
@@ -246,8 +258,11 @@ const AuditLogModal = ({ onClose }) => {
                         </div>
                     ))}
                 </div>
-            </div>
-        </div>
+                <DialogFooter>
+                    <Button onClick={onClose}>Close</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };
 
@@ -273,6 +288,11 @@ export default function OverviewPage() {
         const fetchTotalUsers = async () => {
             try {
                 const response = await fetch('/api/admin/metrics');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch total users.');
+                    setTotalUsers(0); // Set to 0 on unauthorized access
+                    return;
+                }
                 if (!response.ok) {
                     throw new Error('Failed to fetch total users');
                 }
@@ -280,12 +300,18 @@ export default function OverviewPage() {
                 setTotalUsers(data.totalUsers);
             } catch (error) {
                 console.error(error);
+                setTotalUsers(0); // Set to 0 on error to prevent undefined issues
             }
         };
 
         const fetchRecentActivities = async () => {
             try {
                 const response = await fetch('/api/admin/audit-logs?limit=2');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch recent activities.');
+                    setRecentActivities([]); // Set to empty array on unauthorized access
+                    return;
+                }
                 if (!response.ok) {
                     throw new Error('Failed to fetch recent activities');
                 }
@@ -293,12 +319,18 @@ export default function OverviewPage() {
                 setRecentActivities(data);
             } catch (error) {
                 console.error(error);
+                setRecentActivities([]); // Set to empty array on error
             }
         };
 
         const fetchSystemUptime = async () => {
             try {
                 const response = await fetch('/api/admin/system-uptime');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch system uptime.');
+                    setSystemUptime('N/A'); // Set to N/A on unauthorized access
+                    return;
+                }
                 if (!response.ok) {
                     throw new Error('Failed to fetch system uptime');
                 }
@@ -306,12 +338,18 @@ export default function OverviewPage() {
                 setSystemUptime(data.uptime);
             } catch (error) {
                 console.error(error);
+                setSystemUptime('N/A'); // Set to N/A on error
             }
         };
 
         const fetchSecurityAlerts = async () => {
             try {
                 const response = await fetch('/api/admin/security-alerts');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch security alerts.');
+                    setSecurityAlerts(0); // Set to 0 on unauthorized access
+                    return;
+                }
                 if (!response.ok) {
                     throw new Error('Failed to fetch security alerts');
                 }
@@ -319,12 +357,18 @@ export default function OverviewPage() {
                 setSecurityAlerts(data.unreadAlerts);
             } catch (error) {
                 console.error(error);
+                setSecurityAlerts(0); // Set to 0 on error
             }
         };
 
         const fetchActiveSessions = async () => {
             try {
                 const response = await fetch('/api/admin/active-sessions');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch active sessions.');
+                    setActiveSessions(0); // Set to 0 on unauthorized access
+                    return;
+                }
                 if (!response.ok) {
                     throw new Error('Failed to fetch active sessions');
                 }
@@ -332,6 +376,7 @@ export default function OverviewPage() {
                 setActiveSessions(data.activeSessions);
             } catch (error) {
                 console.error(error);
+                setActiveSessions(0); // Set to 0 on error to prevent undefined issues
             }
         };
 
@@ -364,12 +409,12 @@ export default function OverviewPage() {
                         <HealthCard title="Database" status="Healthy" value="120 ms avg response" statusColor="text-blue-500" icon={<DatabaseIcon />} />
                     </div>
                     {/* Button to open the detailed metrics modal */}
-                    <button 
+                    <Button 
                         onClick={() => setShowMetricsModal(true)}
-                        className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 transition-colors"
+                        className="w-full"
                     >
                         View Detailed Metrics
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Section for recent admin activities */}
@@ -381,10 +426,10 @@ export default function OverviewPage() {
                         ))}
                     </div>
                     {/* Button to open the full audit log modal */}
-                    <button 
+                    <Button 
                         onClick={() => setShowAuditLogModal(true)}
-                        className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-lg hover:bg-indigo-700 transition-colors"
-                    >View Full Audit Log</button>
+                        className="w-full"
+                    >View Full Audit Log</Button>
                 </div>
             </div>
 

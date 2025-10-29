@@ -28,7 +28,13 @@ export async function GET(req) {
         return new Response(JSON.stringify({ error: "Unauthorized: User is not an admin" }), { status: 403 });
     }
 
-    const totalUsers = await prisma.user.count();
+    let totalUsers = 0;
+    try {
+      totalUsers = await prisma.user.count();
+    } catch (countError) {
+      console.error('Error counting users:', countError);
+      // Optionally, log this to system alerts or a more persistent error tracking system
+    }
 
     return NextResponse.json({ totalUsers });
   } catch (error) {

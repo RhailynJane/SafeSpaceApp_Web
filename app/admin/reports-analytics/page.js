@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { LineChart, Users, Shield, FileText } from "lucide-react";
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
@@ -7,13 +9,13 @@ import React, { useState, useEffect } from 'react';
 // A collection of simple, stateless functional components for rendering SVG icons.
 
 /** Renders a chart icon. */
-const ChartIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg> );
+const ChartIcon = () => ( <LineChart className="h-6 w-6 text-gray-400" /> );
 /** Renders a users icon. */
-const UsersIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> );
+const UsersIcon = () => ( <Users className="h-6 w-6 text-gray-400" /> );
 /** Renders a shield icon for security reports. */
-const ShieldIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> );
+const ShieldIcon = () => ( <Shield className="h-6 w-6 text-gray-400" /> );
 /** Renders a file icon for compliance reports. */
-const FileIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg> );
+const FileIcon = () => ( <FileText className="h-6 w-6 text-gray-400" /> );
 
 // --- COMPONENTS ---
 
@@ -42,6 +44,9 @@ const AnalyticsCard = ({ title, value, subtitle, valueColor }) => (
  */
 export default function ReportsAnalyticsPage() {
     const [reports, setReports] = useState([]);
+    const [platformGrowth, setPlatformGrowth] = useState('N/A');
+    const [activeUsers, setActiveUsers] = useState(0);
+    const [sessionDuration, setSessionDuration] = useState('N/A');
 
     useEffect(() => {
         const getReports = async () => {
@@ -49,7 +54,33 @@ export default function ReportsAnalyticsPage() {
             const data = await res.json();
             setReports(data.reports || []);
         };
+
+        const fetchPlatformMetrics = async () => {
+            try {
+                const response = await fetch('/api/admin/metrics');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch platform metrics.');
+                    setActiveUsers(0);
+                    setPlatformGrowth('N/A');
+                    setSessionDuration('N/A');
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error('Failed to fetch platform metrics');
+                }
+                const data = await response.json();
+                setActiveUsers(data.totalUsers);
+                // For now, platformGrowth and sessionDuration remain N/A as there are no specific APIs for them.
+            } catch (error) {
+                console.error(error);
+                setActiveUsers(0);
+                setPlatformGrowth('N/A');
+                setSessionDuration('N/A');
+            }
+        };
+
         getReports();
+        fetchPlatformMetrics();
     }, []);
 
     return (
@@ -60,9 +91,33 @@ export default function ReportsAnalyticsPage() {
 
             {/* Analytics Cards Section */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                <AnalyticsCard title="Platform Growth" value="+ 15%" subtitle="This month" valueColor="text-green-600" />
-                <AnalyticsCard title="Active Users" value="200" subtitle="Daily average" valueColor="text-blue-600" />
-                <AnalyticsCard title="Session Duration" value="45 m" subtitle="Average" valueColor="text-blue-600" />
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Platform Growth</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-3xl font-bold mt-2 text-green-600">{platformGrowth}</p>
+                        <p className="text-xs text-gray-500 mt-1">This month</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Active Users</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-3xl font-bold mt-2 text-blue-600">{activeUsers}</p>
+                        <p className="text-xs text-gray-500 mt-1">Daily average</p>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Session Duration</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-3xl font-bold mt-2 text-blue-600">{sessionDuration}</p>
+                        <p className="text-xs text-gray-500 mt-1">Average</p>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Reports Table Section */}

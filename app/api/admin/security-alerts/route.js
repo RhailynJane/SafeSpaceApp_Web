@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET(req) {
   try {
     const { userId } = getAuth(req);
+    console.log('Security Alerts API: userId', userId);
     if (!userId) {
       return new Response(JSON.stringify({ error: "Unauthorized: No user ID in request" }), { status: 401 });
     }
@@ -15,6 +16,7 @@ export async function GET(req) {
       where: { clerk_user_id: userId },
       include: { roles: true },
     });
+    console.log('Security Alerts API: user from DB', user);
 
     if (user?.roles?.role_name !== 'admin') {
         return new Response(JSON.stringify({ error: "Unauthorized: User is not an admin" }), { status: 403 });

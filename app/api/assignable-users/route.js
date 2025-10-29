@@ -6,14 +6,14 @@ export async function GET() {
   try {
     const users = await prisma.user.findMany({
       where: {
-        role: {
+        roles: {
           role_name: {
             in: ['team_leader', 'support_worker'],
           },
         },
       },
       include: {
-        role: true,
+        roles: true,
       },
     });
     return NextResponse.json(users);

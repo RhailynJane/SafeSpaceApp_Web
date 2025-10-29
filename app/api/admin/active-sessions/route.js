@@ -1,6 +1,7 @@
 // app/api/admin/active-sessions/route.js
 import { NextResponse } from 'next/server';
-import { getAuth, clerkClient } from '@clerk/nextjs/server';
+import { getAuth } from '@clerk/nextjs/server';
+import { clerkClient } from '@clerk/clerk-sdk-node';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(req) {
@@ -21,6 +22,7 @@ export async function GET(req) {
     }
 
     const response = await clerkClient.sessions.getSessionList({
+      userId: userId,
       status: 'active',
     });
 
@@ -29,6 +31,7 @@ export async function GET(req) {
     return NextResponse.json({ activeSessions });
   } catch (error) {
     console.error('Error fetching active sessions:', error);
+    console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
     return new Response(JSON.stringify({ error: 'Failed to fetch active sessions', details: error.message }), { status: 500 });
   }
 }
