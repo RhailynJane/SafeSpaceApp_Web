@@ -39,11 +39,11 @@ export default clerkMiddleware(async (auth, req) => {
     // Fetch user role directly from the database
     const user = await prisma.user.findUnique({
       where: { clerk_user_id: userId },
-      include: { roles: true },
+      include: { role: true },
     });
     console.log('isAdminRoute: user from DB', user);
 
-    const role = user?.roles?.role_name; // Get role from database
+    const role = user?.role?.role_name; // Get role from database
     console.log('isAdminRoute: role', role);
     
     if (role !== 'admin') {
