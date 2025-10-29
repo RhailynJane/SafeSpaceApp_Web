@@ -44,7 +44,7 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
                         <select id="assignee" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
                             <option value="">Select a team member...</option>
                             {assignableUsers.map(user => (
-                                <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.role.role_name})</option>
+                                <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.roles.role_name})</option>
                             ))}
                         </select>
                     </div>

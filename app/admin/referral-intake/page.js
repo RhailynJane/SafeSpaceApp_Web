@@ -36,7 +36,7 @@ const CloseIcon = () => (<X className="h-5 w-5" />);
  * @param {Function} props.onClose - The function to call to close the modal.
  * @returns {JSX.Element} The AcceptReferralModal component.
  */
-const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
+const AcceptReferralModal = ({ referral, onClose, onAccept, therapists, loadingTherapists, errorTherapists }) => {
     const [selectedTherapist, setSelectedTherapist] = useState('');
 
     const handleSubmit = (e) => {
@@ -56,16 +56,22 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
                 <form className="space-y-4" onSubmit={handleSubmit}>
                     <div>
                         <label htmlFor="assignTherapist" className="block text-sm font-medium text-gray-700">Assign to Team Leader</label>
-                        <Select onValueChange={setSelectedTherapist} value={selectedTherapist}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select Team Leader..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {therapists.map(therapist => (
-                                <SelectItem key={therapist.id} value={therapist.id.toString()}>{therapist.email}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        {loadingTherapists ? (
+                            <p>Loading team leaders...</p>
+                        ) : errorTherapists ? (
+                            <p className="text-red-500">Error: {errorTherapists}</p>
+                        ) : (
+                            <Select onValueChange={setSelectedTherapist} value={selectedTherapist}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Team Leader..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {therapists.map(therapist => (
+                                    <SelectItem key={therapist.id} value={therapist.id.toString()}>{therapist.email}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
                     <div>
                         <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Notes (optional)</label>
@@ -73,7 +79,7 @@ const AcceptReferralModal = ({ referral, onClose, onAccept, therapists }) => {
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit">Submit to Team Leader</Button>
+                        <Button type="submit" disabled={!selectedTherapist || loadingTherapists}>Submit to Team Leader</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -135,6 +141,8 @@ const DeclineReferralModal = ({ referral, onClose, onDecline }) => (
 export default function ReferralIntakePage() {
     const [referrals, setReferrals] = useState([]);
     const [therapists, setTherapists] = useState([]);
+    const [loadingTherapists, setLoadingTherapists] = useState(true);
+    const [errorTherapists, setErrorTherapists] = useState(null);
     const [modal, setModal] = useState({ type: null, data: null });
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -155,9 +163,27 @@ export default function ReferralIntakePage() {
             }
         };
         const getTherapists = async () => {
-            const res = await fetch('/api/admin/therapists');
-            const data = await res.json();
-            setTherapists(data);
+            try {
+                setLoadingTherapists(true);
+                const res = await fetch('/api/admin/therapists');
+                if (!res.ok) {
+                    throw new Error(`Failed to fetch therapists: ${res.status} ${res.statusText}`);
+                }
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setTherapists(data);
+                } else {
+                    console.error("Fetched therapists data is not an array:", data);
+                    setTherapists([]);
+                    setErrorTherapists("Invalid data format for therapists.");
+                }
+            } catch (error) {
+                console.error('Error fetching therapists:', error);
+                setTherapists([]);
+                setErrorTherapists(error.message);
+            } finally {
+                setLoadingTherapists(false);
+            }
         };
         getReferrals();
         getTherapists();
@@ -279,7 +305,16 @@ export default function ReferralIntakePage() {
                 </table>
             </div>
 
-            {modal.type === 'accept' && <AcceptReferralModal referral={modal.data} onClose={closeModal} onAccept={handleAcceptReferral} therapists={therapists} />}
+            {modal.type === 'accept' && (
+                <AcceptReferralModal 
+                    referral={modal.data} 
+                    onClose={closeModal} 
+                    onAccept={handleAcceptReferral} 
+                    therapists={therapists} 
+                    loadingTherapists={loadingTherapists}
+                    errorTherapists={errorTherapists}
+                />
+            )}
             {modal.type === 'decline' && <DeclineReferralModal referral={modal.data} onClose={closeModal} onDecline={handleDeclineReferral} />}
         </div>
     );

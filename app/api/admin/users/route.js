@@ -22,9 +22,13 @@ export async function GET() {
         first_name: true,
         last_name: true,
         email: true,
-        role: true,
         last_login: true,
         created_at: true,
+        roles: { // Include the related Roles model
+          select: {
+            role_name: true,
+          },
+        },
       },
     });
     return NextResponse.json(users);

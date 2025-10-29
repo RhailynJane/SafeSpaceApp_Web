@@ -154,9 +154,9 @@ function InteractiveDashboardContent({ userRole = "support-worker", userName = "
     const lowercasedQuery = referralSearchQuery.toLowerCase();
     const filtered = referrals.filter(r => {
       return (
-        r.client_first_name.toLowerCase().includes(lowercasedQuery) ||
-        r.client_last_name.toLowerCase().includes(lowercasedQuery) ||
-        r.referral_source.toLowerCase().includes(lowercasedQuery)
+        r.client_first_name?.toLowerCase().includes(lowercasedQuery) ||
+        r.client_last_name?.toLowerCase().includes(lowercasedQuery) ||
+        r.referral_source?.toLowerCase().includes(lowercasedQuery)
       );
     });
     setFilteredReferrals(filtered);
