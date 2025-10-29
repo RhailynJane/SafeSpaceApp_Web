@@ -28,6 +28,7 @@ import { NextResponse } from "next/server";
 // ----------------------
 // Fetches all referral records — restricted to Admins and Team Leaders.
 export async function GET() {
+  console.log('Request received for /api/referrals');
   try {
     const { userId } = await auth(); 
     // Extracts the authenticated user’s ID from Clerk.

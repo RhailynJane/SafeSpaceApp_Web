@@ -44,11 +44,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [assignableUsers, setAssignableUsers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [supervisor, setSupervisor] = useState(null);
+  const [referralSearchQuery, setReferralSearchQuery] = useState("");
+  const [filteredReferrals, setFilteredReferrals] = useState([]);
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [filteredClients, setFilteredClients] = useState([]);
 
   const [reportType, setReportType] = useState("caseload");
   const [dateRange, setDateRange] = useState("month");
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
+  const [recentReports, setRecentReports] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -77,6 +82,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     fetchSupervisor();
   }, []);
 
+  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
+  const [addAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
+  const [prefilledSlot, setPrefilledSlot] = useState(null);
 
   const fetchData = useCallback(async () => {
     if (!getToken) {
@@ -102,14 +110,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         fetch("/api/crisis-events"),
         fetch("/api/appointments"),
         fetch("/api/audit-logs"),
+        fetch("/api/reports"),
       ]);
 
       if (clientRes.ok) {
         const clientData = await clientRes.json();
-        console.log("Fetched client data:", clientData);
         setClients(Array.isArray(clientData) ? clientData : []);
       } else {
-        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText);
+        const errorData = await clientRes.json();
+        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText, errorData);
       }
 
       if (noteRes.ok) {
@@ -138,6 +147,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         setAuditLogs(Array.isArray(auditData) ? auditData : []);
       } else {
         console.error("Failed to fetch audit logs:", auditRes.status, auditRes.statusText);
+      if (reportRes.ok) {
+        const reportData = await reportRes.json();
+        setRecentReports(Array.isArray(reportData) ? reportData : []);
+      } else {
+        console.error("Failed to fetch reports:", reportRes.status, reportRes.statusText);
       }
 
       // Conditionally fetch referrals and assignable users
@@ -174,11 +188,40 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    const lowercasedQuery = referralSearchQuery.toLowerCase();
+    const filtered = referrals.filter(r => {
+      return (
+        r.client_first_name?.toLowerCase().includes(lowercasedQuery) ||
+        r.client_last_name?.toLowerCase().includes(lowercasedQuery) ||
+        r.referral_source?.toLowerCase().includes(lowercasedQuery)
+      );
+    });
+    setFilteredReferrals(filtered);
+  }, [referralSearchQuery, referrals]);
+
+  useEffect(() => {
+    const lowercasedQuery = clientSearchQuery.toLowerCase();
+    const filtered = clients.filter(c => {
+      return (
+        c.client_first_name.toLowerCase().includes(lowercasedQuery) ||
+        c.client_last_name.toLowerCase().includes(lowercasedQuery)
+      );
+    });
+    setFilteredClients(filtered);
+  }, [clientSearchQuery, clients]);
+
   const handleAddAppointment = (newAppointment) => {
     setSchedule((prev) => [...prev, newAppointment]);
     mutate("/api/dashboard");
   };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
+
+  const handleSlotSelect = (slot) => {
+    setPrefilledSlot(slot);
+    setAvailabilityModalOpen(false); // Close availability modal
+    setAddAppointmentModalOpen(true); // Open appointment modal
+  };
 
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
     setReferrals(prev =>
@@ -249,6 +292,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Audit Log"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
 
+  const [prefilledAppointment, setPrefilledAppointment] = useState(null);
+
+
   const [modals, setModals] = useState({
     newNote: false,
     viewNote: false,
@@ -262,28 +308,51 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   };
   const closeModal = (modalName) => setModals(prev => ({ ...prev, [modalName]: false }));
 
-  const generateReport = () => {
+
+
+  const generateReport = async () => {
+    let generatedData;
     if (reportType === "caseload") {
-      setReportData({
+      generatedData = {
         totalClients: clients.length,
         activeClients: clients.filter(c => c.status === "Active").length,
         onHoldClients: clients.filter(c => c.status !== "Active").length,
-      });
+      };
     } else if (reportType === "sessions") {
-      setReportData({
+      generatedData = {
         sessions: schedule
-
-      });
+      };
     } else if (reportType === "outcomes") {
-      setReportData({
+      generatedData = {
         highRisk: clients.filter(c => c.riskLevel === "High").length,
         mediumRisk: clients.filter(c => c.riskLevel === "Medium").length,
         lowRisk: clients.filter(c => c.riskLevel === "Low").length,
-      });
+      };
     } else if (reportType === "crisis") {
-      setReportData({
+      generatedData = {
         crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
-      });
+      };
+    }
+
+    const newReportPayload = {
+      name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
+      type: "PDF", // Or determine dynamically
+      data: generatedData,
+    };
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newReportPayload),
+    });
+
+    if (res.ok) {
+      const savedReport = await res.json();
+      setRecentReports(prev => [savedReport, ...prev]);
+      setReportData(generatedData);
+    } else {
+      console.error("Failed to save the generated report.");
+      alert("Could not save the report. Please try again.");
     }
   };
 
@@ -524,35 +593,19 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
         {/* Referrals Tab - Team Leaders Only */}
         {userRole === "team-leader" && (
-          <TabsContent value="Referrals" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Referral Management</h2>
-              <Badge variant="outline">{referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
-            </div>
-
-            <Tabs defaultValue="pending" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="processed">Processed</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="pending">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pending Referrals</CardTitle>
-                    <CardDescription>Review and process new client referrals</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
-                      <div key={referral.id} className="border rounded-lg p-4 space-y-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-2">
-                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                              <div>Age: {referral.age}</div>
-                              <div>Source: {referral.referral_source}</div>
-                              <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
-                            </div>
+                    <TabsContent value="Referrals" className="space-y-6">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Referral Management</CardTitle>
+                          <CardDescription>Review and process new client referrals</CardDescription>
+                          <div className="relative w-full md:w-1/3 mt-4">
+                            <Input
+                              type="text"
+                              placeholder="Search by client name or referral source..."
+                              value={referralSearchQuery}
+                              onChange={(e) => setReferralSearchQuery(e.target.value)}
+                              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                            />
                           </div>
                         </div>
 
@@ -657,6 +710,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             <CardHeader>
               <CardTitle>Client Management</CardTitle>
               <CardDescription>Manage your active clients and their information</CardDescription>
+              <div className="relative w-full md:w-1/3 mt-4">
+                <Input
+                  type="text"
+                  placeholder="Search by client name..."
+                  value={clientSearchQuery}
+                  onChange={(e) => setClientSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex space-x-4 mb-4">
@@ -741,15 +803,25 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
-                <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} />
+                <AddAppointmentModal
+                  isOpen={addAppointmentModalOpen}
+                  onOpenChange={setAddAppointmentModalOpen}
+                  onAdd={handleAddAppointment}
+                  clients={clients}
+                  prefilledSlot={prefilledSlot}
+                  onClose={() => setPrefilledSlot(null)}
+                />
                 <ViewAvailabilityModal
+                  isOpen={availabilityModalOpen}
+                  onOpenChange={setAvailabilityModalOpen}
+                  onSelect={handleSlotSelect}
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
                     { day: "Friday", time: "9:00 AM - 11:00 AM" },
                   ]}
                 />
-                <ViewCalendarModal schedule={schedule} />
+                <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
               </div>
 
               <div className="space-y-4">
@@ -978,11 +1050,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    { name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB" },
-                    { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
-                    { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
-                  ].map((report, index) => (
+                  {recentReports.map((report, index) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded">
                       <div>
                         <p className="font-medium">{report.name}</p>

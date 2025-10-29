@@ -7,18 +7,22 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Search, Plus, Settings, X } from "lucide-react";
 
 // --- ICONS ---
 // A collection of simple, stateless functional components for rendering SVG icons.
 
 /** Renders a search icon. */
-const SearchIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg> );
+const SearchIcon = () => ( <Search className="h-5 w-5 text-gray-400" /> );
 /** Renders a plus icon for creating a new user. */
-const PlusIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> );
+const PlusIcon = () => ( <Plus className="h-5 w-5" /> );
 /** Renders a settings icon for the user action menu. */
-const SettingsIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> );
+const SettingsIcon = () => ( <Settings className="h-5 w-5" /> );
 /** Renders a close icon ('X') for modals. */
-const CloseIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 hover:text-gray-800"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> );
+const CloseIcon = () => ( <X className="h-5 w-5 text-gray-500 hover:text-gray-800" /> );
 
 // --- MOCK DATA ---
 // This is the initial set of users. This data is used to populate localStorage if it's empty.
@@ -42,16 +46,20 @@ const initialUsers = [
  * @returns {JSX.Element} The DeleteUserModal component.
  */
 const DeleteUserModal = ({ user, onConfirm, onCancel }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Delete User</h2>
-            <p className="text-gray-600 mb-8">Are you sure you want to delete user?</p>
-            <div className="flex justify-center gap-4">
-                <button onClick={onCancel} className="px-8 py-3 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100">Cancel</button>
-                <button onClick={onConfirm} className="px-8 py-3 border border-transparent rounded-lg font-semibold text-white bg-teal-600 hover:bg-teal-700">Confirm</button>
-            </div>
-        </div>
-    </div>
+    <Dialog open={true} onOpenChange={onCancel}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Delete User</DialogTitle>
+                <DialogDescription>
+                    Are you sure you want to delete user?
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+                <Button variant="outline" onClick={onCancel}>Cancel</Button>
+                <Button variant="destructive" onClick={onConfirm}>Confirm</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 );
 
 /**
@@ -61,13 +69,19 @@ const DeleteUserModal = ({ user, onConfirm, onCancel }) => (
  * @returns {JSX.Element} The DeleteSuccessModal component.
  */
 const DeleteSuccessModal = ({ onClose }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Delete User</h2>
-            <p className="text-gray-600 mb-8">User deleted successfully!</p>
-            <button onClick={onClose} className="w-full bg-teal-600 text-white font-semibold py-3 rounded-lg hover:bg-teal-700 transition-colors">Close</button>
-        </div>
-    </div>
+    <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Delete User</DialogTitle>
+                <DialogDescription>
+                    User deleted successfully!
+                </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+                <Button onClick={onClose}>Close</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 );
 
 
@@ -106,7 +120,7 @@ export default function UsersPage() {
             user.first_name.toLowerCase().includes(lowercasedQuery) ||
             user.last_name.toLowerCase().includes(lowercasedQuery) ||
             user.email.toLowerCase().includes(lowercasedQuery) ||
-            user.role.toLowerCase().includes(lowercasedQuery)
+            user.roles.role_name.toLowerCase().includes(lowercasedQuery)
         );
     }) : [];
 
@@ -154,18 +168,20 @@ export default function UsersPage() {
                 {/* Header with search bar and 'Create New User' button */}
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <div className="relative w-full md:w-1/3">
-                        <input
+                        <Input
                             type="text"
                             placeholder="Search Users..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                            className="w-full pl-10 pr-4 py-3"
                         />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
                     </div>
-                    <Link href="/admin/users/create" className="flex items-center justify-center gap-2 w-full md:w-auto px-5 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors">
-                        <PlusIcon />
-                        Create New User
+                    <Link href="/admin/users/create" passHref>
+                        <Button className="w-full md:w-auto px-5 py-3">
+                            <Plus className="h-5 w-5 mr-2" />
+                            Create New User
+                        </Button>
                     </Link>
                 </div>
 
@@ -186,7 +202,7 @@ export default function UsersPage() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.first_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.last_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.roles.role_name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.last_login}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.created_at}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -194,9 +210,9 @@ export default function UsersPage() {
                                     </td>
                                     {/* Action menu for each user */}
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center relative">
-                                        <button onClick={() => handleActionMenu(user.id)} className="text-gray-500 hover:text-gray-800">
-                                            <SettingsIcon />
-                                        </button>
+                                        <Button variant="ghost" size="icon" onClick={() => handleActionMenu(user.id)}>
+                                            <Settings className="h-5 w-5" />
+                                        </Button>
                                         {/* The action menu dropdown, conditionally rendered */}
                                         {activeActionMenu === user.id && (
                                             <div className="absolute right-8 top-full mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-xl z-10">
