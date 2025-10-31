@@ -19,6 +19,10 @@ export async function GET(request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    if (!user.roles) {
+      return NextResponse.json({ error: "User has no role assigned" }, { status: 403 });
+    }
+
     const userRole = user.roles.role_name.replace(/_/g, "-");
 
     let notes;

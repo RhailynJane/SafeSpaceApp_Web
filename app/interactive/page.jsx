@@ -13,8 +13,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 
 import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
@@ -32,6 +34,7 @@ import SendbirdChat from "@/components/SendbirdChat";
 import jsPDF from "jspdf";
 import AuditLogTab from "../auditlogtab/page";
 
+import { format } from "date-fns";
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
@@ -42,15 +45,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [crisisEvents, setCrisisEvents] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [assignableUsers, setAssignableUsers] = useState([]);
+  const [availability, setAvailability] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [supervisor, setSupervisor] = useState(null);
   const [referralSearchQuery, setReferralSearchQuery] = useState("");
   const [filteredReferrals, setFilteredReferrals] = useState([]);
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [filteredClients, setFilteredClients] = useState([]);
-
   const [reportType, setReportType] = useState("caseload");
-  const [dateRange, setDateRange] = useState("month");
+  const [date, setDate] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [recentReports, setRecentReports] = useState([]);
@@ -63,6 +66,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [showChat, setShowChat] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
   const [chatChannelName, setChatChannelName] = useState("Chat");
+  const [selectedClientId, setSelectedClientId] = useState("");
 
   useEffect(() => {
     const fetchSupervisor = async () => {
@@ -104,13 +108,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       }
 
       // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes, reportRes] = await Promise.all([
+      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes, reportRes, availabilityRes] = await Promise.all([
         fetch("/api/clients"),
         fetch("/api/notes"),
         fetch("/api/crisis-events"),
         fetch("/api/appointments"),
         fetch("/api/audit-logs"),
         fetch("/api/reports"),
+        fetch("/api/availability"),
       ]);
 
       if (clientRes.ok) {
@@ -125,7 +130,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         const noteData = await noteRes.json();
         setNotes(Array.isArray(noteData) ? noteData : []);
       } else {
-        console.error("Failed to fetch notes:", noteRes.status, noteRes.statusText);
+        const errorData = await noteRes.json().catch(() => ({ error: "Failed to parse error response." }));
+        console.error("Failed to fetch notes:", noteRes.status, noteRes.statusText, errorData);
       }
 
       if (crisisRes.ok) {
@@ -153,6 +159,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         setRecentReports(Array.isArray(reportData) ? reportData : []);
       } else {
         console.error("Failed to fetch reports:", reportRes.status, reportRes.statusText);
+      }
+
+      if (availabilityRes.ok) {
+        const availabilityData = await availabilityRes.json();
+        setAvailability(Array.isArray(availabilityData) ? availabilityData : []);
+      } else {
+        console.error("Failed to fetch availability:", availabilityRes.status, availabilityRes.statusText);
       }
 
       // Conditionally fetch referrals and assignable users
@@ -312,26 +325,54 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
 
   const generateReport = async () => {
+    if (!date?.from || !date?.to) {
+      alert("Please select a start and end date for the report.");
+      return;
+    }
+
+    const sDate = date.from;
+    const eDate = date.to;
+
+    if (sDate > eDate) {
+      alert("Start date cannot be after the end date.");
+      return;
+    }
+
+    // Set time to ensure the full day is included in the range
+    sDate.setHours(0, 0, 0, 0);
+    eDate.setHours(23, 59, 59, 999);
+
+    const filterByDate = (item) => {
+      const itemDate = new Date(item.created_at || item.appointment_date || item.note_date || item.event_date);
+      return itemDate >= sDate && itemDate <= eDate;
+    };
+
     let generatedData;
     if (reportType === "caseload") {
+      const filtered = clients.filter(filterByDate);
       generatedData = {
-        totalClients: clients.length,
-        activeClients: clients.filter(c => c.status === "Active").length,
-        onHoldClients: clients.filter(c => c.status !== "Active").length,
+        totalClients: filtered.length,
+        activeClients: filtered.filter(c => c.status === "Active").length,
+        onHoldClients: filtered.filter(c => c.status !== "Active").length,
       };
     } else if (reportType === "sessions") {
+      const filtered = schedule.filter(filterByDate);
       generatedData = {
-        sessions: schedule
+        sessions: filtered,
+        total: filtered.length,
       };
     } else if (reportType === "outcomes") {
+      const filtered = clients.filter(filterByDate);
       generatedData = {
-        highRisk: clients.filter(c => c.riskLevel === "High").length,
-        mediumRisk: clients.filter(c => c.riskLevel === "Medium").length,
-        lowRisk: clients.filter(c => c.riskLevel === "Low").length,
+        highRisk: filtered.filter(c => c.risk_level === "High").length,
+        mediumRisk: filtered.filter(c => c.risk_level === "Medium").length,
+        lowRisk: filtered.filter(c => c.risk_level === "Low").length,
       };
     } else if (reportType === "crisis") {
+      const filtered = crisisEvents.filter(filterByDate);
       generatedData = {
-        crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
+        crisisEvents: filtered,
+        total: filtered.length,
       };
     }
 
@@ -339,6 +380,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
       type: "PDF", // Or determine dynamically
       data: generatedData,
+      startDate: sDate.toISOString(), // Save consistent date format
+      endDate: eDate.toISOString(),
     };
 
     const res = await fetch('/api/reports', {
@@ -589,7 +632,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
         {/* Overview Tab */}
         <TabsContent value="Overview" className="space-y-6">
-          <DashboardOverview userRole={userRole} clients={clients} onAdd={handleAddAppointment} />
+          <DashboardOverview
+            userRole={userRole}
+            clients={clients}
+            schedule={schedule}
+            addAppointmentModalOpen={addAppointmentModalOpen}
+            setAddAppointmentModalOpen={setAddAppointmentModalOpen}
+            onAdd={handleAddAppointment}
+          />
         </TabsContent>
 
         {/* Referrals Tab - Team Leaders Only */}
@@ -714,15 +764,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             <CardHeader>
               <CardTitle>Client Management</CardTitle>
               <CardDescription>Manage your active clients and their information</CardDescription>
-              <div className="relative w-full md:w-1/3 mt-4">
-                <Input
-                  type="text"
-                  placeholder="Search by client name..."
-                  value={clientSearchQuery}
-                  onChange={(e) => setClientSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                />
-              </div>
             </CardHeader>
             <CardContent>
               <div className="flex space-x-4 mb-4">
@@ -819,11 +860,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   isOpen={availabilityModalOpen}
                   onOpenChange={setAvailabilityModalOpen}
                   onSelect={handleSlotSelect}
-                  availability={[
-                    { day: "Monday", time: "10:00 AM - 12:00 PM" },
-                    { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
-                    { day: "Friday", time: "9:00 AM - 11:00 AM" },
-                  ]}
+                  availability={availability}
                 />
                 <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
               </div>
@@ -1018,17 +1055,36 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   </div>
                   <div className="space-y-2">
                     <Label>Date Range</Label>
-                    <Select value={dateRange} onValueChange={setDateRange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="week">Last Week</SelectItem>
-                        <SelectItem value="month">Last Month</SelectItem>
-                        <SelectItem value="quarter">Last Quarter</SelectItem>
-                        <SelectItem value="year">Last Year</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={`w-full justify-start text-left font-normal ${!date && "text-muted-foreground"}`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {date?.from ? (
+                            date.to ? (
+                              <>
+                                {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                              </>
+                            ) : (
+                              format(date.from, "LLL dd, y")
+                            )
+                          ) : (
+                            <span>Pick a date range</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          initialFocus
+                          mode="range"
+                          selected={date}
+                          onSelect={setDate}
+                          numberOfMonths={2}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <Button className="w-full" onClick={generateReport}>
@@ -1059,7 +1115,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <div>
                         <p className="font-medium">{report.name}</p>
                         <p className="text-sm text-gray-600">
-                          {report.date} • {report.type} • {report.size}
+                          {new Date(report.created_at).toLocaleDateString()} • {report.type}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -1080,9 +1136,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                             if (report.type === "PDF") {
                               const doc = new jsPDF()
                               doc.text(`Report Name: ${report.name}`, 10, 10)
-                              doc.text(`Date: ${report.date}`, 10, 20)
+                              doc.text(`Date: ${new Date(report.created_at).toLocaleDateString()}`, 10, 20)
                               doc.text(`Type: ${report.type}`, 10, 30)
-                              doc.text(`Size: ${report.size}`, 10, 40)
+                              doc.text(`Data: ${JSON.stringify(report.data, null, 2)}`, 10, 40)
                               doc.save(`${report.name}.pdf`)
                             } else {
                               alert("Downloading non-PDF files is not yet supported")

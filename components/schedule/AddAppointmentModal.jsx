@@ -1,10 +1,7 @@
 // 'use client' directive marks this component for client-side rendering in Next.js
 'use client';
 
-// Import necessary React hook for managing state
-import { useState } from 'react';
-
-// Import Dialog components from a UI library (likely Shadcn UI based on component names)
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTrigger,
@@ -12,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from '@/components/ui/dialog';
 // Import Button, Input, Label, Select, and Textarea components
 import { Button } from '@/components/ui/button';
@@ -40,32 +36,44 @@ import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
  * @param {function(Object): void} props.onAdd - Callback function to be executed after
  * a successful appointment creation, receiving the new appointment data.
  * @param {Array<Object>} props.clients - An array of client objects to populate
- * the client selection dropdown. Each client object should have 'id', 'client_first_name', and 'client_last_name'.
+ * the client selection dropdown.
+ * @param {Object} props.prefilledSlot - An object with `date` and `time` to pre-fill the form.
+ * @param {function(): void} props.onClose - Callback to handle cleanup when the modal is closed.
  * @returns {JSX.Element} The Add Appointment Modal component.
  */
-export default function AddAppointmentModal({ onAdd, clients = [] }) {
-  // State to control the visibility of the modal (open/closed)
-  const [open, setOpen] = useState(false);
-
-  // State for appointment date, initialized to today's date in "YYYY-MM-DD" format
+export default function AddAppointmentModal({ isOpen, onOpenChange, onAdd, clients = [], prefilledSlot, onClose }) {
   const [appointment_date, setAppointmentDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-  // State for appointment time
   const [appointment_time, setAppointmentTime] = useState("");
-  // State for the selected client's ID
   const [client_id, setClientId] = useState("");
-  // State for the type of session, with a default value
   const [type, setType] = useState("Individual Session");
-  // State for the duration of the appointment, with a default value
   const [duration, setDuration] = useState("50 min");
-  // State for optional appointment details/notes
   const [details, setDetails] = useState("");
 
-  // State to manage the loading status during form submission
   const [loading, setLoading] = useState(false);
-  // State to store and display any error messages
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (prefilledSlot && isOpen) {
+      setAppointmentDate(prefilledSlot.date);
+      setAppointmentTime(prefilledSlot.time);
+    }
+  }, [prefilledSlot, isOpen]);
+
+  const handleOpenChange = (open) => {
+    if (!open) {
+      // Reset form on close
+      setClientId("");
+      setAppointmentTime("");
+      setAppointmentDate(new Date().toISOString().split("T")[0]);
+      setError("");
+      if (onClose) {
+        onClose(); // Call parent's cleanup function
+      }
+    }
+    onOpenChange(open);
+  };
 
   /**
    * Handles the form submission logic.
@@ -127,7 +135,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
       setType("Individual Session");
       setDuration("50 min");
       setDetails("");
-      setOpen(false); // Close the modal
+      handleOpenChange(false); // Close the modal
     } catch (err) {
       // 10. Handle network/API errors
       console.error("Add appointment error:", err);
@@ -142,16 +150,15 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
   // 12. Component Render
   return (
     // Dialog component controls the modal's display
-    <Dialog open={open} onOpenChange={setOpen}>
-      {/* DialogTrigger wraps the button that opens the modal */}
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="default" size="default" className="font-medium">
           Add Appointment
         </Button>
       </DialogTrigger>
 
-      {/* DialogContent contains the modal's structure and form */}
-      <DialogContent>
+      {/* DialogContent contains the modal's structure and form. Using sm:max-w-lg for a better default size. */}
+      <DialogContent className="sm:max-w-lg">
         {/* Modal Header/Title section */}
         <DialogHeader>
           <DialogTitle className="text-teal-800">New Appointment</DialogTitle>
@@ -276,12 +283,9 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
 
           {/* Footer buttons (Cancel and Submit) */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            {/* DialogClose closes the modal when clicked */}
-            <DialogClose asChild>
-              <Button type="button" variant="outline" size="default">
-                Cancel
-              </Button>
-            </DialogClose>
+            <Button type="button" variant="outline" size="default" onClick={() => handleOpenChange(false)}>
+              Cancel
+            </Button>
             
             {/* Submit button with loading state */}
             <Button type="submit" disabled={loading} size="default" className="bg-teal-800 hover:bg-teal-900">

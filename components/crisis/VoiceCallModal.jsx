@@ -26,7 +26,12 @@ const VoiceCallModal = ({ user, supervisor, onCallEnd }) => {
 
     const initSendBird = async () => {
       try {
-        SendBirdCall.init(process.env.NEXT_PUBLIC_SENDBIRD_APP_ID);
+        const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
+        if (!appId || appId === 'placeholder_for_sendbird_app_id') {
+          console.error("Sendbird App ID is not configured. Please set NEXT_PUBLIC_SENDBIRD_APP_ID in your environment variables.");
+          throw new Error("Sendbird App ID is not configured.");
+        }
+        SendBirdCall.init(appId);
         await SendBirdCall.authenticate({ userId: user.id, accessToken: null });
         await SendBirdCall.connectWebSocket();
       } catch (err) {
@@ -142,4 +147,3 @@ const VoiceCallModal = ({ user, supervisor, onCallEnd }) => {
 };
 
 export default VoiceCallModal;
-

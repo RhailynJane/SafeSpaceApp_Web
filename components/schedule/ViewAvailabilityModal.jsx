@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Clock } from "lucide-react"
 import { cn } from "@/lib/utils";
 
-export default function ViewAvailabilityModal({ availability = [], onSelect, isOpen, onOpenChange }) {
+export default function ViewAvailabilityModal({ availability, onSelect, isOpen, onOpenChange }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
 
   const upcomingSlots = useMemo(() => {
@@ -18,7 +18,7 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       const dayName = daysOfWeek[date.getDay()];
-      const dayAvailability = availability.find(a => a.day === dayName);
+      const dayAvailability = (availability || []).find(a => a.day === dayName);
 
       if (dayAvailability) {
         const [startTimeStr, endTimeStr] = dayAvailability.time.split(' - ');
