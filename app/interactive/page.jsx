@@ -122,7 +122,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         const clientData = await clientRes.json();
         setClients(Array.isArray(clientData) ? clientData : []);
       } else {
-        const errorData = await clientRes.json();
+        const errorData = await clientRes.json().catch(() => ({ error: "Failed to parse error response." }));
         console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText, errorData);
       }
 
@@ -138,34 +138,39 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         const crisisData = await crisisRes.json();
         setCrisisEvents(Array.isArray(crisisData) ? crisisData : []);
       } else {
-        console.error("Failed to fetch crisis events:", crisisRes.status, crisisRes.statusText);
+        const errorData = await crisisRes.json().catch(() => ({ error: "Failed to parse error response." }));
+        console.error("Failed to fetch crisis events:", crisisRes.status, crisisRes.statusText, errorData);
       }
 
       if (appointmentRes.ok) {
         const appointmentData = await appointmentRes.json();
         setSchedule(Array.isArray(appointmentData) ? appointmentData : []);
       } else {
-        console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText);
+        const errorData = await appointmentRes.json().catch(() => ({ error: "Failed to parse error response." }));
+        console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText, errorData);
       }
 
       if (auditRes.ok) {
         const auditData = await auditRes.json();
         setAuditLogs(Array.isArray(auditData) ? auditData : []);
       } else {
-        console.error("Failed to fetch audit logs:", auditRes.status, auditRes.statusText);
+        const errorData = await auditRes.json().catch(() => ({ error: "Failed to parse error response." }));
+        console.error("Failed to fetch audit logs:", auditRes.status, auditRes.statusText, errorData);
       }
       if (reportRes.ok) {
         const reportData = await reportRes.json();
         setRecentReports(Array.isArray(reportData) ? reportData : []);
       } else {
-        console.error("Failed to fetch reports:", reportRes.status, reportRes.statusText);
+        const errorData = await reportRes.json().catch(() => ({ error: "Failed to parse error response." }));
+        console.error("Failed to fetch reports:", reportRes.status, reportRes.statusText, errorData);
       }
 
       if (availabilityRes.ok) {
         const availabilityData = await availabilityRes.json();
         setAvailability(Array.isArray(availabilityData) ? availabilityData : []);
       } else {
-        console.error("Failed to fetch availability:", availabilityRes.status, availabilityRes.statusText);
+        const errorData = await availabilityRes.json().catch(() => ({ error: "Failed to parse error response." }));
+        console.error("Failed to fetch availability:", availabilityRes.status, availabilityRes.statusText, errorData);
       }
 
       // Conditionally fetch referrals and assignable users
@@ -179,14 +184,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           const refData = await refRes.json();
           setReferrals(Array.isArray(refData) ? refData : []);
         } else {
-          console.error("Failed to fetch referrals:", refRes.status, refRes.statusText);
+          const errorData = await refRes.json().catch(() => ({ error: "Failed to parse error response." }));
+          console.error("Failed to fetch referrals:", refRes.status, refRes.statusText, errorData);
         }
 
         if (usersRes.ok) {
           const usersData = await usersRes.json();
           setAssignableUsers(Array.isArray(usersData) ? usersData : []);
         } else {
-          console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText);
+          const errorData = await usersRes.json().catch(() => ({ error: "Failed to parse error response." }));
+          console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText, errorData);
         }
       }
 
@@ -337,7 +344,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       alert("Start date cannot be after the end date.");
       return;
     }
-
     // Set time to ensure the full day is included in the range
     sDate.setHours(0, 0, 0, 0);
     eDate.setHours(23, 59, 59, 999);
@@ -392,7 +398,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
     if (res.ok) {
       const savedReport = await res.json();
-      setRecentReports(prev => [savedReport, ...prev]);
+      // Add created_at to the new report object for immediate display
+      const reportWithDate = { ...savedReport, created_at: new Date().toISOString() };
+      setRecentReports(prev => [reportWithDate, ...prev]);
       setReportData(generatedData);
     } else {
       console.error("Failed to save the generated report.");
@@ -815,7 +823,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
-                          <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                          <p className="text-sm text-gray-600">Last session: {client.last_session_date ? new Date(client.last_session_date).toLocaleDateString() : 'N/A'}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge
@@ -871,7 +879,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     <div key={appt.id} className="border rounded-lg p-4">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
+                          <h3 className="font-semibold">{appt.client?.client_first_name} {appt.client?.client_last_name || 'Unknown Client'}</h3>
                           <p className="text-sm text-gray-600">
                             {new Date(appt.appointment_date).toLocaleDateString()} at {new Date(appt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
                           </p>
@@ -937,7 +945,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 {notes.map((note) => (
                   <div key={note.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{note.client.client_first_name} {note.client.client_last_name}</h4>
+                      <h4 className="font-medium">{note.client?.client_first_name} {note.client?.client_last_name || 'Unknown Client'}</h4>
                       <span className="text-sm text-gray-500">{new Date(note.note_date).toLocaleDateString()}</span>
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{note.session_type}</p>
@@ -1037,6 +1045,48 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 <CardTitle>Generate Reports</CardTitle>
                 <CardDescription>Create custom reports for your caseload</CardDescription>
               </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2 mb-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Progress Metrics</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Sessions Completed</span>
+                          <span className="font-semibold">156</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Goals Achieved</span>
+                          <span className="font-semibold">23</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Improvement Rate</span>
+                          <span className="font-semibold">78%</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Team Performance</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Active Staff</span>
+                          <span className="font-semibold">12</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Avg. Caseload</span>
+                          <span className="font-semibold">15</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Satisfaction Score</span>
+                          <span className="font-semibold">4.2/5</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+              </CardContent>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1115,7 +1165,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <div>
                         <p className="font-medium">{report.name}</p>
                         <p className="text-sm text-gray-600">
-                          {new Date(report.created_at).toLocaleDateString()} • {report.type}
+                          {report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Just now'} • {report.type}
                         </p>
                       </div>
                       <div className="flex gap-2">

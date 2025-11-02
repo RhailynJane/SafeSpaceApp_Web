@@ -3,107 +3,98 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma.js";
 import { getAuth } from "@clerk/nextjs/server";
 
+/**
+ * GET: Fetch all appointments for the logged-in user
+ * Returns appointments with:
+ *  - clientName
+ *  - date (YYYY-MM-DD)
+ *  - time (HH:mm)
+ *  - type, duration, details, status
+ */
 export async function GET(req) {
   try {
     const { userId } = getAuth(req);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const dbUser = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-    });
+    const dbUser = await prisma.user.findUnique({ where: { clerk_user_id: userId } });
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    if (!dbUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
+    // Fetch appointments for this user
     const appointments = await prisma.appointment.findMany({
-      where: {
-        scheduled_by_user_id: dbUser.id,
-      },
-      include: {
-        // client: true, // Temporarily removed to isolate the error
-      },
-      orderBy: {
-        appointment_date: "asc",
-      },
+      where: { scheduled_by_user_id: dbUser.id },
+      include: { client: true }, // get client info
+      orderBy: { appointment_date: "asc" },
     });
 
-    const mapped = appointments.map((a) => {
+    const mapped = appointments.map(a => {
+      // Format date
       const date = a.appointment_date instanceof Date ? a.appointment_date : new Date(a.appointment_date);
-      const time = a.appointment_time instanceof Date ? a.appointment_time : new Date(a.appointment_time);
+
+      // Format time safely
+      let timeStr = "";
+      if (a.appointment_time instanceof Date) {
+        timeStr = a.appointment_time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else if (typeof a.appointment_time === "string") {
+        timeStr = a.appointment_time;
+      }
 
       return {
-        ...a,
+        id: a.id,
+        client_id: a.client_id,
+        clientName: a.client ? `${a.client.client_first_name} ${a.client.client_last_name}` : "Unknown",
         date: date.toISOString().split("T")[0],
-        time: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        clientName: `${a.client.client_first_name} ${a.client.client_last_name}`,
+        time: timeStr,
+        type: a.type,
+        duration: a.duration,
+        details: a.details,
+        status: a.status,
       };
     });
 
     return NextResponse.json(mapped);
+
   } catch (error) {
     console.error("Error fetching appointments:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-
+/**
+ * POST: Create a new appointment for the logged-in user
+ * Expects JSON body:
+ *  { client_id, appointment_date, appointment_time, type, duration, details }
+ */
 export async function POST(req) {
   try {
     const { userId } = getAuth(req);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const dbUser = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-    });
-    if (!dbUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    const dbUser = await prisma.user.findUnique({ where: { clerk_user_id: userId } });
+    if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const body = await req.json();
-    const { client_id, appointment_date, appointment_time, type, duration, details } = body;
+    let { client_id, appointment_date, appointment_time, type, duration, details } = body;
 
-    let clientId = client_id;
-
-    // If no client_id is provided, create a new client as a fallback
-    if (!clientId) {
+    if (!client_id) {
+      // fallback: create dummy client
       const newClient = await prisma.client.create({
-        data: {
-          client_first_name: "Test",
-          client_last_name: "Client",
-          user_id: dbUser.id,
-          status: "Active",
-          risk_level: "Low",
-        },
+        data: { client_first_name: "Test", client_last_name: "Client", user_id: dbUser.id, status: "Active", risk_level: "Low" }
       });
-      clientId = newClient.id;
+      client_id = newClient.id;
     } else {
-      // Ensure client_id is an integer
-      clientId = parseInt(clientId, 10);
+      client_id = parseInt(client_id, 10);
     }
 
-    // Construct appointment date-only and time values to avoid timezone offset issues
+    // Ensure date/time are correct
     const dateOnly = new Date(`${appointment_date}T00:00:00`);
-
-    const [hours, minutes] = appointment_time.split(':').map(Number);
-    // appointment_time as a Date object representing the time on the same date
+    const [hours, minutes] = appointment_time.split(":").map(Number);
     const timeVal = new Date(dateOnly);
     timeVal.setHours(hours, minutes, 0, 0);
 
-    // ✅ Create appointment
     const appointment = await prisma.appointment.create({
       data: {
-        client_id: clientId,
-        // store the date without time component for consistent comparisons
+        client_id,
         appointment_date: dateOnly,
-        // store the full datetime for appointment_time (DB column mapped to time)
         appointment_time: timeVal,
         type: type || "Individual Session",
         duration: duration || "50 min",
@@ -111,14 +102,26 @@ export async function POST(req) {
         status: "scheduled",
         scheduled_by_user_id: dbUser.id,
       },
-      include: {
-        client: true,
-      },
+      include: { client: true },
     });
 
-  // include `date` string on the created appointment as well
-  const created = { ...appointment, date: appointment.appointment_date.toISOString().split("T")[0] };
-  return NextResponse.json(created, { status: 201 });
+    // Format response
+    const created = {
+      id: appointment.id,
+      client_id: appointment.client_id,
+      clientName: appointment.client ? `${appointment.client.client_first_name} ${appointment.client.client_last_name}` : "Unknown",
+      date: appointment.appointment_date.toISOString().split("T")[0],
+      time: appointment.appointment_time instanceof Date 
+        ? appointment.appointment_time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : appointment.appointment_time,
+      type: appointment.type,
+      duration: appointment.duration,
+      details: appointment.details,
+      status: appointment.status,
+    };
+
+    return NextResponse.json(created, { status: 201 });
+
   } catch (error) {
     console.error("Error creating appointment:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

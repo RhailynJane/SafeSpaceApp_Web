@@ -20,7 +20,6 @@ async function main() {
 
   const teamLeaderRole = await prisma.role.findUnique({ where: { role_name: "team_leader" } });
   const supportWorkerRole = await prisma.role.findUnique({ where: { role_name: "support_worker" } });
-  const clientRole = await prisma.role.findUnique({ where: { role_name: "client" } });
 
   // 2️⃣ Lookup tables
   await prisma.riskLevel.createMany({
@@ -64,48 +63,30 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: "teamleader@test.com" },
-    update: {
-        first_name: "team",
-        last_name: "leader",
-        clerk_user_id: "user_33ylFjc40kAhFaH7AgzvfJTmp64",
-    },
-    create: {
-      first_name: "team",
-      last_name: "leader",
-      email: "teamleader@test.com",
-      role_id: teamLeaderRole.id,
-      clerk_user_id: "user_33ylFjc40kAhFaH7AgzvfJTmp64",
-    },
-  });
+  // 4️⃣ Support Worker Users
+  const supportWorkers = [];
 
-  await prisma.user.upsert({
+  const supportWorker = await prisma.user.upsert({
     where: { email: "supportworker@test.com" },
-    update: {
-        first_name: "support",
-        last_name: "worker",
-        clerk_user_id: "user_33ykux9arPfJry1yCW0ljDKbluy",
-    },
+    update: {},
     create: {
-      first_name: "support",
-      last_name: "worker",
+      first_name: "Support",
+      last_name: "Worker",
       email: "supportworker@test.com",
       role_id: supportWorkerRole.id,
       clerk_user_id: "user_33ykux9arPfJry1yCW0ljDKbluy",
     },
   });
+  supportWorkers.push(supportWorker);
 
-  // 4️⃣ Support Workers
-  const supportWorkers = [];
-  for (let i = 0; i < 5; i++) {
+  // Additional random support workers
+  for (let i = 0; i < 4; i++) {
     const user = await prisma.user.create({
       data: {
         first_name: faker.person.firstName(),
         last_name: faker.person.lastName(),
         email: faker.internet.email(),
         role_id: supportWorkerRole.id,
-        // clerk_user_id: faker.string.uuid(), // Removed random UUID generation
       },
     });
     supportWorkers.push(user);
@@ -129,7 +110,20 @@ async function main() {
     clients.push(client);
   }
 
-  // 6️⃣ Referrals
+  // 6️⃣ Assign Support Workers to Clients (Many-to-Many)
+  for (const client of clients) {
+    const assignedWorkers = faker.helpers.arrayElements(supportWorkers, faker.number.int({ min: 1, max: 3 }));
+    for (const worker of assignedWorkers) {
+      await prisma.clientSupportWorker.create({
+        data: {
+          client_id: client.id,
+          support_worker_id: worker.id,
+        },
+      });
+    }
+  }
+
+  // 7️⃣ Referrals
   for (let i = 0; i < 10; i++) {
     const client = faker.helpers.arrayElement(clients);
     const worker = faker.helpers.arrayElement(supportWorkers);
@@ -147,7 +141,7 @@ async function main() {
     });
   }
 
-  // 7️⃣ Appointments
+  // 8️⃣ Appointments
   for (let i = 0; i < 10; i++) {
     const client = faker.helpers.arrayElement(clients);
     const date = faker.date.future();
@@ -156,7 +150,7 @@ async function main() {
         client_id: client.id,
         scheduled_by_user_id: leader.id,
         appointment_date: date,
-        appointment_time: date, // same timestamp (Prisma will cast)
+        appointment_time: date,
         type: faker.helpers.arrayElement(["Individual Therapy", "Group Therapy", "Assessment"]),
         duration: faker.helpers.arrayElement(["30 min", "60 min", "90 min"]),
         details: faker.lorem.sentence(),
@@ -165,7 +159,7 @@ async function main() {
     });
   }
 
-  // 8️⃣ Notes
+  // 9️⃣ Notes
   for (let i = 0; i < 10; i++) {
     const client = faker.helpers.arrayElement(clients);
     const worker = faker.helpers.arrayElement(supportWorkers);
@@ -182,7 +176,7 @@ async function main() {
     });
   }
 
-  // 9️⃣ Crisis Events
+  // 🔟 Crisis Events
   for (let i = 0; i < 5; i++) {
     const client = faker.helpers.arrayElement(clients);
     await prisma.crisisEvent.create({
@@ -196,42 +190,41 @@ async function main() {
     });
   }
 
-  // 🔟 Notifications for Leader
-await prisma.notification.createMany({
-  data: [
-    {
-      user_id: leader.id,
-      title: "Pending Referral Review",
-      message: "You have new pending referrals to review.",
-      type: "pending_referral",
-    },
-    {
-      user_id: leader.id,
-      title: "Upcoming Appointment",
-      message: "You have an appointment scheduled tomorrow.",
-      type: "upcoming_appointment",
-    },
-    {
-      user_id: leader.id,
-      title: "High-Risk Client Alert",
-      message: "One of your clients is flagged as high risk.",
-      type: "high_risk",
-    },
-    {
-      user_id: leader.id,
-      title: "New Client Assigned",
-      message: "A new client has been assigned to your team.",
-      type: "assignment",
-    },
-    {
-      user_id: leader.id,
-      title: "System Update",
-      message: "Dashboard enhancements have been deployed.",
-      type: "system",
-    },
-  ],
-});
-
+  // 1️⃣1️⃣ Notifications for Leader
+  await prisma.notification.createMany({
+    data: [
+      {
+        user_id: leader.id,
+        title: "Pending Referral Review",
+        message: "You have new pending referrals to review.",
+        type: "pending_referral",
+      },
+      {
+        user_id: leader.id,
+        title: "Upcoming Appointment",
+        message: "You have an appointment scheduled tomorrow.",
+        type: "upcoming_appointment",
+      },
+      {
+        user_id: leader.id,
+        title: "High-Risk Client Alert",
+        message: "One of your clients is flagged as high risk.",
+        type: "high_risk",
+      },
+      {
+        user_id: leader.id,
+        title: "New Client Assigned",
+        message: "A new client has been assigned to your team.",
+        type: "assignment",
+      },
+      {
+        user_id: leader.id,
+        title: "System Update",
+        message: "Dashboard enhancements have been deployed.",
+        type: "system",
+      },
+    ],
+  });
 
   console.log("✅ Database seeded successfully!");
 }

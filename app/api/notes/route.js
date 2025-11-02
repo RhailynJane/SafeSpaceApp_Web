@@ -12,18 +12,18 @@ export async function GET(request) {
 
     const user = await prisma.user.findUnique({
       where: { clerk_user_id: userId },
-      include: { roles: true },
+      include: { role: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (!user.roles) {
+    if (!user.role || !user.role.role_name) {
       return NextResponse.json({ error: "User has no role assigned" }, { status: 403 });
     }
 
-    const userRole = user.roles.role_name.replace(/_/g, "-");
+    const userRole = user.role.role_name.replace(/_/g, "-");
 
     let notes;
     if (userRole === "support-worker") {
@@ -125,7 +125,7 @@ export async function POST(request) {
 
     const data = await request.json();
 
-    const duration = data.duration_minutes ? parseInt(data.duration_minutes, 10) : null;
+    const duration = data.duration_minutes ? parseInt(data.duration_minutes, 10) : undefined;
 
     const note = await prisma.note.create({
       data: {
@@ -133,7 +133,7 @@ export async function POST(request) {
         author_user_id: user.id,
         note_date: new Date(data.note_date),
         session_type: data.session_type,
-        duration_minutes: isNaN(duration) ? null : duration,
+        duration_minutes: isNaN(duration) ? undefined : duration,
         summary: data.summary,
         detailed_notes: data.detailed_notes,
         risk_assessment: data.risk_assessment,
