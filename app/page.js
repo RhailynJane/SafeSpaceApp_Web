@@ -48,16 +48,13 @@ export default function SafespacePlatform() {
   };
 
   // Redirect if already signed in
+  const [hasAttemptedReload, setHasAttemptedReload] = useState(false);
+
   useEffect(() => {
     if (isSignedIn && user) {
-      // Normalize role strings from Clerk to handle variants like
-      // 'team_leader', 'team-leader', 'teamLeader', 'team leader', etc.
       const rawRole = user.publicMetadata?.role;
-
-      // Code written with assistance of Chatgpt - to resove variant strings issue
       const normalizeRole = (r) => {
         if (!r) return null;
-        // convert camelCase to snake_case, replace spaces/hyphens with underscores
         const splitCamel = r.replace(/([a-z])([A-Z])/g, "$1_$2");
         return splitCamel.toLowerCase().replace(/[\s-]+/g, "_");
       };
@@ -65,16 +62,28 @@ export default function SafespacePlatform() {
       const role = normalizeRole(rawRole);
       console.debug("Signed in user role (raw):", rawRole, "normalized:", role);
 
+      // If role is not yet available or not recognized, and we haven't tried reloading yet
+      if (!role && !hasAttemptedReload) {
+        console.log("User role not found in publicMetadata, attempting to reload user data.");
+        setHasAttemptedReload(true);
+        user.reload(); // Force Clerk to re-fetch user data
+        return; // Prevent immediate redirection with stale data
+      }
+
       if (role === "admin") {
         router.push("/admin/overview");
       } else if (role === "team_leader" || role === "support_worker") {
-        // team leaders and support workers land on the interactive dashboard
         router.push("/interactive");
-      } else {
-        console.log("Signed in but no recognized role assigned in Clerk metadata", rawRole);
+      } else if (role) { // If a role exists but is not recognized (e.g., a new role type)
+        console.log("Signed in with unrecognized role:", rawRole);
+        // Optionally, redirect to a generic page or show an error
+        // router.push("/unauthorized");
+      } else { // No role found even after reload attempt
+        console.log("Signed in but no recognized role assigned in Clerk metadata after reload", rawRole);
+        // Handle cases where no role is assigned even after reload, e.g., redirect to a setup page
       }
     }
-  }, [isSignedIn, user, router]);
+  }, [isSignedIn, user, router, hasAttemptedReload]);
 
   //  Render
   return (

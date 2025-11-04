@@ -30,6 +30,29 @@ export async function POST(req: Request) {
       },
     });
 
+    // Also create/update the user in Sendbird
+    const sendbirdResponse = await fetch(
+      `https://api-${process.env.SENDBIRD_APP_ID}.sendbird.com/v3/users`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Api-Token": process.env.SENDBIRD_API_TOKEN,
+        },
+        body: JSON.stringify({
+          user_id: clerkId,
+          nickname: `${firstName} ${lastName}`,
+          profile_url: "", // You can add a profile image URL here if available
+        }),
+      }
+    );
+
+    if (!sendbirdResponse.ok) {
+      const errorData = await sendbirdResponse.json();
+      console.error("Sendbird user creation failed:", errorData);
+      // For now, we'll just log it and not block the user creation in our DB
+    }
+
     return NextResponse.json({ user });
   } catch (err) {
     console.error("Error in syncUser API:", err);
