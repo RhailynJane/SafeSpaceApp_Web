@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
 
@@ -11,6 +13,8 @@ import React, { useState, useEffect } from 'react';
  */
 export default function SystemMonitoringPage() {
     const [systemAlerts, setSystemAlerts] = useState([]);
+    const [systemUptime, setSystemUptime] = useState('N/A');
+    const [apiResponseTime, setApiResponseTime] = useState(0);
 
     useEffect(() => {
         const getSystemAlerts = async () => {
@@ -18,7 +22,49 @@ export default function SystemMonitoringPage() {
             const data = await res.json();
             setSystemAlerts(data.alerts || []);
         };
+
+        const fetchSystemUptime = async () => {
+            try {
+                const response = await fetch('/api/admin/system-uptime');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch system uptime.');
+                    setSystemUptime('N/A');
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error('Failed to fetch system uptime');
+                }
+                const data = await response.json();
+                setSystemUptime(data.uptime);
+            } catch (error) {
+                console.error(error);
+                setSystemUptime('N/A');
+            }
+        };
+
+        const fetchApiResponseTime = async () => {
+            try {
+                const startTime = Date.now();
+                const response = await fetch('/api/admin/ping');
+                if (response.status === 403) {
+                    console.error('Unauthorized to fetch API response time.');
+                    setApiResponseTime(-1);
+                    return;
+                }
+                if (!response.ok) {
+                    throw new Error('Failed to fetch API response time');
+                }
+                const endTime = Date.now();
+                setApiResponseTime(endTime - startTime);
+            } catch (error) {
+                console.error(error);
+                setApiResponseTime(-1);
+            }
+        };
+
         getSystemAlerts();
+        fetchSystemUptime();
+        fetchApiResponseTime();
     }, []);
 
     /**
@@ -43,16 +89,22 @@ export default function SystemMonitoringPage() {
                 <p className="text-sm text-gray-500 mb-6">Monitor system performance and health metrics</p>
                 {/* Grid for displaying key health metrics */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Uptime metric */}
-                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 text-center">
-                        <p className="text-sm font-medium text-gray-600">System Uptime</p>
-                        <p className="text-4xl font-bold text-green-600 mt-2">99.9%</p>
-                    </div>
-                    {/* Response time metric */}
-                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 text-center">
-                        <p className="text-sm font-medium text-gray-600">Response Time</p>
-                        <p className="text-4xl font-bold text-blue-600 mt-2">235 ms</p>
-                    </div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>System Uptime</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-4xl font-bold text-green-600 mt-2">{systemUptime}</p>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Response Time</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-4xl font-bold text-blue-600 mt-2">{apiResponseTime} ms</p>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
 
@@ -65,7 +117,10 @@ export default function SystemMonitoringPage() {
                     {/* Map over the systemAlerts mock data to render each alert */}
                     {systemAlerts.map(alert => (
                         <div key={alert.id} className={`bg-gray-50 p-4 rounded-lg border ${getAlertColor(alert.type)} flex justify-between items-center`}>
-                            <p className="text-gray-800">{alert.message}</p>
+                            <div>
+                                <Badge variant={alert.type === 'error' ? 'destructive' : 'default'}>{alert.type}</Badge>
+                                <p className="text-gray-800 mt-2">{alert.message}</p>
+                            </div>
                             <p className="text-sm text-gray-500">{new Date(alert.timestamp).toLocaleString()}</p>
                         </div>
                     ))}

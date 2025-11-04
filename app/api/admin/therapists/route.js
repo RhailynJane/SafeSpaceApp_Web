@@ -10,7 +10,7 @@ export async function GET() {
     // Query via Prisma - assumes 'users' table maps to a Prisma model (User)
         const therapists = await prisma.user.findMany({
       where: {
-        role: {
+        roles: {
           role_name: 'team_leader',
         },
       },

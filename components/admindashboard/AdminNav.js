@@ -31,14 +31,14 @@ export default function AdminNav() {
     const active = navLinks.find(l => pathname?.startsWith(l.href))?.name ?? 'Overview';
 
     return (
-        <nav className="w-full">
-            <div className="mx-auto w-full max-w-screen-xl">
+        <nav className="w-full p-6">
+            <div className="mx-auto w-full">
                 <Tabs value={active} onValueChange={(val) => {
                     const link = navLinks.find(l => l.name === val);
                     if (link) router.push(link.href);
                 }}>
                     {/* Use same TabsList/grid classes as the interactive page so appearance matches */}
-                    <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
+                    <TabsList className="grid w-full grid-cols-7">
                         {navLinks.map((link) => (
                             <TabsTrigger key={link.name} value={link.name} className="text-xs">
                                 {link.name}

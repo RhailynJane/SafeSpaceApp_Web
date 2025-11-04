@@ -99,14 +99,31 @@ export async function POST(req) {
 
   // 4) Insert the new user into the Postgres database
   try {
+    // First, get the role ID from the roles table
+    const roleObject = await prisma.role.findUnique({
+      where: { role_name: role },
+    });
+
+    if (!roleObject) {
+      return new Response(JSON.stringify({ error: `Invalid role: ${role}` }), { status: 400 });
+    }
+
     // Now that the user is created in Clerk, create a corresponding record in the local database.
     const created = await prisma.user.create({
       data: {
         first_name: firstName,
         last_name: lastName,
         email,
-        role: role,
+        role_id: roleObject.id,
         clerk_user_id: clerkUserId,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'User Created',
+        user_id: created.id,
+        details: `User ${created.first_name} ${created.last_name} (${created.email}) was created with the role of ${roleObject.role_name}`,
       },
     });
     console.log('Successfully inserted user into database:', created);
