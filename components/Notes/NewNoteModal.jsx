@@ -67,25 +67,7 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input 
-                type="date" 
-                value={formData.note_date}
-                onChange={(e) => setFormData(prev => ({...prev, note_date: e.target.value}))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Duration (minutes)</Label>
-              <Input 
-                type="number" 
-                placeholder="50" 
-                value={formData.duration_minutes}
-                onChange={(e) => setFormData(prev => ({...prev, duration_minutes: parseInt(e.target.value)}))}
-              />
-            </div>
-          </div>
+
           <div className="space-y-2">
             <Label>Session Summary</Label>
             <Textarea 

@@ -12,14 +12,14 @@ export async function GET(request) {
 
     const user = await prisma.user.findUnique({
       where: { clerk_user_id: userId },
-      include: { roles: true },
+      include: { role: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const userRole = user.roles.role_name.replace(/_/g, "-");
+    const userRole = user.role.role_name.replace(/_/g, "-");
 
     let notes;
     if (userRole === "support-worker") {

@@ -143,30 +143,7 @@ export default function SiteHeader() {
     }
   };
 
-  const timeAgo = (date) => {
-    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
-    let interval = seconds / 31536000;
-    if (interval > 1) {
-      return Math.floor(interval) + " years ago";
-    }
-    interval = seconds / 2592000;
-    if (interval > 1) {
-      return Math.floor(interval) + " months ago";
-    }
-    interval = seconds / 86400;
-    if (interval > 1) {
-      return Math.floor(interval) + " days ago";
-    }
-    interval = seconds / 3600;
-    if (interval > 1) {
-      return Math.floor(interval) + " hours ago";
-    }
-    interval = seconds / 60;
-    if (interval > 1) {
-      return Math.floor(interval) + " minutes ago";
-    }
-    return Math.floor(seconds) + " seconds ago";
-  }
+
 
   return (
     <>
@@ -286,7 +263,7 @@ export default function SiteHeader() {
                         {notification.message}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {timeAgo(notification.created_at)}
+                        {new Date(notification.created_at).toLocaleDateString()}
                       </p>
                     </div>
                   </div>

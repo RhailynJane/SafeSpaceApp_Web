@@ -34,16 +34,7 @@ export default function ViewNoteModal({ isOpen, onClose, onEdit, note }) {
               <p className="text-sm font-medium">{note.session_type}</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Date</Label>
-              <p className="text-sm font-medium">{new Date(note.note_date).toLocaleDateString()}</p>
-            </div>
-            <div>
-              <Label>Duration</Label>
-              <p className="text-sm font-medium">{note.duration_minutes ? `${note.duration_minutes} minutes` : 'N/A'}</p>
-            </div>
-          </div>
+
           <div>
             <Label>Session Summary</Label>
             <p className="text-sm bg-gray-50 p-3 rounded">
