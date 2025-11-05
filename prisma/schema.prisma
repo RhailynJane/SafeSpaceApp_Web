@@ -262,3 +262,15 @@ model RiskLevel {
 
   @@map("risk_levels")
 }
+model reports {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String     // PDF / Excel / Word
+  file_name   String?
+  data        Json?      // <-- Add this field to store the report data
+  file_type   String?
+  file_data   Bytes?     // <-- actual file stored
+  created_at  DateTime   @default(now())
+
+  @@map("reports")
+}

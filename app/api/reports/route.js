@@ -1,27 +1,33 @@
+import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
 
-// In-memory "database" for demonstration.
-let reports = [
-    { id: 1, name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB", data: { total_clients: 50, new_clients: 5, sessions_held: 120 } },
-    { id: 2, name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB", data: { high_risk_decreased: "15%", goals_met: "45%" } },
-    { id: 3, name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB", data: { crisis_events: 4, average_response_time: "15 mins" } },
-];
+const prisma = new PrismaClient();
 
-// GET /api/reports - Fetches all reports
+// GET → Fetch all real reports from DB
 export async function GET() {
-  return NextResponse.json(reports);
+  try {
+    const reports = await prisma.reports.findMany({
+      orderBy: { created_at: 'desc' },
+    });
+    return NextResponse.json(reports);
+  } catch (error) {
+    console.error("Error fetching reports:", error);
+    return NextResponse.json({ error: "Failed to fetch reports" }, { status: 500 });
+  }
 }
 
-// POST /api/reports - Adds a new report
+// POST → Create a new report with real metrics
 export async function POST(request) {
-    const newReport = await request.json();
-    
-    const reportToAdd = {
-      ...newReport,
-      id: reports.length + 1, // Simple ID generation
-      date: new Date().toISOString().split('T')[0],
-      size: `${(Math.random() * 2 + 0.5).toFixed(1)} MB`
-    };
-    reports.unshift(reportToAdd); // Add to the beginning of the list
-    return NextResponse.json(reportToAdd, { status: 201 });
+  try {
+    const { name, type, data } = await request.json();
+
+    const newReport = await prisma.reports.create({
+      data: { name, type, data },
+    });
+
+    return NextResponse.json(newReport, { status: 201 });
+  } catch (error) {
+    console.error("Error creating report:", error);
+    return NextResponse.json({ error: "Failed to create report" }, { status: 500 });
+  }
 }

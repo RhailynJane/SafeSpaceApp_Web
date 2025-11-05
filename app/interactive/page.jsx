@@ -53,6 +53,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [filteredClients, setFilteredClients] = useState([]);
   const [reportType, setReportType] = useState("caseload");
+  const [reportFormat, setReportFormat] = useState("PDF");
   const [date, setDate] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
@@ -355,11 +356,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
     let generatedData;
     if (reportType === "caseload") {
-      const filtered = clients.filter(filterByDate);
+      // Caseload summary should not be filtered by date, it's a snapshot of all clients.
       generatedData = {
-        totalClients: filtered.length,
-        activeClients: filtered.filter(c => c.status === "Active").length,
-        onHoldClients: filtered.filter(c => c.status !== "Active").length,
+        totalClients: clients.length,
+        activeClients: clients.filter(c => c.status === "Active").length,
+        onHoldClients: clients.filter(c => c.status !== "Active" && c.status !== "Inactive").length,
       };
     } else if (reportType === "sessions") {
       const filtered = schedule.filter(filterByDate);
@@ -384,7 +385,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
     const newReportPayload = {
       name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
-      type: "PDF", // Or determine dynamically
+      type: reportFormat,
       data: generatedData,
       startDate: sDate.toISOString(), // Save consistent date format
       endDate: eDate.toISOString(),
@@ -857,8 +858,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             <CardContent>
               <div className="flex gap-2 mb-4">
                 <AddAppointmentModal
-                  isOpen={addAppointmentModalOpen}
-                  onOpenChange={setAddAppointmentModalOpen}
                   onAdd={handleAddAppointment}
                   clients={clients}
                   prefilledSlot={prefilledSlot}
@@ -869,6 +868,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   onOpenChange={setAvailabilityModalOpen}
                   onSelect={handleSlotSelect}
                   availability={availability}
+                  onSaveSuccess={fetchData}
                 />
                 <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
               </div>
@@ -1088,7 +1088,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   </div>
               </CardContent>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Report Type</Label>
                     <Select value={reportType} onValueChange={setReportType}>
@@ -1100,6 +1100,19 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <SelectItem value="sessions">Session Reports</SelectItem>
                         <SelectItem value="outcomes">Outcome Metrics</SelectItem>
                         <SelectItem value="crisis">Crisis Interventions</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Format</Label>
+                    <Select value={reportFormat} onValueChange={setReportFormat}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PDF">PDF</SelectItem>
+                        <SelectItem value="Excel">Excel</SelectItem>
+                        <SelectItem value="Word">Word</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1182,17 +1195,21 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            if (report.type === "PDF") {
-                              const doc = new jsPDF()
-                              doc.text(`Report Name: ${report.name}`, 10, 10)
-                              doc.text(`Date: ${new Date(report.created_at).toLocaleDateString()}`, 10, 20)
-                              doc.text(`Type: ${report.type}`, 10, 30)
-                              doc.text(`Data: ${JSON.stringify(report.data, null, 2)}`, 10, 40)
-                              doc.save(`${report.name}.pdf`)
-                            } else {
-                              alert("Downloading non-PDF files is not yet supported")
+                          onClick={async () => {
+                           const response = await fetch(`/api/reports/${report.id}/download`);
+
+                            if (!response.ok) {
+                              alert("Failed to download report.");
+                              return;
                             }
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = response.headers.get('Content-Disposition')?.split('filename=')[1].replace(/"/g, '') || `${report.name}.${report.type.toLowerCase()}`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
                           }}
                         >
                           Download
