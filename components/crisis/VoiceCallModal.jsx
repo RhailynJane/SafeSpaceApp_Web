@@ -27,7 +27,16 @@ const VoiceCallModal = ({ user, supervisor, onCallEnd }) => {
     const initSendBird = async () => {
       try {
         SendBirdCall.init(process.env.NEXT_PUBLIC_SENDBIRD_APP_ID);
-        await SendBirdCall.authenticate({ userId: user.id, accessToken: null });
+
+        const tokenRes = await fetch('/api/sendbird-calls-token');
+        if (!tokenRes.ok) {
+          const errorText = await tokenRes.text();
+          console.error(`Failed to fetch Sendbird access token: ${tokenRes.status} - ${errorText}`);
+          throw new Error("Failed to fetch Sendbird access token.");
+        }
+        const { accessToken } = await tokenRes.json();
+
+        await SendBirdCall.authenticate({ userId: user.id, accessToken });
         await SendBirdCall.connectWebSocket();
       } catch (err) {
         console.error("Error initializing Sendbird Calls:", err);
