@@ -3,26 +3,30 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma.js";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req) {
   try {
     const { userId, sessionClaims } = await auth();
+    console.log('sessionClaims', sessionClaims);
+    const { searchParams } = new URL(req.url);
+    const limit = searchParams.get('limit');
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Role check: Only team leaders can access all audit logs
-    const userRole = sessionClaims?.metadata?.role;
-    if (userRole !== "team-leader") {
+    // Role check: Only admins can access all audit logs
+    const userRole = sessionClaims?.publicMetadata?.role;
+    if (userRole !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const auditLogs = await prisma.auditLog.findMany({
+    const auditLogsPromise = prisma.auditLog.findMany({
+      take: limit ? parseInt(limit) : undefined,
       orderBy: {
-        created_at: "desc",
+        timestamp: 'desc',
       },
       include: {
-        actor: {
+        user: {
           select: {
             first_name: true,
             last_name: true,
