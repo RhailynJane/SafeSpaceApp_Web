@@ -751,7 +751,7 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
 
       {/* ========== TYPING INDICATOR ========== */}
       {/* Shows animated dots when someone is typing */}
-      <div className="h-6 px-6 flex items-center">
+      <div className="h-6 px-6 flex items-center flex-shrink-0">
         {typingUsers.length > 0 && (
           <div className="flex items-center gap-2">
             {/* Animated dots */}
@@ -773,7 +773,7 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
       </div>
 
       {/* ========== INPUT AREA ========== */}
-      <div className="p-4 bg-white border-t border-gray-200 relative">
+      <div className="p-4 bg-white border-t border-gray-200 relative flex-shrink-0">
         
         {/* ========== EMOJI PICKER POPUP ========== */}
         {/* Positioned absolutely above the input */}
