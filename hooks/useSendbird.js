@@ -9,7 +9,7 @@ const useSendbird = () => {
 
   useEffect(() => {
     if (clerkUser) {
-      const newSb = new Sendbird({ appId: '201BD956-A3BA-448A-B8A2-8E1A23404303' });
+      const newSb = new Sendbird({ appId: process.env.NEXT_PUBLIC_SENDBIRD_APP_ID });
 
       newSb.connect(clerkUser.id, (user, error) => {
         if (error) {

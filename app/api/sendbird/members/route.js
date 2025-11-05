@@ -7,7 +7,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing channelUrl" }, { status: 400 });
     }
 
-    const endpoint = `https://api-${process.env.SENDBIRD_APP_ID}.sendbird.com/v3/group_channels/${encodeURIComponent(channelUrl)}?show_member=true`;
+    const endpoint = `https://api-${process.env.SENDBIRD_APP_ID}.sendbird.com/v3/group_channels/${encodeURIComponent(channelUrl.trim())}?show_member=true`;
 
     const res = await fetch(endpoint, {
       method: "GET",

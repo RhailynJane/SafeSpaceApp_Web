@@ -10,8 +10,10 @@ export async function POST(request) {
 
     // Hide the channel for this user (clears history)
     const endpoint = `https://api-${process.env.SENDBIRD_APP_ID}.sendbird.com/v3/users/${encodeURIComponent(
-      userId
-    )}/my_group_channels/${encodeURIComponent(channelUrl)}/hide`;
+      userId.trim()
+    )}/my_group_channels/${encodeURIComponent(channelUrl.trim())}/hide`;
+
+    console.log("Calling Sendbird hide endpoint:", endpoint);
 
     const res = await fetch(endpoint, {
       method: "PUT",

@@ -125,11 +125,20 @@ export async function GET(request) {
     if (userRole === "support-worker") {
 
       clients = await prisma.client.findMany({
-
-        where: { user_id: user.id },
-
-        orderBy: { created_at: "desc" },
-
+        select: {
+          id: true,
+          client_first_name: true,
+          client_last_name: true,
+          last_session_date: true,
+          risk_level: true,
+          status: true,
+          email: true,
+          user: {
+            select: {
+              clerk_user_id: true,
+            },
+          },
+        },
       });
 
     } else {
@@ -137,7 +146,20 @@ export async function GET(request) {
       clients = await prisma.client.findMany({
 
         orderBy: { created_at: "desc" },
-
+        select: {
+          id: true,
+          client_first_name: true,
+          client_last_name: true,
+          last_session_date: true,
+          risk_level: true,
+          status: true,
+          email: true,
+          user: {
+            select: {
+              clerk_user_id: true,
+            },
+          },
+        },
       });
 
     }

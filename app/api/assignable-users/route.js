@@ -21,6 +21,7 @@
  */
 
 // Import NextResponse - a helper from Next.js to create API responses
+import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from 'next/server';
 
 // Import Prisma client - the database connection/query tool
@@ -32,8 +33,27 @@ import { prisma } from '@/lib/prisma';
  * This function runs when someone makes a GET request to /api/assignable-users
  * It doesn't take any parameters because it returns all assignable users
  */
-export async function GET() {
+export async function GET(req) {
   try {
+    const { userId } = getAuth(req);
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { clerk_user_id: userId },
+      include: { role: true },
+    });
+
+    if (!dbUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const allowedRoles = ["admin", "team-leader"];
+    if (!allowedRoles.includes(dbUser.role.role_name.replace(/_/g, "-"))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Query the database to find users with specific roles
     const users = await prisma.user.findMany({
       // Filter criteria: only get users with certain roles

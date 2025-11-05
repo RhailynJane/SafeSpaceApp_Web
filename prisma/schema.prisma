@@ -26,6 +26,7 @@ model User {
   initiated_crisis_events    CrisisEvent[] @relation("InitiatedCrisisEvents")
   supervised_crisis_events   CrisisEvent[] @relation("SupervisedCrisisEvents")
   notifications              Notification[]
+  auditLogs                  AuditLog[]
 
   @@map("users")
 }
@@ -160,6 +161,17 @@ model SystemAlert {
   is_read   Boolean  @default(false)
 
   @@map("system_alerts")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String   @db.VarChar(255)
+  user_id   Int?
+  timestamp DateTime @default(now()) @map("timestamp") @db.Timestamp
+  details   String?  @db.Text
+  user      User?    @relation(fields: [user_id], references: [id])
+
+  @@map("audit_logs")
 }
 
 model Appointment {

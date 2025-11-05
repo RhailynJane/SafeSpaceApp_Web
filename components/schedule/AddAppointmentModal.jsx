@@ -1,3 +1,17 @@
+ /* Comments added with claude.ai
+ * Prompts : add proper comments and dcoumentation
+ */
+
+ /* Add Appointment Modal Component
+ * 
+ * This is a React component that displays a modal (popup) for creating new appointments.
+ * It's a form with multiple fields that allows users to:
+ * - Select a client
+ * - Choose date and time
+ * - Set session type and duration
+ * - Add optional notes 
+ */
+
 // 'use client' directive marks this component for client-side rendering in Next.js
 'use client';
 

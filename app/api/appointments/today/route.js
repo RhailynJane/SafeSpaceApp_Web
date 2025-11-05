@@ -1,7 +1,5 @@
 // Comments and documentation generated with Claude AI assistance
 // Prompt: "Add proper comments and documentation to this file, explain what this file is doing, 
-// and separately explain each line of code like each React or JavaScript code or component used, 
-// why used, explanation, what it does - explain as if you would do to a complete beginner"
 
 /**
  * API Route: Today's Schedule
@@ -72,6 +70,7 @@ export async function GET() {
 
     // Step 4: Calculate today's date range
     // We need to find all appointments from midnight today to 11:59:59 PM today
+    // this part of code is written using gemini assist
     
     // Get the current date and time
     const today = new Date();
