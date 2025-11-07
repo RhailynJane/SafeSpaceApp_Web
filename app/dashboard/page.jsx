@@ -232,7 +232,7 @@ export default function DashboardPage({ clients, onAdd }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900">
-                      {new Date(appointment.appointment_time).toLocaleTimeString([], {
+                      {new Date(appointment.date).toLocaleDateString()} {new Date(appointment.appointment_time).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
