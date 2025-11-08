@@ -781,12 +781,12 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         return { ...appt, combinedDateTime };
                       })
                       .filter(appt => {
+                        const now = new Date();
                         const today = new Date();
-                        const apptDate = appt.combinedDateTime;
-
-                        return apptDate.getDate() === today.getDate() &&
-                              apptDate.getMonth() === today.getMonth() &&
-                              apptDate.getFullYear() === today.getFullYear();
+                        today.setHours(0, 0, 0, 0);
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
                       })
                       .sort((a, b) => a.combinedDateTime - b.combinedDateTime);
 
@@ -812,7 +812,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     } else {
                       return (
                         <div className="text-center py-8 text-gray-500">
-                          <p>No appointments scheduled for today.</p>
+                          <p>No upcoming appointments scheduled for today.</p>
                           <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
                         </div>
                       );

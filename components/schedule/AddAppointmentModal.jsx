@@ -99,6 +99,14 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
       return; // Stop the function if validation fails
     }
 
+    const selectedDateTime = new Date(`${appointment_date}T${appointment_time}`);
+    const now = new Date();
+
+    if (selectedDateTime < now) {
+        setError("Cannot schedule an appointment in the past. Please select a future date or time.");
+        return;
+    }
+
     try {
       // 3. Start loading state
       setLoading(true);
