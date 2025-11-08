@@ -766,26 +766,23 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     const now = new Date();
                     const upcomingAppointments = schedule
                       .map(appt => {
-                        const apptDate = new Date(appt.appointment_date);
-                        const apptTime = new Date(appt.appointment_time);
-
-                        const combinedDateTime = new Date(
-                          apptDate.getUTCFullYear(),
-                          apptDate.getUTCMonth(),
-                          apptDate.getUTCDate(),
-                          apptTime.getUTCHours(),
-                          apptTime.getUTCMinutes(),
-                          apptTime.getUTCSeconds()
-                        );
-                        
+                        if (!appt.appointment_date || !appt.appointment_time) {
+                          return { ...appt, combinedDateTime: null };
+                        }
+                        // Construct a date string in 'YYYY-MM-DDTHH:mm:ss.sss' format, which is parsed as local time
+                        const dateStr = `${appt.appointment_date.substring(0, 10)}T${appt.appointment_time.substring(11, 23)}`;
+                        const combinedDateTime = new Date(dateStr);
                         return { ...appt, combinedDateTime };
                       })
                       .filter(appt => {
+                        if (!appt.combinedDateTime) {
+                          return false;
+                        }
                         const now = new Date();
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        const tomorrow = new Date();
+                        tomorrow.setDate(now.getDate() + 1);
+                        tomorrow.setHours(0, 0, 0, 0);
+
                         return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
                       })
                       .sort((a, b) => a.combinedDateTime - b.combinedDateTime);
