@@ -15,7 +15,7 @@ export async function GET() {
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     // nextDay is tomorrow at 00:00 (used for "today" only ranges)
     const nextDay = new Date(today);
@@ -45,7 +45,7 @@ export async function GET() {
         where: {
           scheduled_by_user_id: dbUser.id,
           // include appointments from today through the next 2 days
-          appointment_date: { gte: new Date(), lt: endRange },
+          appointment_date: { gte: today, lt: endRange },
         },
         include: { client: { select: { client_first_name: true, client_last_name: true } } },
         orderBy: { appointment_date: "asc" },

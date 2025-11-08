@@ -761,31 +761,64 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </div>
 
               <div className="space-y-4">
-                {schedule.length > 0 ? (
-                  schedule.map((appt) => (
-                    <div key={appt.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
-                          <p className="text-sm text-gray-600">
-                            {new Date(appt.appointment_date).toLocaleDateString()} at {new Date(appt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
-                          </p>
-                          {appt.details && (
-                            <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
-                          )}
+                {
+                  (() => {
+                    const now = new Date();
+                    const upcomingAppointments = schedule
+                      .map(appt => {
+                        const apptDate = new Date(appt.appointment_date);
+                        const apptTime = new Date(appt.appointment_time);
+
+                        const combinedDateTime = new Date(
+                          apptDate.getUTCFullYear(),
+                          apptDate.getUTCMonth(),
+                          apptDate.getUTCDate(),
+                          apptTime.getUTCHours(),
+                          apptTime.getUTCMinutes(),
+                          apptTime.getUTCSeconds()
+                        );
+                        
+                        return { ...appt, combinedDateTime };
+                      })
+                      .filter(appt => {
+                        const today = new Date();
+                        const apptDate = appt.combinedDateTime;
+
+                        return apptDate.getDate() === today.getDate() &&
+                              apptDate.getMonth() === today.getMonth() &&
+                              apptDate.getFullYear() === today.getFullYear();
+                      })
+                      .sort((a, b) => a.combinedDateTime - b.combinedDateTime);
+
+                    if (upcomingAppointments.length > 0) {
+                      return upcomingAppointments.map((appt) => (
+                        <div key={appt.id} className="border rounded-lg p-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
+                              <p className="text-sm text-gray-600">
+                                {new Date(appt.appointment_date).toLocaleDateString(undefined, { timeZone: 'UTC' })} at {new Date(appt.combinedDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
+                              </p>
+                              {appt.details && (
+                                <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <ViewDetailsModal appointment={appt} />
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <ViewDetailsModal appointment={appt} />
+                      ));
+                    } else {
+                      return (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No appointments scheduled for today.</p>
+                          <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
                         </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No appointments scheduled</p>
-                    <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
-                  </div>
-                )}
+                      );
+                    }
+                  })()
+                }
               </div>
             </CardContent>
           </Card>
