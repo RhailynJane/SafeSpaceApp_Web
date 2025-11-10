@@ -130,6 +130,28 @@ export default function DashboardPage({ clients, onAdd }) {
 
   const formattedMetrics = formatMetrics(metrics || {});
 
+  const todaysUpcomingAppointments = (upcomingAppointments || [])
+    .map(appt => {
+      if (!appt.date || !appt.appointment_time) {
+        return { ...appt, combinedDateTime: null };
+      }
+      const datePart = appt.date.substring(0, 10);
+      const timePart = appt.appointment_time.substring(11, 19);
+      const dateStr = `${datePart}T${timePart}`;
+      const combinedDateTime = new Date(dateStr);
+      return { ...appt, combinedDateTime };
+    })
+    .filter(appt => {
+      if (!appt.combinedDateTime) {
+        return false;
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return appt.combinedDateTime >= today && appt.combinedDateTime < tomorrow;
+    });
+
   return (
     <div className="space-y-6">
       {/* Metrics */}
@@ -209,8 +231,8 @@ export default function DashboardPage({ clients, onAdd }) {
             <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
-            {upcomingAppointments?.length > 0 ? (
-              upcomingAppointments.map((appointment) => (
+            {todaysUpcomingAppointments.length > 0 ? (
+              todaysUpcomingAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
