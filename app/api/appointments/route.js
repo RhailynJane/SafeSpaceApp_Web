@@ -41,9 +41,11 @@ export async function GET(req) {
       return {
         id: a.id,
         client_id: a.client_id,
+        client: a.client, // Pass the full client object
         clientName: a.client ? `${a.client.client_first_name} ${a.client.client_last_name}` : "Unknown",
         date: date.toISOString().split("T")[0],
         time: timeStr,
+        appointment_time: a.appointment_time, // Pass original time value
         type: a.type,
         duration: a.duration,
         details: a.details,
@@ -105,22 +107,7 @@ export async function POST(req) {
       include: { client: true },
     });
 
-    // Format response
-    const created = {
-      id: appointment.id,
-      client_id: appointment.client_id,
-      clientName: appointment.client ? `${appointment.client.client_first_name} ${appointment.client.client_last_name}` : "Unknown",
-      date: appointment.appointment_date.toISOString().split("T")[0],
-      time: appointment.appointment_time instanceof Date 
-        ? appointment.appointment_time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : appointment.appointment_time,
-      type: appointment.type,
-      duration: appointment.duration,
-      details: appointment.details,
-      status: appointment.status,
-    };
-
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json(appointment, { status: 201 });
 
   } catch (error) {
     console.error("Error creating appointment:", error);

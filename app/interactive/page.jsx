@@ -58,6 +58,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [recentReports, setRecentReports] = useState([]);
+  const [trackingData, setTrackingData] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -109,7 +110,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       }
 
       // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes, reportRes, availabilityRes] = await Promise.all([
+      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes, reportRes, availabilityRes, trackingRes] = await Promise.all([
         fetch("/api/clients"),
         fetch("/api/notes"),
         fetch("/api/crisis-events"),
@@ -117,6 +118,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         fetch("/api/audit-logs"),
         fetch("/api/reports"),
         fetch("/api/availability"),
+        fetch("/api/tracking"),
       ]);
 
       if (clientRes.ok) {
@@ -172,6 +174,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       } else {
         const errorData = await availabilityRes.json().catch(() => ({ error: "Failed to parse error response." }));
         console.error("Failed to fetch availability:", availabilityRes.status, availabilityRes.statusText, errorData);
+      }
+
+      if (trackingRes.ok) {
+        const data = await trackingRes.json();
+        setTrackingData(data);
+      } else {
+        console.error("Failed to fetch tracking data:", trackingRes.status, trackingRes.statusText);
       }
 
       // Conditionally fetch referrals and assignable users
@@ -391,22 +400,45 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       endDate: eDate.toISOString(),
     };
 
-    const res = await fetch('/api/reports', {
-      method: 'POST',
+    // Use the on-the-fly download endpoint
+    const response = await fetch('/api/reports/download', {
+      method: 'POST', // Use POST to send data
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newReportPayload),
     });
 
-    if (res.ok) {
-      const savedReport = await res.json();
-      // Add created_at to the new report object for immediate display
-      const reportWithDate = { ...savedReport, created_at: new Date().toISOString() };
-      setRecentReports(prev => [reportWithDate, ...prev]);
-      setReportData(generatedData);
-    } else {
-      console.error("Failed to save the generated report.");
-      alert("Could not save the report. Please try again.");
+    if (!response.ok) {
+      alert("Failed to generate and download report.");
+      console.error("Failed to download report:", await response.text());
+      return;
     }
+
+    // Handle the file download
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    // Extract filename from headers, with a fallback
+    const disposition = response.headers.get('Content-Disposition');
+    let filename = `${newReportPayload.name}.${newReportPayload.type.toLowerCase()}`; // Fallback filename
+    if (disposition && disposition.includes('attachment')) {
+      const filenameMatch = /filename="([^"]+)"/.exec(disposition);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+
+    // Optionally, you can still save the report to the DB if needed
+    // For example, you could have a "Save and Download" button
+    // that does both actions. For now, this provides instant download.
+    setReportData(generatedData); // Show the generated data in the UI
   };
 
   const reopenReferral = async (id) => {
@@ -1054,15 +1086,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <CardContent className="space-y-2">
                         <div className="flex justify-between">
                           <span>Sessions Completed</span>
-                          <span className="font-semibold">156</span>
+                          <span className="font-semibold">{trackingData?.progressMetrics?.sessionsCompleted ?? '...'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Goals Achieved</span>
-                          <span className="font-semibold">23</span>
+                          <span className="font-semibold">{trackingData?.progressMetrics?.goalsAchieved ?? '...'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Improvement Rate</span>
-                          <span className="font-semibold">78%</span>
+                          <span className="font-semibold">{trackingData?.progressMetrics?.improvementRate ?? '...'}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -1073,15 +1105,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <CardContent className="space-y-2">
                         <div className="flex justify-between">
                           <span>Active Staff</span>
-                          <span className="font-semibold">12</span>
+                          <span className="font-semibold">{trackingData?.teamPerformance?.activeStaff ?? '...'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Avg. Caseload</span>
-                          <span className="font-semibold">15</span>
+                          <span className="font-semibold">{trackingData?.teamPerformance?.avgCaseload ?? '...'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Satisfaction Score</span>
-                          <span className="font-semibold">4.2/5</span>
+                          <span className="font-semibold">{trackingData?.teamPerformance?.satisfactionScore ?? '...'}</span>
                         </div>
                       </CardContent>
                     </Card>
@@ -1196,7 +1228,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                           const response = await fetch(`/api/reports/${report.id}/download`);
+                         const response = await fetch("/api/reports/download", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name: report.name || "General_Report",
+    type: report.type || "PDF",   // can be "Excel", "Word", or "PDF"
+    data: report.data || {},      // include whatever data your report needs
+  }),
+});
+
 
                             if (!response.ok) {
                               alert("Failed to download report.");

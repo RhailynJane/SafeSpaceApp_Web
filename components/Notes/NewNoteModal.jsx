@@ -41,7 +41,7 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Client</Label>
-              <Select value={formData.client_id} onValueChange={(value) => setFormData(prev => ({...prev, client_id: parseInt(value)}))}>
+              <Select value={formData.client_id.toString()} onValueChange={(value) => setFormData(prev => ({...prev, client_id: value}))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select client" />
                 </SelectTrigger>
