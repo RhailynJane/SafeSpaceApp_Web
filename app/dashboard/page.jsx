@@ -109,7 +109,7 @@ const formatMetrics = (metrics) => [
   },
 ];
 
-export default function DashboardPage({ clients, onAdd }) {
+export default function DashboardPage({ clients, onAdd, schedule = [] }) {
   const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
 
@@ -150,6 +150,11 @@ export default function DashboardPage({ clients, onAdd }) {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       return appt.combinedDateTime >= today && appt.combinedDateTime < tomorrow;
+    })
+        .sort((a, b) => {
+      if (!a.combinedDateTime) return 1;
+      if (!b.combinedDateTime) return -1;
+      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
     });
 
   return (
@@ -228,7 +233,7 @@ export default function DashboardPage({ clients, onAdd }) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
             {/* <-- AddAppointmentModal kept exactly as before, now wired to handleAddAppointment */}
-            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} className="bg-white border-teal-200" />
+            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
             {todaysUpcomingAppointments.length > 0 ? (

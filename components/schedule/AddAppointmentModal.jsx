@@ -57,7 +57,7 @@ import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
  * the client selection dropdown. Each client object should have 'id', 'client_first_name', and 'client_last_name'.
  * @returns {JSX.Element} The Add Appointment Modal component.
  */
-export default function AddAppointmentModal({ onAdd, clients = [] }) {
+export default function AddAppointmentModal({ onAdd, clients = [], existingAppointments = [] }) {
   // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
 
@@ -105,6 +105,48 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
     if (selectedDateTime < now) {
         setError("Cannot schedule an appointment in the past. Please select a future date or time.");
         return;
+    }
+
+    const durationInMinutes = parseInt(duration.split(" ")[0], 10);
+    if (isNaN(durationInMinutes)) {
+        setError("Invalid duration format. Please use a format like '50 min'.");
+        return;
+    }
+    const newAppointmentEnd = new Date(selectedDateTime.getTime() + durationInMinutes * 60000);
+
+    const hasConflict = (existingAppointments || []).some(existingAppt => {
+        if (!existingAppt.appointment_date || !existingAppt.appointment_time || !existingAppt.duration) {
+            return false;
+        }
+
+        // Create a Date object for the existing appointment's time of day
+        const timeObj = new Date(existingAppt.appointment_time);
+        const hours = timeObj.getUTCHours();
+        const minutes = timeObj.getUTCMinutes();
+        const seconds = timeObj.getUTCSeconds();
+
+        // Create a Date object for the existing appointment's date part
+        const dateObj = new Date(existingAppt.appointment_date);
+        const year = dateObj.getUTCFullYear();
+        const month = dateObj.getUTCMonth();
+        const day = dateObj.getUTCDate();
+
+        // Combine them to create a new Date object in the local timezone
+        const existingStart = new Date(year, month, day, hours, minutes, seconds);
+
+        const existingDuration = parseInt(existingAppt.duration.split(" ")[0], 10);
+        if (isNaN(existingDuration)) {
+            return false;
+        }
+        const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000);
+
+        // Check for overlap: (StartA < EndB) and (EndA > StartB)
+        return selectedDateTime < existingEnd && newAppointmentEnd > existingStart;
+    });
+
+    if (hasConflict) {
+      setError("You already have an overlapping appointment at this time.");
+      return;
     }
 
     try {

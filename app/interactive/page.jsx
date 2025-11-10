@@ -795,7 +795,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
                         return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
                       })
-                      .sort((a, b) => a.combinedDateTime - b.combinedDateTime);
+                          .sort((a, b) => {
+      if (!a.combinedDateTime) return 1;
+      if (!b.combinedDateTime) return -1;
+      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
+    });
 
                     if (upcomingAppointments.length > 0) {
                       return upcomingAppointments.map((appt) => (
