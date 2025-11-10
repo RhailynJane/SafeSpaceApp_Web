@@ -216,6 +216,7 @@ export default function AddAppointmentModal({ onAdd, clients = [] }) {
                 id="date"
                 type="date"
                 value={appointment_date}
+                min={new Date().toISOString().split("T")[0]}
                 // Update state when the input changes
                 onChange={(e) => setAppointmentDate(e.target.value)}
                 required // HTML validation attribute
