@@ -742,7 +742,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         </div>
                       </div>
                       <div className="mt-4">
-                        <ClientActionButtons client={client} onMessage={() => openChat(client)} />
+                        <ClientActionButtons client={client} onMessage={() => openChat(client)} schedule={schedule} />
                       </div>
                     </div>
                   ))}

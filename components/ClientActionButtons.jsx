@@ -4,7 +4,7 @@ import ViewProfileModal from "@/components/clients/ViewProfileModal"
 import ScheduleModal from "@/components/clients/ScheduleModal"
 import { Button } from "@/components/ui/button"
 
-export default function ClientActionButtons({ client, onMessage }) {
+export default function ClientActionButtons({ client, onMessage, schedule }) {
   const [showProfile, setShowProfile] = useState(false)
   const [showSchedule, setShowSchedule] = useState(false)
 
@@ -17,7 +17,7 @@ export default function ClientActionButtons({ client, onMessage }) {
       </div>
 
       <ViewProfileModal open={showProfile} onOpenChange={setShowProfile} client={client} />
-      <ScheduleModal open={showSchedule} onOpenChange={setShowSchedule} client={client} />
+      <ScheduleModal open={showSchedule} onOpenChange={setShowSchedule} client={client} schedule={schedule} />
     </>
   )
 }
