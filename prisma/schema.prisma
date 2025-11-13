@@ -27,6 +27,7 @@ model User {
   supervised_crisis_events   CrisisEvent[] @relation("SupervisedCrisisEvents")
   notifications              Notification[]
   auditLogs                  AuditLog[]
+  user_availabilities        UserAvailability[]
 
   @@map("users")
 }
@@ -228,13 +229,13 @@ model Notification {
   @@map("notifications")
 }
 
-model AuditLog {
-  id        Int      @id @default(autoincrement())
-  action    String
-  user_id   Int?
-  timestamp DateTime @default(now())
-  details   String?
-  user      User?    @relation(fields: [user_id], references: [id])
+model UserAvailability {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  day_of_week String // e.g., "Monday", "Tuesday"
+  start_time  DateTime @db.Time(6)
+  end_time    DateTime @db.Time(6)
+  user        User     @relation(fields: [user_id], references: [id])
 
-  @@map("audit_logs")
+  @@map("user_availabilities")
 }

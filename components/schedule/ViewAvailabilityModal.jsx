@@ -1,13 +1,38 @@
 "use client"
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button"
-import { Clock } from "lucide-react"
+import { Clock, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils";
 
-export default function ViewAvailabilityModal({ availability = [], onSelect, isOpen, onOpenChange }) {
+export default function ViewAvailabilityModal({ onSelect, isOpen, onOpenChange }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [availability, setAvailability] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      const fetchAvailability = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const response = await fetch('/api/user/availability');
+          if (!response.ok) {
+            throw new Error('Failed to fetch availability');
+          }
+          const data = await response.json();
+          setAvailability(data);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchAvailability();
+    }
+  }, [isOpen]);
 
   const upcomingSlots = useMemo(() => {
     const slots = [];
@@ -18,26 +43,15 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       const dayName = daysOfWeek[date.getDay()];
-      const dayAvailability = availability.find(a => a.day === dayName);
+      const dayAvailability = availability.find(a => a.day_of_week === dayName);
 
       if (dayAvailability) {
-        const [startTimeStr, endTimeStr] = dayAvailability.time.split(' - ');
-        const [startHour, startMinute] = startTimeStr.match(/\d+/g).map(Number);
-        const startMeridiem = startTimeStr.match(/AM|PM/)[0];
-        let startHour24 = startHour;
-        if (startMeridiem === 'PM' && startHour !== 12) startHour24 += 12;
-        if (startMeridiem === 'AM' && startHour === 12) startHour24 = 0;
+        const [startHour, startMinute] = dayAvailability.start_time.split(':').map(Number);
+        const [endHour, endMinute] = dayAvailability.end_time.split(':').map(Number);
 
-        const [endHour, endMinute] = endTimeStr.match(/\d+/g).map(Number);
-        const endMeridiem = endTimeStr.match(/AM|PM/)[0];
-        let endHour24 = endHour;
-        if (endMeridiem === 'PM' && endHour !== 12) endHour24 += 12;
-        if (endMeridiem === 'AM' && endHour === 12) endHour24 = 0;
-
-        for (let h = startHour24; h < endHour24; h++) {
+        for (let h = startHour; h < endHour; h++) {
           const slotDate = new Date(date);
           slotDate.setHours(h, 0, 0, 0);
-          // Only show slots in the future
           if (slotDate > new Date()) {
             slots.push(slotDate);
           }
@@ -57,7 +71,8 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
         date: selectedSlot.toISOString().split('T')[0],
         time: selectedSlot.toTimeString().substring(0, 5)
       });
-      setSelectedSlot(null); // Reset selection
+      setSelectedSlot(null);
+      onOpenChange(false);
     }
   };
 
@@ -73,24 +88,32 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
           <DialogTitle>My Availability</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="max-h-[60vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {upcomingSlots.map((slot, index) => (
-                <Button
-                  key={index}
-                  variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
-                  className={cn("h-auto flex-col py-2", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
-                  onClick={() => handleSelectSlot(slot)}
-                >
-                  <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                  <div className="text-sm">{slot.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                </Button>
-              ))}
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-            {upcomingSlots.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No available slots in the next 7 days.</p>
-            )}
-          </div>
+          ) : error ? (
+            <p className="text-center text-red-500 py-8">{error}</p>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {upcomingSlots.map((slot, index) => (
+                  <Button
+                    key={index}
+                    variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
+                    className={cn("h-auto flex-col py-2", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
+                    onClick={() => handleSelectSlot(slot)}
+                  >
+                    <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                    <div className="text-sm">{slot.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  </Button>
+                ))}
+              </div>
+              {upcomingSlots.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No available slots in the next 7 days.</p>
+              )}
+            </div>
+          )}
           <div className="flex justify-end pt-4">
             <Button onClick={handleConfirm} disabled={!selectedSlot} className="bg-teal-600 hover:bg-teal-700">
               Confirm Slot
