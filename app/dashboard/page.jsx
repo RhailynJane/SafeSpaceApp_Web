@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,14 +111,6 @@ const formatMetrics = (metrics) => [
 
 export default function DashboardPage({ clients, onAdd, schedule = [] }) {
   const router = useRouter();
-  const [isAddAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
-  const [clients, setClients] = useState([]);
-
-  const { data: clientsData } = useSWR('/api/clients', fetcher);
-  useEffect(() => {
-    if (clientsData) setClients(clientsData);
-  }, [clientsData]);
-
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
 
   const handleAddAppointment = async (newAppt) => {
@@ -176,7 +167,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500 mb-1">{metric.title}</p>
-                  <p className="text-3xl text-gray-900">{metric.value}</p>
+                  <p className="text-3xl font-bold text-gray-900">{metric.value}</p>
                 </div>
                 <div className={`p-3 rounded-full ${metric.bgColor}`}>
                   <metric.icon className={`h-6 w-6 ${metric.color}`} />

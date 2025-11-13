@@ -209,16 +209,18 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
     <Dialog open={open} onOpenChange={setOpen}>
       {/* DialogTrigger wraps the button that opens the modal */}
       <DialogTrigger asChild>
-        <Button variant="default">Add Appointment</Button>
+        <Button variant="default" size="default" className="font-medium">
+          Add Appointment
+        </Button>
       </DialogTrigger>
 
       {/* DialogContent contains the modal's structure and form */}
       <DialogContent>
         {/* Modal Header/Title section */}
         <DialogHeader>
-          <DialogTitle>New Appointment</DialogTitle>
+          <DialogTitle className="text-teal-800">New Appointment</DialogTitle>
           <DialogDescription>
-            Fill in the details for the new appointment
+            Fill in the details for the new appointment.
           </DialogDescription>
         </DialogHeader>
 
@@ -322,9 +324,11 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             </Label>
             <Textarea
               id="details"
-              value={formData.details}
-              onChange={handleChange}
-              placeholder="Appointment details"
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+              placeholder="Appointment details (optional)"
+              rows={4}
+              className="resize-none"
             />
           </div>
 
@@ -339,7 +343,7 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
           <div className="flex justify-end gap-3 pt-4 border-t">
             {/* DialogClose closes the modal when clicked */}
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" size="default">
                 Cancel
               </Button>
             </DialogClose>
@@ -349,7 +353,8 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
               {loading ? (
                 // Show spinner and "Saving..." text when loading
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
                 </>
               ) : (
                 // Show "Add Appointment" text when not loading
