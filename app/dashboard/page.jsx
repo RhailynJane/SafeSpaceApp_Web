@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import useSWR, { mutate as globalMutate } from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -112,19 +111,28 @@ const formatMetrics = (metrics) => [
 
 export default function DashboardPage({ clients, onAdd, schedule = [] }) {
   const router = useRouter();
-  const [isAddAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
-  const [clients, setClients] = useState([]);
-
-  const { data: clientsData } = useSWR('/api/clients', fetcher);
-  useEffect(() => {
-    if (clientsData) setClients(clientsData);
-  }, [clientsData]);
-
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
 
   const handleAddAppointment = async (newAppt) => {
+    if (onAdd) {
+      onAdd(newAppt);
+    }
+
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const isToday = newAppt.date === todayStr;
+
+    const newData = {
+      ...data,
+      upcomingAppointments: [...data.upcomingAppointments, newAppt].sort((a, b) => new Date(a.appointment_date) - new Date(b.appointment_date)),
+      metrics: {
+        ...data.metrics,
+        totalAppointments: data.metrics.totalAppointments + 1,
+        todaysSessions: isToday ? data.metrics.todaysSessions + 1 : data.metrics.todaysSessions,
+      }
+    };
+
     try {
-      await mutate();
+      await mutate(newData, { revalidate: false });
       globalMutate("/api/appointments");
     } catch (err) {
       console.error("Error revalidating dashboard after add:", err);
@@ -176,7 +184,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-500 mb-1">{metric.title}</p>
-                  <p className="text-3xl text-gray-900">{metric.value}</p>
+                  <p className="text-3xl font-bold text-gray-900">{metric.value}</p>
                 </div>
                 <div className={`p-3 rounded-full ${metric.bgColor}`}>
                   <metric.icon className={`h-6 w-6 ${metric.color}`} />

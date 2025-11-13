@@ -61,10 +61,10 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
   // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
 
+  const todayDateString = new Date().toLocaleDateString('en-CA');
+
   // State for appointment date, initialized to today's date in "YYYY-MM-DD" format
-  const [appointment_date, setAppointmentDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [appointment_date, setAppointmentDate] = useState(todayDateString);
   // State for appointment time
   const [appointment_time, setAppointmentTime] = useState("");
   // State for the selected client's ID
@@ -119,20 +119,8 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             return false;
         }
 
-        // Create a Date object for the existing appointment's time of day
-        const timeObj = new Date(existingAppt.appointment_time);
-        const hours = timeObj.getUTCHours();
-        const minutes = timeObj.getUTCMinutes();
-        const seconds = timeObj.getUTCSeconds();
-
-        // Create a Date object for the existing appointment's date part
-        const dateObj = new Date(existingAppt.appointment_date);
-        const year = dateObj.getUTCFullYear();
-        const month = dateObj.getUTCMonth();
-        const day = dateObj.getUTCDate();
-
-        // Combine them to create a new Date object in the local timezone
-        const existingStart = new Date(year, month, day, hours, minutes, seconds);
+        const dateStr = `${existingAppt.appointment_date.substring(0, 10)}T${existingAppt.appointment_time.substring(11, 23)}`;
+        const existingStart = new Date(dateStr);
 
         const existingDuration = parseInt(existingAppt.duration.split(" ")[0], 10);
         if (isNaN(existingDuration)) {
@@ -209,16 +197,18 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
     <Dialog open={open} onOpenChange={setOpen}>
       {/* DialogTrigger wraps the button that opens the modal */}
       <DialogTrigger asChild>
-        <Button variant="default">Add Appointment</Button>
+        <Button variant="default" size="default" className="font-medium">
+          Add Appointment
+        </Button>
       </DialogTrigger>
 
       {/* DialogContent contains the modal's structure and form */}
       <DialogContent>
         {/* Modal Header/Title section */}
         <DialogHeader>
-          <DialogTitle>New Appointment</DialogTitle>
+          <DialogTitle className="text-teal-800">New Appointment</DialogTitle>
           <DialogDescription>
-            Fill in the details for the new appointment
+            Fill in the details for the new appointment.
           </DialogDescription>
         </DialogHeader>
 
@@ -256,7 +246,7 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
                 id="date"
                 type="date"
                 value={appointment_date}
-                min={new Date().toISOString().split("T")[0]}
+                min={todayDateString}
                 // Update state when the input changes
                 onChange={(e) => setAppointmentDate(e.target.value)}
                 required // HTML validation attribute
@@ -322,9 +312,11 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             </Label>
             <Textarea
               id="details"
-              value={formData.details}
-              onChange={handleChange}
-              placeholder="Appointment details"
+              value={details}
+              onChange={(e) => setDetails(e.target.value)}
+              placeholder="Appointment details (optional)"
+              rows={4}
+              className="resize-none"
             />
           </div>
 
@@ -339,7 +331,7 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
           <div className="flex justify-end gap-3 pt-4 border-t">
             {/* DialogClose closes the modal when clicked */}
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" size="default">
                 Cancel
               </Button>
             </DialogClose>
@@ -349,7 +341,8 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
               {loading ? (
                 // Show spinner and "Saving..." text when loading
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
                 </>
               ) : (
                 // Show "Add Appointment" text when not loading

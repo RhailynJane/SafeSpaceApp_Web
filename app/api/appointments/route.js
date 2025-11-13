@@ -173,22 +173,19 @@ export async function POST(req) {
     }
 
     // DATE/TIME PROCESSING
-    // Create a date-only object to avoid timezone offset issues
-    // By using "T00:00:00", we set the time to midnight in local timezone
-    const dateOnly = new Date(`${appointment_date}T00:00:00`);
+    // Create a UTC date to avoid timezone issues.
+    const [year, month, day] = appointment_date.split('-').map(Number);
+    const dateOnly = new Date(Date.UTC(year, month - 1, day));
 
-    // Parse the time string (e.g., "14:30" becomes hours=14, minutes=30)
+    // Parse the time string and create a UTC time value.
     const [hours, minutes] = appointment_time.split(':').map(Number);
 
     if (isNaN(hours) || isNaN(minutes)) {
       return NextResponse.json({ error: "Invalid time format. Please use HH:mm." }, { status: 400 });
     }
-
     
-    // Create a Date object for the appointment time
-    // Start with the date, then set the specific hours and minutes
-    const timeVal = new Date(dateOnly);
-    timeVal.setHours(hours, minutes, 0, 0); // Set hours, minutes, seconds, milliseconds
+    const timeVal = new Date(0);
+    timeVal.setUTCHours(hours, minutes, 0, 0);
 
     // CREATE APPOINTMENT in database
     const appointment = await prisma.appointment.create({

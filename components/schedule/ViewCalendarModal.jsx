@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "lucide-react"
 
 export default function ViewCalendarModal({ schedule = [] }) {
-  const [month, setMonth] = useState(new Date().getMonth())
-  const [year, setYear] = useState(new Date().getFullYear())
+  const today = new Date();
+  const [month, setMonth] = useState(today.getUTCMonth())
+  const [year, setYear] = useState(today.getUTCFullYear())
 
   const appointmentDatesForMonth = schedule.map(appt => {
     if (!appt?.appointment_date) return null;
@@ -25,8 +26,8 @@ export default function ViewCalendarModal({ schedule = [] }) {
     };
   }).filter(Boolean);
 
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const firstDayOfMonth = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const firstDayOfMonth = new Date(Date.UTC(year, month, 1)).getUTCDay();
   
   const days = []
   for (let i = 0; i < firstDayOfMonth; i++) {
@@ -64,10 +65,15 @@ export default function ViewCalendarModal({ schedule = [] }) {
   const hasAppointmentsThisMonth = appointmentDatesForMonth.some(d => d.year === year && d.month === month);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}> 
-      <DialogContent className="max-w-4xl h-[80vh]">
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Calendar className="h-4 w-4 mr-2" /> View Calendar
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Full Schedule</DialogTitle>
+          <DialogTitle>{monthNames[month]} {year}</DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">
