@@ -64,15 +64,10 @@ export default function ViewCalendarModal({ schedule = [] }) {
   const hasAppointmentsThisMonth = appointmentDatesForMonth.some(d => d.year === year && d.month === month);
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <Calendar className="h-4 w-4 mr-2" /> View Calendar
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md">
+    <Dialog open={isOpen} onOpenChange={onOpenChange}> 
+      <DialogContent className="max-w-4xl h-[80vh]">
         <DialogHeader>
-          <DialogTitle>{monthNames[month]} {year}</DialogTitle>
+          <DialogTitle>Full Schedule</DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">

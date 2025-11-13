@@ -150,7 +150,7 @@ export default function ReferralTrackingPage() {
                 <p className="text-gray-500 mb-6">Monitor the progress of all referrals from submission to completion</p>
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
                     <div className="relative flex-grow">
-                        <Input type="text" placeholder="Search by client name or referral source" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-3" />
+                        <input type="text" placeholder="Search by client name or referral source" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
                     </div>
                     <div className="relative">

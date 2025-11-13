@@ -94,7 +94,7 @@ const RequestInfoDialog = ({ referral, onClose, onSendMessage, onSendEmail }) =>
 //   - onStatusUpdate: callback to update parent state when referral status changes
 //   - userRole: identifies the actor (default: "team-leader")
 // -----------------------------------------------------------------------------
-const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", assignableUsers = [] }) => {
+const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", assignableUsers = [], onStartChat }) => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);

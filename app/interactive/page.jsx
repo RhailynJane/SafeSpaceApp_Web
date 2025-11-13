@@ -8,6 +8,7 @@ import { useSWRConfig } from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -31,10 +32,10 @@ import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 import ViewReportModal from "@/components/reports/ViewReportModal";
 import SendbirdChat from "@/components/SendbirdChat";
 
+import { cn } from "@/lib/utils";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import jsPDF from "jspdf";
-import AuditLogTab from "../auditlogtab/page";
-
-import VoiceCallModal from "@/components/crisis/VoiceCallModal";
+import * as XLSX from 'xlsx';
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
@@ -49,7 +50,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [dbUser, setDbUser] = useState(null);
 
   const [reportType, setReportType] = useState("caseload");
-  const [dateRange, setDateRange] = useState("month");
+  const [dateRange, setDateRange] = useState({
+    from: new Date(new Date().setMonth(new Date().getMonth() - 1)),
+    to: new Date(),
+  });
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -154,7 +158,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           setAssignableUsers(Array.isArray(usersData) ? usersData : []);
         } else {
         }
-      }
+      });
 
     } catch (error) {
       setError("Failed to load data. Please try again.");
@@ -682,8 +686,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search clients by name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={clientSearchQuery}
+                    onChange={(e) => setClientSearchQuery(e.target.value)}
                     className="pl-8"
                   />
                 </div>
@@ -766,6 +770,17 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
                     { day: "Friday", time: "9:00 AM - 11:00 AM" },
                   ]}
+                  isOpen={isAvailabilityModalOpen}
+                  onOpenChange={setAvailabilityModalOpen}
+                  onSelect={handleSlotSelect}
+                />
+                <Button variant="outline" onClick={() => setCalendarModalOpen(true)}>
+                  <Calendar className="h-4 w-4 mr-2" /> View Calendar
+                </Button>
+                <ViewCalendarModal 
+                  schedule={schedule} 
+                  isOpen={isCalendarModalOpen}
+                  onOpenChange={setCalendarModalOpen}
                 />
                 <ViewCalendarModal schedule={schedule} />
               </div>
@@ -994,22 +1009,34 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   </div>
                   <div className="space-y-2">
                     <Label>Date Range</Label>
-                    <Select value={dateRange} onValueChange={setDateRange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="week">Last Week</SelectItem>
-                        <SelectItem value="month">Last Month</SelectItem>
-                        <SelectItem value="quarter">Last Quarter</SelectItem>
-                        <SelectItem value="year">Last Year</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date"
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !dateRange && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateRange?.from ? (
+                            dateRange.to ? `${new Date(dateRange.from).toLocaleDateString()} - ${new Date(dateRange.to).toLocaleDateString()}` : new Date(dateRange.from).toLocaleDateString()
+                          ) : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent mode="range" selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
-                <Button className="w-full" onClick={generateReport}>
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Generate Report
+                <Button className="w-full" onClick={generateReport} disabled={loading}>
+                  {loading ? (
+                    <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div> Generating...</>
+                  ) : (
+                    <><BarChart3 className="h-4 w-4 mr-2" /> Generate Report</>
+                  )}
                 </Button>
 
                 {reportData && (
@@ -1057,15 +1084,17 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            if (report.type === "PDF") {
-                              const doc = new jsPDF()
-                              doc.text(`Report Name: ${report.name}`, 10, 10)
-                              doc.text(`Date: ${report.date}`, 10, 20)
-                              doc.text(`Type: ${report.type}`, 10, 30)
-                              doc.text(`Size: ${report.size}`, 10, 40)
-                              doc.save(`${report.name}.pdf`)
+                            if (report.type === 'PDF') {
+                              const doc = new jsPDF();
+                              doc.text(JSON.stringify(report.data, null, 2), 10, 10);
+                              doc.save(`${report.name}.pdf`);
+                            } else if (report.type === 'Excel') {
+                              const worksheet = XLSX.utils.json_to_sheet(report.data.sessions);
+                              const workbook = XLSX.utils.book_new();
+                              XLSX.utils.book_append_sheet(workbook, worksheet, "Sessions");
+                              XLSX.writeFile(workbook, `${report.name}.xlsx`);
                             } else {
-                              alert("Downloading non-PDF files is not yet supported")
+                              alert(`Downloading ${report.type} files is not yet supported.`);
                             }
                           }}
                         >
