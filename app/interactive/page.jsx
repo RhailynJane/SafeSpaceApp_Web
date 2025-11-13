@@ -754,8 +754,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         <TabsContent value="Schedule" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Today's Schedule</CardTitle>
-              <CardDescription>Your appointments and sessions for today</CardDescription>
+              <CardTitle>All Appointments</CardTitle>
+              <CardDescription>A list of all your scheduled appointments.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
@@ -773,13 +773,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               <div className="space-y-4">
                 {
                   (() => {
-                    const now = new Date();
-                    const upcomingAppointments = schedule
+                    const futureAppointments = [...schedule]
                       .map(appt => {
                         if (!appt.appointment_date || !appt.appointment_time) {
                           return { ...appt, combinedDateTime: null };
                         }
-                        // Construct a date string in 'YYYY-MM-DDTHH:mm:ss.sss' format, which is parsed as local time
                         const dateStr = `${appt.appointment_date.substring(0, 10)}T${appt.appointment_time.substring(11, 23)}`;
                         const combinedDateTime = new Date(dateStr);
                         return { ...appt, combinedDateTime };
@@ -788,21 +786,18 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         if (!appt.combinedDateTime) {
                           return false;
                         }
-                        const now = new Date();
-                        const tomorrow = new Date();
-                        tomorrow.setDate(now.getDate() + 1);
-                        tomorrow.setHours(0, 0, 0, 0);
-
-                        return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
+                        const startOfToday = new Date();
+                        startOfToday.setHours(0, 0, 0, 0);
+                        return appt.combinedDateTime >= startOfToday;
                       })
-                          .sort((a, b) => {
-      if (!a.combinedDateTime) return 1;
-      if (!b.combinedDateTime) return -1;
-      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
-    });
+                      .sort((a, b) => {
+                        if (!a.combinedDateTime) return 1;
+                        if (!b.combinedDateTime) return -1;
+                        return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
+                      });
 
-                    if (upcomingAppointments.length > 0) {
-                      return upcomingAppointments.map((appt) => (
+                    if (futureAppointments.length > 0) {
+                      return futureAppointments.map((appt) => (
                         <div key={appt.id} className="border rounded-lg p-4">
                           <div className="flex justify-between items-start">
                             <div>
@@ -823,7 +818,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     } else {
                       return (
                         <div className="text-center py-8 text-gray-500">
-                          <p>No upcoming appointments scheduled for today.</p>
+                          <p>No upcoming appointments scheduled.</p>
                           <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
                         </div>
                       );

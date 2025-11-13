@@ -154,7 +154,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
       }
       const datePart = appt.date.substring(0, 10);
       const timePart = appt.appointment_time.substring(11, 19);
-      const dateStr = `${datePart}T${timePart}`;
+      const dateStr = `${datePart}T${timePart}Z`; // Append Z for UTC
       const combinedDateTime = new Date(dateStr);
       return { ...appt, combinedDateTime };
     })
@@ -162,11 +162,11 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
       if (!appt.combinedDateTime) {
         return false;
       }
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      return appt.combinedDateTime >= today && appt.combinedDateTime < tomorrow;
+      const now = new Date();
+      const tomorrow = new Date();
+      tomorrow.setDate(now.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
     })
         .sort((a, b) => {
       if (!a.combinedDateTime) return 1;
