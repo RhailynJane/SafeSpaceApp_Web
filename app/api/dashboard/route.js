@@ -15,7 +15,7 @@ export async function GET() {
     if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
 
     // nextDay is tomorrow at 00:00 (used for "today" only ranges)
     const nextDay = new Date(today);

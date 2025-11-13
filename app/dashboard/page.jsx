@@ -110,7 +110,7 @@ const formatMetrics = (metrics) => [
   },
 ];
 
-export default function DashboardPage({ onAdd }) {
+export default function DashboardPage({ clients, onAdd, schedule = [] }) {
   const router = useRouter();
   const [isAddAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
   const [clients, setClients] = useState([]);
@@ -138,6 +138,33 @@ export default function DashboardPage({ onAdd }) {
   const { metrics, notifications, upcomingAppointments, role } = data || {};
 
   const formattedMetrics = formatMetrics(metrics || {});
+
+  const todaysUpcomingAppointments = (upcomingAppointments || [])
+    .map(appt => {
+      if (!appt.date || !appt.appointment_time) {
+        return { ...appt, combinedDateTime: null };
+      }
+      const datePart = appt.date.substring(0, 10);
+      const timePart = appt.appointment_time.substring(11, 19);
+      const dateStr = `${datePart}T${timePart}`;
+      const combinedDateTime = new Date(dateStr);
+      return { ...appt, combinedDateTime };
+    })
+    .filter(appt => {
+      if (!appt.combinedDateTime) {
+        return false;
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return appt.combinedDateTime >= today && appt.combinedDateTime < tomorrow;
+    })
+        .sort((a, b) => {
+      if (!a.combinedDateTime) return 1;
+      if (!b.combinedDateTime) return -1;
+      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
+    });
 
   return (
     <div className="space-y-6">
@@ -215,15 +242,11 @@ export default function DashboardPage({ onAdd }) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
             {/* <-- AddAppointmentModal kept exactly as before, now wired to handleAddAppointment */}
-            <AddAppointmentModal
-              isOpen={isAddAppointmentModalOpen}
-              onOpenChange={setAddAppointmentModalOpen}
-              onAdd={handleAddAppointment}
-              clients={clients} />
+            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
-            {upcomingAppointments?.length > 0 ? (
-              upcomingAppointments.map((appointment) => (
+            {todaysUpcomingAppointments.length > 0 ? (
+              todaysUpcomingAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
@@ -245,7 +268,7 @@ export default function DashboardPage({ onAdd }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900">
-                      {new Date(appointment.appointment_time).toLocaleTimeString([], {
+                      {new Date(appointment.date).toLocaleDateString(undefined, { timeZone: 'UTC' })} {new Date(appointment.appointment_time).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}

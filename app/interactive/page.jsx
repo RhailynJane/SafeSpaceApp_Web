@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import useDraggable from "../../hooks/useDraggable";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useSWRConfig } from "swr";
@@ -64,6 +65,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [showChat, setShowChat] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
   const [chatChannelName, setChatChannelName] = useState("Chat");
+
+  const dragHandleRef = useRef(null);
+  const position = useDraggable(dragHandleRef);
 
   useEffect(() => {
     const fetchSupervisor = async () => {
@@ -358,9 +362,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
       {/* Floating chat window (bottom-right */}
       {showChat && (
-        <div className="fixed bottom-5 right-5 w-[380px] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden z-[9999]">
+        <div
+          className="draggable fixed bottom-5 right-5 w-[380px] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden z-[9999]"
+          style={{ top: position.y, left: position.x }}
+        >
           {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between">
+          <div
+            ref={dragHandleRef}
+            className="drag-handle bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between cursor-move"
+          >
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative flex-shrink-0">
                 <img
@@ -531,7 +541,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
         {/* Overview Tab */}
         <TabsContent value="Overview" className="space-y-6">
-          <DashboardOverview userRole={userRole} clients={clients} onAdd={handleAddAppointment} />
+          <DashboardOverview userRole={userRole} clients={clients} onAdd={handleAddAppointment} schedule={schedule} />
         </TabsContent>
 
         {/* Referrals Tab - Team Leaders Only */}
@@ -736,7 +746,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         </div>
                       </div>
                       <div className="mt-4">
-                        <ClientActionButtons client={client} onMessage={() => openChat(client)} />
+                        <ClientActionButtons client={client} onMessage={() => openChat(client)} schedule={schedule} />
                       </div>
                     </div>
                   ))}
@@ -753,7 +763,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
-                <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} />
+                <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} />
                 <ViewAvailabilityModal
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },
@@ -776,31 +786,65 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </div>
 
               <div className="space-y-4">
-                {schedule.length > 0 ? (
-                  schedule.map((appt) => (
-                    <div key={appt.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
-                          <p className="text-sm text-gray-600">
-                            {new Date(appt.appointment_date).toLocaleDateString()} at {new Date(appt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
-                          </p>
-                          {appt.details && (
-                            <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
-                          )}
+                {
+                  (() => {
+                    const now = new Date();
+                    const upcomingAppointments = schedule
+                      .map(appt => {
+                        if (!appt.appointment_date || !appt.appointment_time) {
+                          return { ...appt, combinedDateTime: null };
+                        }
+                        // Construct a date string in 'YYYY-MM-DDTHH:mm:ss.sss' format, which is parsed as local time
+                        const dateStr = `${appt.appointment_date.substring(0, 10)}T${appt.appointment_time.substring(11, 23)}`;
+                        const combinedDateTime = new Date(dateStr);
+                        return { ...appt, combinedDateTime };
+                      })
+                      .filter(appt => {
+                        if (!appt.combinedDateTime) {
+                          return false;
+                        }
+                        const now = new Date();
+                        const tomorrow = new Date();
+                        tomorrow.setDate(now.getDate() + 1);
+                        tomorrow.setHours(0, 0, 0, 0);
+
+                        return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
+                      })
+                          .sort((a, b) => {
+      if (!a.combinedDateTime) return 1;
+      if (!b.combinedDateTime) return -1;
+      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
+    });
+
+                    if (upcomingAppointments.length > 0) {
+                      return upcomingAppointments.map((appt) => (
+                        <div key={appt.id} className="border rounded-lg p-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
+                              <p className="text-sm text-gray-600">
+                                {new Date(appt.appointment_date).toLocaleDateString(undefined, { timeZone: 'UTC' })} at {new Date(appt.combinedDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
+                              </p>
+                              {appt.details && (
+                                <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <ViewDetailsModal appointment={appt} />
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <ViewDetailsModal appointment={appt} />
+                      ));
+                    } else {
+                      return (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No upcoming appointments scheduled for today.</p>
+                          <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
                         </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No appointments scheduled</p>
-                    <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
-                  </div>
-                )}
+                      );
+                    }
+                  })()
+                }
               </div>
             </CardContent>
           </Card>
