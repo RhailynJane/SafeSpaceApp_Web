@@ -71,28 +71,34 @@ export default function ViewNoteModal({ isOpen, onClose, onEdit, note }) {
           </div>
 
           {/* Time Tracking Section */}
-          {note.activities && note.activities.length > 0 && (
-            <div className="space-y-4 bg-white rounded-lg border p-5">
-              <Label className="text-sm font-semibold flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Time Tracking
-              </Label>
+          <div className="space-y-4 bg-white rounded-lg border p-5">
+            <Label className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Time Tracking
+            </Label>
 
-              <div className="space-y-2">
-                {note.activities.map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded border">
-                    <span className="text-sm font-medium text-gray-700">{activity.type || 'Untitled Activity'}</span>
-                    <span className="text-sm font-semibold text-teal-600">{activity.minutes} min</span>
-                  </div>
-                ))}
-              </div>
+            {note.activities && note.activities.length > 0 ? (
+              <>
+                <div className="space-y-2">
+                  {note.activities.map((activity, index) => (
+                    <div key={index} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded border">
+                      <span className="text-sm font-medium text-gray-700">{activity.type || 'Untitled Activity'}</span>
+                      <span className="text-sm font-semibold text-teal-600">{activity.minutes} min</span>
+                    </div>
+                  ))}
+                </div>
 
-              <div className="flex items-center justify-between pt-3 border-t">
-                <span className="text-sm font-semibold">Total Time:</span>
-                <span className="text-lg font-bold text-teal-600">{totalMinutes} minutes</span>
+                <div className="flex items-center justify-between pt-3 border-t">
+                  <span className="text-sm font-semibold">Total Time:</span>
+                  <span className="text-lg font-bold text-teal-600">{totalMinutes} minutes</span>
+                </div>
+              </>
+            ) : (
+              <div className="py-4 text-center">
+                <p className="text-sm text-gray-400 italic">No activities tracked for this session</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Session Details */}
           <div className="grid grid-cols-2 gap-6">
