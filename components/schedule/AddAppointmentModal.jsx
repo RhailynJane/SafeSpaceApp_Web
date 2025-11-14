@@ -95,24 +95,37 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
   const availableTimeSlots = useMemo(() => {
     if (!appointment_date || availability.length === 0) return [];
 
-    const selectedDate = new Date(appointment_date + 'T00:00:00');
-    const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][selectedDate.getDay()];
+    // Treat the date as UTC to avoid timezone issues
+    const selectedDate = new Date(appointment_date + 'T00:00:00Z');
+    const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][selectedDate.getUTCDay()];
     const dayAvailability = availability.find(a => a.day_of_week === dayOfWeek);
 
     if (!dayAvailability) return [];
 
-    const [startHour] = dayAvailability.start_time.split(':').map(Number);
-    const [endHour] = dayAvailability.end_time.split(':').map(Number);
+    const startTime = new Date(dayAvailability.start_time);
+    const endTime = new Date(dayAvailability.end_time);
+    const startHour = startTime.getUTCHours();
+    const endHour = endTime.getUTCHours();
 
     const slots = [];
+    const now = new Date();
+
     for (let hour = startHour; hour < endHour; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
-        const hourStr = hour > 12 ? hour - 12 : hour;
-        const period = hour >= 12 ? 'PM' : 'AM';
-        const minuteStr = minute.toString().padStart(2, '0');
-        const displayTime = `${hourStr}:${minuteStr} ${period}`;
-        const valueTime = `${hour.toString().padStart(2, '0')}:${minuteStr}`;
-        slots.push({ display: displayTime, value: valueTime });
+        const slotTime = new Date(selectedDate);
+        slotTime.setUTCHours(hour, minute, 0, 0);
+
+        // Compare UTC time of slot with current time
+        if (slotTime.getTime() > now.getTime()) {
+          const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+          const period = hour >= 12 ? 'PM' : 'AM';
+          const minuteStr = minute.toString().padStart(2, '0');
+          
+          const displayTime = `${hour12}:${minuteStr} ${period}`;
+          const valueTime = `${hour.toString().padStart(2, '0')}:${minuteStr}`;
+          
+          slots.push({ display: displayTime, value: valueTime });
+        }
       }
     }
     return slots;

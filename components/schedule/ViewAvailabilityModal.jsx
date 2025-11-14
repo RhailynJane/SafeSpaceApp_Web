@@ -40,30 +40,26 @@ export default function ViewAvailabilityModal({ availability: initialAvailabilit
     const slots = [];
     const today = new Date();
     const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const now = new Date();
 
     for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dayName = daysOfWeek[date.getDay()];
+      const date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + i));
+      
+      const dayName = daysOfWeek[date.getUTCDay()];
       const dayAvailability = availability.find(a => a.day_of_week === dayName);
 
       if (dayAvailability) {
         const startTime = new Date(dayAvailability.start_time);
         const endTime = new Date(dayAvailability.end_time);
-
         const startHour = startTime.getUTCHours();
-        const startMinute = startTime.getUTCMinutes();
         const endHour = endTime.getUTCHours();
-        const endMinute = endTime.getUTCMinutes();
 
         for (let h = startHour; h < endHour; h++) {
-          for (let m = (h === startHour ? startMinute : 0); m < 60; m += 30) {
-            if (h === endHour && m >= endMinute) {
-              break;
-            }
+          for (let m = 0; m < 60; m += 30) {
             const slotDate = new Date(date);
-            slotDate.setHours(h, m, 0, 0);
-            if (slotDate > new Date()) {
+            slotDate.setUTCHours(h, m, 0, 0);
+
+            if (slotDate.getTime() > now.getTime()) {
               slots.push(slotDate);
             }
           }
