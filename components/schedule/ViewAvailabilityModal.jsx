@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button"
 import { Clock, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils";
 
-export default function ViewAvailabilityModal({ onSelect, isOpen, onOpenChange }) {
+export default function ViewAvailabilityModal({ availability: initialAvailability, onSelect, isOpen, onOpenChange }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [availability, setAvailability] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [availability, setAvailability] = useState(initialAvailability || []);
+  const [loading, setLoading] = useState(!initialAvailability);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !initialAvailability) {
       const fetchAvailability = async () => {
         setLoading(true);
         setError(null);
@@ -31,8 +31,10 @@ export default function ViewAvailabilityModal({ onSelect, isOpen, onOpenChange }
         }
       };
       fetchAvailability();
+    } else if (initialAvailability) {
+      setAvailability(initialAvailability);
     }
-  }, [isOpen]);
+  }, [isOpen, initialAvailability]);
 
   const upcomingSlots = useMemo(() => {
     const slots = [];
@@ -46,14 +48,24 @@ export default function ViewAvailabilityModal({ onSelect, isOpen, onOpenChange }
       const dayAvailability = availability.find(a => a.day_of_week === dayName);
 
       if (dayAvailability) {
-        const [startHour, startMinute] = dayAvailability.start_time.split(':').map(Number);
-        const [endHour, endMinute] = dayAvailability.end_time.split(':').map(Number);
+        const startTime = new Date(dayAvailability.start_time);
+        const endTime = new Date(dayAvailability.end_time);
+
+        const startHour = startTime.getUTCHours();
+        const startMinute = startTime.getUTCMinutes();
+        const endHour = endTime.getUTCHours();
+        const endMinute = endTime.getUTCMinutes();
 
         for (let h = startHour; h < endHour; h++) {
-          const slotDate = new Date(date);
-          slotDate.setHours(h, 0, 0, 0);
-          if (slotDate > new Date()) {
-            slots.push(slotDate);
+          for (let m = (h === startHour ? startMinute : 0); m < 60; m += 30) {
+            if (h === endHour && m >= endMinute) {
+              break;
+            }
+            const slotDate = new Date(date);
+            slotDate.setHours(h, m, 0, 0);
+            if (slotDate > new Date()) {
+              slots.push(slotDate);
+            }
           }
         }
       }

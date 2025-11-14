@@ -232,6 +232,37 @@ await prisma.notification.createMany({
   ],
 });
 
+// 1️⃣1️⃣ Default availability for non-client users
+const nonClientUsers = await prisma.user.findMany({
+  where: {
+    role: {
+      role_name: {
+        not: "client",
+      },
+    },
+  },
+});
+
+const defaultAvailability = [
+  { day_of_week: "Monday", start_time: new Date("1970-01-01T09:00:00Z"), end_time: new Date("1970-01-01T17:00:00Z") },
+  { day_of_week: "Tuesday", start_time: new Date("1970-01-01T09:00:00Z"), end_time: new Date("1970-01-01T17:00:00Z") },
+  { day_of_week: "Wednesday", start_time: new Date("1970-01-01T09:00:00Z"), end_time: new Date("1970-01-01T17:00:00Z") },
+  { day_of_week: "Thursday", start_time: new Date("1970-01-01T09:00:00Z"), end_time: new Date("1970-01-01T17:00:00Z") },
+  { day_of_week: "Friday", start_time: new Date("1970-01-01T09:00:00Z"), end_time: new Date("1970-01-01T17:00:00Z") },
+];
+
+for (const user of nonClientUsers) {
+  await prisma.UserAvailability.createMany({
+    data: defaultAvailability.map(avail => ({
+      user_id: user.id,
+      day_of_week: avail.day_of_week,
+      start_time: avail.start_time,
+      end_time: avail.end_time,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 
   console.log("✅ Database seeded successfully!");
 }

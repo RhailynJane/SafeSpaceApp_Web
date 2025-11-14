@@ -1,39 +1,39 @@
-
 import { NextResponse } from 'next/server';
 import { getAuth } from '@clerk/nextjs/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(req) {
   try {
-    const { userId } = getAuth(req);
+    const { userId: clerkUserId } = getAuth(req);
 
-    if (!userId) {
-      return new NextResponse(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (!clerkUserId) {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
 
-    const userWithAvailability = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-      include: {
-        user_availabilities: true,
+    // First, find the internal user ID from the clerk ID
+    const user = await prisma.user.findUnique({
+      where: {
+        clerk_user_id: clerkUserId,
+      },
+      select: {
+        id: true, // Only select the ID for efficiency
       },
     });
 
-    if (!userWithAvailability) {
-      return new NextResponse(JSON.stringify({ error: 'User not found' }), {
-        status: 404,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    if (!user) {
+      return new NextResponse('User not found', { status: 404 });
     }
 
-    return NextResponse.json(userWithAvailability.user_availabilities);
-  } catch (error) {
-    console.error('Failed to fetch availability:', error);
-    return new NextResponse(JSON.stringify({ error: 'Internal Server Error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
+    // Now, use the internal integer ID to find availability
+    const userAvailability = await prisma.UserAvailability.findMany({
+      where: {
+        user_id: user.id,
+      },
     });
+
+    return NextResponse.json(userAvailability);
+  } catch (error) {
+    console.error('[AVAILABILITY_GET]', error);
+    return new NextResponse('Internal Error', { status: 500 });
   }
 }
