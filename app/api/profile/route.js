@@ -1,16 +1,15 @@
 
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { fetchQuery, fetchMutation } from "convex/nextjs";
+import { api } from "@/convex/_generated/api";
 
 export async function GET() {
   try {
     const user = await currentUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const localUser = await prisma.user.findUnique({
-      where: { clerk_user_id: user.id },
-    });
+    const localUser = await fetchQuery(api.users.getByClerkId, { clerkId: user.id });
 
     if (!localUser) {
       return NextResponse.json({ error: "User not found in local database" }, { status: 404 });
@@ -28,9 +27,7 @@ export async function PUT(req) {
     const user = await currentUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const localUser = await prisma.user.findUnique({
-      where: { clerk_user_id: user.id },
-    });
+    const localUser = await fetchQuery(api.users.getByClerkId, { clerkId: user.id });
 
     if (!localUser) {
       return NextResponse.json({ error: "User not found in local database" }, { status: 404 });
@@ -38,14 +35,13 @@ export async function PUT(req) {
 
     const data = await req.json();
 
-    const updatedUser = await prisma.user.update({
-      where: { id: localUser.id },
-      data: {
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone: data.phone,
-        profile_image_url: data.profile_image_url,
-      },
+    const updatedUser = await fetchMutation(api.users.update, {
+      clerkId: user.id,
+      targetClerkId: user.id,
+      firstName: data.first_name,
+      lastName: data.last_name,
+      phoneNumber: data.phone,
+      profileImageUrl: data.profile_image_url,
     });
 
     return NextResponse.json(updatedUser);

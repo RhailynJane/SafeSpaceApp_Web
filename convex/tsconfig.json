@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "lib": ["ES2021"],
+    "module": "ESNext",
+    "target": "ES2021",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@/*": ["../*"]
+    }
+  }
+}

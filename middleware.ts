@@ -1,9 +1,9 @@
 // middleware.ts
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma'; // Import prisma
+// Note: Prisma removed during Convex migration - role checks now use Clerk metadata
 
-const isAdminRoute = createRouteMatcher(['/admin(.*)']);
+const isAdminRoute = createRouteMatcher(['/admin(.*)', '/superadmin(.*)']);
 const isDashboardRoute = createRouteMatcher(['/dashboard(.*)', '/interactive(.*)']);
 const isApiRoute = createRouteMatcher(['/api(.*)']);
 
@@ -53,24 +53,35 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   if (isAdminRoute(req)) {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) {
       // If no userId, protect the route and let Clerk handle unauthenticated users
       await auth.protect();
       return;
     }
 
-    // Fetch user role directly from the database
-    const user = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-      include: { role: true },
+    // Fetch user role from Clerk metadata (replace Prisma DB check during Convex migration)
+    const clerkUserResponse = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
+      },
     });
-    console.log('isAdminRoute: user from DB', user);
 
-    const role = user?.role?.role_name; // Get role from database
-    console.log('isAdminRoute: role', role);
+    if (!clerkUserResponse.ok) {
+      console.error("Failed to fetch user data from Clerk in middleware for admin route.");
+      // Block access if we can't verify role
+      const unauthorizedUrl = new URL('/unauthorized', req.url);
+      return new Response(null, {
+        status: 307,
+        headers: { Location: unauthorizedUrl.toString() },
+      });
+    }
+
+    const clerkUser = await clerkUserResponse.json();
+    const role = clerkUser.public_metadata?.role;
+    console.log('isAdminRoute: role from Clerk metadata', role);
     
-    if (role !== 'admin') {
+    if (role !== 'admin' && role !== 'superadmin') {
       const unauthorizedUrl = new URL('/unauthorized', req.url);
       return new Response(null, {
         status: 307,
