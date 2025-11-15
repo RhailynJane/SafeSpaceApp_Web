@@ -94,23 +94,23 @@ export default function CreateOrganizationPage() {
   return (
     <div className="max-w-3xl">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Create Organization</h2>
-        <p className="text-gray-600">Add a new organization to the system</p>
+        <h2 className="text-2xl font-bold">Create Organization</h2>
+        <p className="text-muted-foreground">Add a new organization to the system</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-card rounded-lg border p-6 space-y-6">
         {errors.submit && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg">
             {errors.submit}
           </div>
         )}
 
         {/* Basic Information */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+          <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
           <div className="space-y-4">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="block text-sm font-medium mb-1">
                 Organization Name *
               </label>
               <input
@@ -119,16 +119,16 @@ export default function CreateOrganizationPage() {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.name ? "border-red-300" : "border-gray-300"
+                className={`w-full px-3 py-2 bg-background border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                  errors.name ? "border-red-300 dark:border-red-800" : "border-border"
                 }`}
                 placeholder="e.g., CMHA Calgary"
               />
-              {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
+              {errors.name && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.name}</p>}
             </div>
 
             <div>
-              <label htmlFor="slug" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="slug" className="block text-sm font-medium mb-1">
                 Slug (URL Identifier) *
               </label>
               <input
@@ -137,19 +137,19 @@ export default function CreateOrganizationPage() {
                 name="slug"
                 value={formData.slug}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.slug ? "border-red-300" : "border-gray-300"
+                className={`w-full px-3 py-2 bg-background border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                  errors.slug ? "border-red-300 dark:border-red-800" : "border-border"
                 }`}
                 placeholder="e.g., cmha-calgary"
               />
-              {errors.slug && <p className="text-red-600 text-sm mt-1">{errors.slug}</p>}
-              <p className="text-gray-500 text-xs mt-1">
+              {errors.slug && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.slug}</p>}
+              <p className="text-muted-foreground text-xs mt-1">
                 Lowercase letters, numbers, and hyphens only
               </p>
             </div>
 
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="description" className="block text-sm font-medium mb-1">
                 Description
               </label>
               <textarea
@@ -158,7 +158,7 @@ export default function CreateOrganizationPage() {
                 value={formData.description}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 placeholder="Brief description of the organization"
               />
             </div>
@@ -167,10 +167,10 @@ export default function CreateOrganizationPage() {
 
         {/* Contact Information */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+          <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="contactEmail" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="contactEmail" className="block text-sm font-medium mb-1">
                 Contact Email
               </label>
               <input
@@ -179,18 +179,18 @@ export default function CreateOrganizationPage() {
                 name="contactEmail"
                 value={formData.contactEmail}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                  errors.contactEmail ? "border-red-300" : "border-gray-300"
+                className={`w-full px-3 py-2 bg-background border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                  errors.contactEmail ? "border-red-300 dark:border-red-800" : "border-border"
                 }`}
                 placeholder="contact@organization.com"
               />
               {errors.contactEmail && (
-                <p className="text-red-600 text-sm mt-1">{errors.contactEmail}</p>
+                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.contactEmail}</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="contactPhone" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="contactPhone" className="block text-sm font-medium mb-1">
                 Contact Phone
               </label>
               <input
@@ -199,13 +199,13 @@ export default function CreateOrganizationPage() {
                 name="contactPhone"
                 value={formData.contactPhone}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 placeholder="+1 (403) 123-4567"
               />
             </div>
 
             <div>
-              <label htmlFor="website" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="website" className="block text-sm font-medium mb-1">
                 Website
               </label>
               <input
@@ -214,13 +214,13 @@ export default function CreateOrganizationPage() {
                 name="website"
                 value={formData.website}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 placeholder="https://www.organization.com"
               />
             </div>
 
             <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="address" className="block text-sm font-medium mb-1">
                 Address
               </label>
               <input
@@ -229,7 +229,7 @@ export default function CreateOrganizationPage() {
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 placeholder="123 Main St, City, Province"
               />
             </div>
@@ -237,11 +237,11 @@ export default function CreateOrganizationPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end space-x-3 pt-4 border-t">
+        <div className="flex items-center justify-end space-x-3 pt-4 border-t border-border">
           <button
             type="button"
             onClick={() => router.back()}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors"
             disabled={isSubmitting}
           >
             Cancel
@@ -249,7 +249,7 @@ export default function CreateOrganizationPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Creating..." : "Create Organization"}
           </button>

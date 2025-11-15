@@ -24,7 +24,7 @@ export default function SuperAdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">SuperAdmin Overview</h2>
+        <h2 className="text-2xl font-bold mb-2">Overview</h2>
         <p className="text-muted-foreground">
           Manage all organizations, users, and system-wide settings
         </p>
@@ -89,38 +89,46 @@ export default function SuperAdminPage() {
 
       {/* Quick Actions */}
       <div className="bg-card rounded-lg border p-6">
-        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+        <h3 className="text-lg font-semibold mb-6">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             href="/superadmin/organizations/create"
-            className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent hover:text-accent-foreground transition-colors"
+            className="group relative overflow-hidden rounded-lg border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-6 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all"
           >
-            <span className="text-2xl">➕</span>
-            <span className="font-medium">Create Organization</span>
+            <div className="flex flex-col items-center text-center space-y-3">
+              <div className="text-4xl mb-1">🏢</div>
+              <span className="font-semibold text-sm text-foreground">Create<br/>Organization</span>
+            </div>
           </Link>
 
           <Link
             href="/superadmin/accounts/create"
-            className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent hover:text-accent-foreground transition-colors"
+            className="group relative overflow-hidden rounded-lg border-2 border-border bg-card p-6 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all"
           >
-            <span className="text-2xl">👤</span>
-            <span className="font-medium">Create User Account</span>
+            <div className="flex flex-col items-center text-center space-y-3">
+              <div className="text-4xl mb-1">👤</div>
+              <span className="font-semibold text-sm text-foreground">Create User<br/>Account</span>
+            </div>
           </Link>
 
           <Link
             href="/superadmin/audit-logs"
-            className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent hover:text-accent-foreground transition-colors"
+            className="group relative overflow-hidden rounded-lg border-2 border-border bg-card p-6 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all"
           >
-            <span className="text-2xl">📋</span>
-            <span className="font-medium">View Audit Logs</span>
+            <div className="flex flex-col items-center text-center space-y-3">
+              <div className="text-4xl mb-1">📋</div>
+              <span className="font-semibold text-sm text-foreground">View Audit<br/>Logs</span>
+            </div>
           </Link>
 
           <Link
             href="/superadmin/system"
-            className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent hover:text-accent-foreground transition-colors"
+            className="group relative overflow-hidden rounded-lg border-2 border-border bg-card p-6 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all"
           >
-            <span className="text-2xl">⚙️</span>
-            <span className="font-medium">System Settings</span>
+            <div className="flex flex-col items-center text-center space-y-3">
+              <div className="text-4xl mb-1">⚙️</div>
+              <span className="font-semibold text-sm text-foreground">System<br/>Settings</span>
+            </div>
           </Link>
         </div>
       </div>

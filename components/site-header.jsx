@@ -152,9 +152,9 @@ export default function SiteHeader() {
       <header className="sticky top-0 z-40 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-2 sm:px-3 lg:px-5">
           {/* Logo */}
-          <div className="flex items-center gap-2 ml-[-16px]">
-            <img src="/images/logo.png" alt="SafeSpace Logo" className="h-10 w-10 " />
-            <span className="text-lg font-bold">
+          <div className="flex items-center gap-3">
+            <img src="/images/logo.png" alt="SafeSpace Logo" className="h-12 w-12" />
+            <span className="text-xl font-bold">
               <span className="text-emerald-600">Safe</span>
               <span className="text-foreground">Space</span>
             </span>

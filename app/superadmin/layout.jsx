@@ -16,6 +16,15 @@ export default function SuperAdminLayout({ children }) {
     user?.id ? { clerkId: user.id } : "skip"
   );
 
+  // Debug logging
+  console.log("SuperAdmin Layout Debug:", {
+    isLoaded,
+    userId: user?.id,
+    userEmail: user?.emailAddresses?.[0]?.emailAddress,
+    currentUser,
+    roleId: currentUser?.roleId,
+  });
+
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -28,8 +37,20 @@ export default function SuperAdminLayout({ children }) {
     redirect("/");
   }
 
+  // Show loading state while checking user role
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-emerald-600 border-r-transparent mb-4"></div>
+          <p className="text-muted-foreground">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Check if user is SuperAdmin
-  if (currentUser && currentUser.roleId !== "superadmin") {
+  if (currentUser.roleId !== "superadmin") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -45,20 +66,6 @@ export default function SuperAdminLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-2">
-              <span className="text-2xl">👑</span>
-              <h1 className="text-xl font-bold">SuperAdmin Portal</h1>
-            </div>
-            <div className="text-sm">
-              {user.firstName} {user.lastName}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Full-bleed grid so the sidebar hugs the left edge */}
       <div className="grid grid-cols-1 md:grid-cols-[260px_minmax(0,1fr)] gap-0">
         <aside className="hidden md:block md:sticky md:top-16 self-start h-[calc(100vh-64px)] overflow-y-auto p-4 border-r bg-background">

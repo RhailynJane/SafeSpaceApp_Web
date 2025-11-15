@@ -14,7 +14,7 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   if (isDashboardRoute(req)) {
-    const { userId } = auth();
+    const { userId } = await auth();
     if (!userId) {
       // If no userId, protect the route and let Clerk handle unauthenticated users
       await auth.protect();
@@ -32,7 +32,7 @@ export default clerkMiddleware(async (auth, req) => {
       console.error("Failed to fetch user data from Clerk in middleware for dashboard route.");
       // Fallback to sessionClaims if direct fetch fails, or redirect to error page
       const { sessionClaims } = await auth();
-      const role = sessionClaims?.publicMetadata?.role;
+      const role = (sessionClaims as any)?.publicMetadata?.role;
       if (role === 'admin') {
         const adminUrl = new URL('/admin/overview', req.url);
         return NextResponse.redirect(adminUrl);
@@ -42,7 +42,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     const clerkUser = await clerkUserResponse.json();
-    const role = clerkUser.public_metadata?.role;
+    const role = (clerkUser as any).public_metadata?.role;
 
     if (role === 'admin') {
       const adminUrl = new URL('/admin/overview', req.url);
@@ -78,7 +78,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     const clerkUser = await clerkUserResponse.json();
-    const role = clerkUser.public_metadata?.role;
+    const role = (clerkUser as any).public_metadata?.role;
     console.log('isAdminRoute: role from Clerk metadata', role);
     
     if (role !== 'admin' && role !== 'superadmin') {

@@ -1,176 +1,271 @@
 "use client";
 
-import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
-export default function SystemSettingsPage() {
-  const [settings, setSettings] = useState({
-    siteName: "SafeSpace",
-    maintenanceMode: false,
-    allowRegistration: true,
-    sessionTimeout: 60,
-    maxFileUploadSize: 10,
-  });
+export default function SystemHealthPage() {
+  const healthStatus = useQuery(api.systemHealth.getHealthStatus);
+  const dbStats = useQuery(api.systemHealth.getDatabaseStats);
+  const recentErrors = useQuery(api.systemHealth.getRecentErrors);
+  const performanceMetrics = useQuery(api.systemHealth.getPerformanceMetrics);
+  const orgMetrics = useQuery(api.systemHealth.getOrganizationMetrics);
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    alert("System settings saved (mock functionality)");
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "healthy":
+      case "excellent":
+      case "active":
+        return "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30";
+      case "good":
+      case "degraded":
+        return "text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30";
+      case "slow":
+      case "unhealthy":
+        return "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30";
+      default:
+        return "text-muted-foreground bg-muted";
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">System Settings</h2>
-        <p className="text-gray-600">Configure system-wide settings and preferences</p>
+        <h2 className="text-2xl font-bold">System Health</h2>
+        <p className="text-muted-foreground">Monitor database status, API performance, and system metrics</p>
       </div>
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* General Settings */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">General Settings</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Site Name
-              </label>
-              <input
-                type="text"
-                value={settings.siteName}
-                onChange={(e) => setSettings({ ...settings, siteName: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Maintenance Mode
-                </label>
-                <p className="text-xs text-gray-500">
-                  Temporarily disable access to the system
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSettings({ ...settings, maintenanceMode: !settings.maintenanceMode })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.maintenanceMode ? "bg-indigo-600" : "bg-gray-200"
+      {/* Overall Health Status */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-card border rounded-lg p-6">
+          <div className="text-sm text-muted-foreground mb-2">System Status</div>
+          {healthStatus ? (
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-3 h-3 rounded-full ${
+                  healthStatus.status === "healthy"
+                    ? "bg-emerald-500"
+                    : healthStatus.status === "degraded"
+                    ? "bg-yellow-500"
+                    : "bg-red-500"
                 }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.maintenanceMode ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Allow User Registration
-                </label>
-                <p className="text-xs text-gray-500">
-                  Allow new users to register accounts
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSettings({ ...settings, allowRegistration: !settings.allowRegistration })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  settings.allowRegistration ? "bg-indigo-600" : "bg-gray-200"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    settings.allowRegistration ? "translate-x-6" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Security Settings */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Session Timeout (minutes)
-              </label>
-              <input
-                type="number"
-                min="5"
-                max="1440"
-                value={settings.sessionTimeout}
-                onChange={(e) => setSettings({ ...settings, sessionTimeout: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Users will be logged out after this period of inactivity
-              </p>
+              <span className="text-2xl font-bold capitalize">{healthStatus.status}</span>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Max File Upload Size (MB)
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={settings.maxFileUploadSize}
-                onChange={(e) => setSettings({ ...settings, maxFileUploadSize: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
+          ) : (
+            <div className="h-8 animate-pulse bg-muted rounded" />
+          )}
         </div>
 
-        {/* Database Settings */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Database Settings</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600">Deployment</div>
-                <div className="text-lg font-semibold text-gray-900 mt-1">
-                  dev:courteous-llama-777
-                </div>
+        <div className="bg-card border rounded-lg p-6">
+          <div className="text-sm text-muted-foreground mb-2">Database Status</div>
+          {healthStatus ? (
+            <>
+              <div className="text-2xl font-bold capitalize mb-1">
+                {healthStatus.database.status}
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600">Status</div>
-                <div className="text-lg font-semibold text-green-600 mt-1">
-                  Connected
-                </div>
+              <div className="text-xs text-muted-foreground">
+                Latency: {healthStatus.database.latency}ms
+              </div>
+            </>
+          ) : (
+            <div className="h-8 animate-pulse bg-muted rounded" />
+          )}
+        </div>
+
+        <div className="bg-card border rounded-lg p-6">
+          <div className="text-sm text-muted-foreground mb-2">Total Records</div>
+          {dbStats ? (
+            <div className="text-2xl font-bold">{dbStats.totalRecords.toLocaleString()}</div>
+          ) : (
+            <div className="h-8 animate-pulse bg-muted rounded" />
+          )}
+        </div>
+      </div>
+
+      {/* Database Statistics */}
+      <div className="bg-card border rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Database Statistics</h3>
+        {dbStats ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {Object.entries(dbStats.tables).map(([table, count]) => (
+              <div key={table} className="bg-muted/50 rounded-lg p-4">
+                <div className="text-xs text-muted-foreground capitalize mb-1">{table}</div>
+                <div className="text-xl font-bold">{count.toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="h-24 animate-pulse bg-muted rounded" />
+        )}
+        {dbStats && (
+          <div className="mt-4 text-xs text-muted-foreground">
+            Query time: {dbStats.queryTime}ms • Last updated: {new Date(dbStats.timestamp).toLocaleString()}
+          </div>
+        )}
+      </div>
+
+      {/* Performance Metrics */}
+      <div className="bg-card border rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Query Performance</h3>
+        {performanceMetrics ? (
+          <>
+            <div className="mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Average Query Time:</span>
+                <span className="font-semibold">{performanceMetrics.averageQueryTime.toFixed(2)}ms</span>
+                <span
+                  className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                    performanceMetrics.status
+                  )}`}
+                >
+                  {performanceMetrics.status}
+                </span>
               </div>
             </div>
-          </div>
-        </div>
+            <div className="space-y-2">
+              {performanceMetrics.metrics.map((metric) => (
+                <div key={metric.query} className="flex items-center justify-between py-2 border-b border-border">
+                  <span className="text-sm font-mono">{metric.query}</span>
+                  <span className="text-sm font-semibold">{metric.duration}ms</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="h-32 animate-pulse bg-muted rounded" />
+        )}
+      </div>
 
-        {/* Save Button */}
-        <div className="flex items-center justify-end space-x-4">
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            Save Settings
-          </button>
-        </div>
-      </form>
+      {/* Organization Metrics */}
+      <div className="bg-card border rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Organization Metrics</h3>
+        {orgMetrics ? (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="bg-muted/50 rounded-lg p-4">
+                <div className="text-sm text-muted-foreground">Total Organizations</div>
+                <div className="text-2xl font-bold mt-1">{orgMetrics.totalOrganizations}</div>
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4">
+                <div className="text-sm text-muted-foreground">Active Organizations</div>
+                <div className="text-2xl font-bold mt-1">{orgMetrics.activeOrganizations}</div>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-border">
+                <thead>
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                      Organization
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                      Total Users
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                      Active Users
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                      Recent Activity
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {orgMetrics.organizations.map((org) => (
+                    <tr key={org.orgId}>
+                      <td className="px-4 py-3 text-sm font-medium">{org.orgName}</td>
+                      <td className="px-4 py-3 text-sm">{org.totalUsers}</td>
+                      <td className="px-4 py-3 text-sm">{org.activeUsers}</td>
+                      <td className="px-4 py-3 text-sm">{org.recentActivityCount}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(org.status)}`}>
+                          {org.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : (
+          <div className="h-64 animate-pulse bg-muted rounded" />
+        )}
+      </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
-          <strong>Note:</strong> System settings functionality is currently a placeholder.
-          Full implementation requires backend persistence in Convex.
-        </p>
+      {/* Recent Errors */}
+      <div className="bg-card border rounded-lg p-6">
+        <h3 className="text-lg font-semibold mb-4">Recent Errors</h3>
+        {recentErrors ? (
+          <>
+            <div className="mb-4">
+              <span className="text-sm text-muted-foreground">
+                Total errors in last 1000 logs:{" "}
+                <span className="font-semibold">{recentErrors.totalErrors}</span>
+              </span>
+            </div>
+            {recentErrors.recentErrors.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Timestamp
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                        User
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Action
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Details
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {recentErrors.recentErrors.map((error) => (
+                      <tr key={error._id}>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">
+                          {new Date(error.timestamp).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-sm">{error.userName}</td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
+                            {error.action}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">
+                          {error.details ? (
+                            <details className="cursor-pointer">
+                              <summary className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300">
+                                View
+                              </summary>
+                              <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-w-md">
+                                {error.details}
+                              </pre>
+                            </details>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <span className="text-4xl mb-2 block">✅</span>
+                <p className="text-muted-foreground">No errors found</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="h-48 animate-pulse bg-muted rounded" />
+        )}
       </div>
     </div>
   );

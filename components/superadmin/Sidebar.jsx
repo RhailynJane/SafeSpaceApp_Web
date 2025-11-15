@@ -16,8 +16,7 @@ export default function SuperAdminSidebar() {
   const pathname = usePathname();
   return (
     <aside className="rounded-lg border bg-background">
-      <div className="p-3 text-xs font-semibold text-muted-foreground">Navigation</div>
-      <nav className="px-2 pb-3">
+      <nav className="p-2">
         {items.map(({ label, href }) => {
           const isActive = pathname === href || pathname.startsWith(href + "/");
           return (

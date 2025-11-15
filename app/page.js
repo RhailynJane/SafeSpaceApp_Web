@@ -72,6 +72,8 @@ export default function SafespacePlatform() {
 
       if (role === "admin") {
         router.push("/admin/overview");
+      } else if (role === "super_admin" || role === "superadmin") {
+        router.push("/superadmin");
       } else if (role === "team_leader" || role === "support_worker") {
         router.push("/interactive");
       } else if (role) { // If a role exists but is not recognized (e.g., a new role type)
