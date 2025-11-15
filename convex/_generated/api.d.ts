@@ -10,7 +10,9 @@
 
 import type * as appointments from "../appointments.js";
 import type * as auth from "../auth.js";
+import type * as helpers from "../helpers.js";
 import type * as organizations from "../organizations.js";
+import type * as reports from "../reports.js";
 import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
@@ -24,7 +26,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   appointments: typeof appointments;
   auth: typeof auth;
+  helpers: typeof helpers;
   organizations: typeof organizations;
+  reports: typeof reports;
   roles: typeof roles;
   seed: typeof seed;
   users: typeof users;

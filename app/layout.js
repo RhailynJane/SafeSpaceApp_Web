@@ -4,6 +4,7 @@ import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import SiteHeader from "@/components/site-header";
 import { ConvexClientProvider } from "@/lib/convex-provider";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,15 +24,22 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} suppressHydrationWarning>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(()=>{try{const k='safespace_theme';const s=localStorage.getItem(k);const d=s? s==='dark' : window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;const el=document.documentElement;d?el.classList.add('dark'):el.classList.remove('dark');}catch(e){}})();`,
+          }}
+        />
         <ClerkProvider
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
           signInUrl="/"
           signUpUrl="/"
         >
           <ConvexClientProvider>
-            <SiteHeader />
-            {children}
+            <ThemeProvider>
+              <SiteHeader />
+              {children}
+            </ThemeProvider>
           </ConvexClientProvider>
         </ClerkProvider>
       </body>

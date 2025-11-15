@@ -17,6 +17,9 @@ export default function AccountsPage() {
     user?.id ? { clerkId: user.id } : "skip"
   );
 
+  // Filter out safespace organization (hidden system org)
+  const visibleOrganizations = organizations?.filter(org => org.slug !== "safespace") || [];
+
   const roles = useQuery(api.roles.list);
 
   const users = useQuery(
@@ -59,7 +62,7 @@ export default function AccountsPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="all">All Organizations</option>
-              {organizations?.map((org) => (
+              {visibleOrganizations.map((org) => (
                 <option key={org._id} value={org.slug}>
                   {org.name}
                 </option>
@@ -133,7 +136,7 @@ export default function AccountsPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {users?.map((u) => {
-                const org = organizations?.find((o) => o.slug === u.orgId);
+                const org = visibleOrganizations.find((o) => o.slug === u.orgId);
                 const role = roles?.find((r) => r.slug === u.roleId);
 
                 return (

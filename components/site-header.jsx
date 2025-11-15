@@ -7,7 +7,8 @@ import { useClerk, useAuth, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User } from "lucide-react";
+import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import Sendbird from 'sendbird';
 
 function getInitials(name) {
@@ -29,6 +30,7 @@ export default function SiteHeader() {
   const clerk = useClerk();
   const [notifications, setNotifications] = useState([]);
   const [profileData, setProfileData] = useState(null);
+  const { isDark, toggleDarkMode } = useTheme();
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -147,14 +149,14 @@ export default function SiteHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <header className="sticky top-0 z-40 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-2 sm:px-3 lg:px-5">
           {/* Logo */}
           <div className="flex items-center gap-2 ml-[-16px]">
             <img src="/images/logo.png" alt="SafeSpace Logo" className="h-10 w-10 " />
             <span className="text-lg font-bold">
-              <span className="text-teal-600">Safe</span>
-              <span className="text-gray-900">Space</span>
+              <span className="text-emerald-600">Safe</span>
+              <span className="text-foreground">Space</span>
             </span>
             <span className="sr-only">
               SafeSpace - Mental Health Support Platform
@@ -163,6 +165,17 @@ export default function SiteHeader() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            {/* Theme toggle always visible */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              aria-label="Toggle theme"
+              onClick={toggleDarkMode}
+              title={isDark ? "Switch to light" : "Switch to dark"}
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
             {isAuthenticated ? (
               <>
                 {/* Notification Bell */}
@@ -242,8 +255,8 @@ export default function SiteHeader() {
                   key={notification.id}
                   className={`p-3 rounded-lg border ${
                     !notification.is_read 
-                      ? 'bg-blue-50 border-blue-200' 
-                      : 'bg-gray-50 border-gray-200'
+                      ? 'bg-accent/30 border-border' 
+                      : 'bg-card border-border'
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -252,17 +265,17 @@ export default function SiteHeader() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium">
                           New Referral
                         </p>
                         {!notification.is_read && (
-                          <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
+                          <div className="h-2 w-2 bg-primary rounded-full"></div>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">
+                      <p className="text-sm text-muted-foreground mb-1">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-muted-foreground">
                         {new Date(notification.created_at).toLocaleDateString()}
                       </p>
                     </div>
@@ -272,7 +285,7 @@ export default function SiteHeader() {
             </div>
             
             {notifications.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <Bell className="mx-auto h-12 w-12 mb-4 opacity-50" />
                 <p className="text-sm">No notifications</p>
               </div>

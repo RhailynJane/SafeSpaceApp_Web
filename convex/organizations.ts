@@ -18,7 +18,9 @@ export const list = query({
     await requireSuperAdmin(ctx, clerkId);
 
     const organizations = await ctx.db.query("organizations").collect();
-    return organizations.sort((a, b) => b.createdAt - a.createdAt);
+    // Hide internal 'safespace' org from all listings
+    const visible = organizations.filter((o) => o.slug !== "safespace");
+    return visible.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -276,8 +278,11 @@ export const listPublic = query({
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .collect();
 
+    // Hide internal 'safespace' org from public list
+    const visible = organizations.filter((o) => o.slug !== "safespace");
+
     // Return only basic public information
-    return organizations.map((org) => ({
+    return visible.map((org) => ({
       _id: org._id,
       name: org.name,
       slug: org.slug,

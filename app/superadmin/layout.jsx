@@ -5,11 +5,10 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import SuperAdminSidebar from "@/components/superadmin/Sidebar";
 
 export default function SuperAdminLayout({ children }) {
   const { user, isLoaded } = useUser();
-  const pathname = usePathname();
 
   // Get current user's role from Convex
   const currentUser = useQuery(
@@ -44,17 +43,9 @@ export default function SuperAdminLayout({ children }) {
     );
   }
 
-  const navItems = [
-    { href: "/superadmin", label: "Overview", exact: true },
-    { href: "/superadmin/organizations", label: "Organizations" },
-    { href: "/superadmin/accounts", label: "Account Management" },
-    { href: "/superadmin/audit-logs", label: "Audit Logs" },
-    { href: "/superadmin/system", label: "System Health" },
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg">
+    <div className="min-h-screen bg-background">
+      <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-2">
@@ -68,32 +59,16 @@ export default function SuperAdminLayout({ children }) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <nav className="bg-white rounded-lg shadow-sm mb-6">
-          <div className="flex space-x-1 p-2">
-            {navItems.map((item) => {
-              const isActive = item.exact
-                ? pathname === item.href
-                : pathname.startsWith(item.href);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-indigo-100 text-indigo-700"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+      {/* Full-bleed grid so the sidebar hugs the left edge */}
+      <div className="grid grid-cols-1 md:grid-cols-[260px_minmax(0,1fr)] gap-0">
+        <aside className="hidden md:block md:sticky md:top-16 self-start h-[calc(100vh-64px)] overflow-y-auto p-4 border-r bg-background">
+          <SuperAdminSidebar />
+        </aside>
+        <main className="min-w-0">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {children}
           </div>
-        </nav>
-
-        <main>{children}</main>
+        </main>
       </div>
     </div>
   );

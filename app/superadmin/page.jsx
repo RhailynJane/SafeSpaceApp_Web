@@ -17,66 +17,70 @@ export default function SuperAdminPage() {
     user?.id ? { clerkId: user.id } : "skip"
   );
 
+  // Filter out safespace organization (hidden system org)
+  const visibleOrganizations = organizations?.filter((org) => org.slug !== "safespace") || [];
+  const visibleUsers = allUsers?.filter((u) => u.orgId !== "safespace") || [];
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">SuperAdmin Overview</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl font-bold mb-2">SuperAdmin Overview</h2>
+        <p className="text-muted-foreground">
           Manage all organizations, users, and system-wide settings
         </p>
       </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-card rounded-lg border p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Organizations</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {organizations?.length || 0}
+              <p className="text-sm font-medium text-muted-foreground">Total Organizations</p>
+              <p className="text-3xl font-bold mt-2">
+                {visibleOrganizations.length}
               </p>
             </div>
-            <div className="bg-blue-100 rounded-full p-3">
+            <div className="bg-emerald-50 rounded-full p-3 dark:bg-emerald-900/20">
               <span className="text-2xl">🏢</span>
             </div>
           </div>
           <Link
             href="/superadmin/organizations"
-            className="text-blue-600 text-sm font-medium hover:underline mt-4 inline-block"
+            className="text-emerald-700 dark:text-emerald-300 text-sm font-medium hover:underline mt-4 inline-block"
           >
             Manage Organizations →
           </Link>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-card rounded-lg border p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Users</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {allUsers?.length || 0}
+              <p className="text-sm font-medium text-muted-foreground">Total Users</p>
+              <p className="text-3xl font-bold mt-2">
+                {visibleUsers.length}
               </p>
             </div>
-            <div className="bg-green-100 rounded-full p-3">
+            <div className="bg-emerald-50 rounded-full p-3 dark:bg-emerald-900/20">
               <span className="text-2xl">👥</span>
             </div>
           </div>
           <Link
             href="/superadmin/accounts"
-            className="text-green-600 text-sm font-medium hover:underline mt-4 inline-block"
+            className="text-emerald-700 dark:text-emerald-300 text-sm font-medium hover:underline mt-4 inline-block"
           >
             Manage Accounts →
           </Link>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-card rounded-lg border p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Active Organizations</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
-                {organizations?.filter((org) => org.status === "active").length || 0}
+              <p className="text-sm font-medium text-muted-foreground">Active Organizations</p>
+              <p className="text-3xl font-bold mt-2">
+                {visibleOrganizations.filter((org) => org.status === "active").length}
               </p>
             </div>
-            <div className="bg-purple-100 rounded-full p-3">
+            <div className="bg-emerald-50 rounded-full p-3 dark:bg-emerald-900/20">
               <span className="text-2xl">✅</span>
             </div>
           </div>
@@ -84,79 +88,79 @@ export default function SuperAdminPage() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+      <div className="bg-card rounded-lg border p-6">
+        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             href="/superadmin/organizations/create"
-            className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+            className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             <span className="text-2xl">➕</span>
-            <span className="font-medium text-blue-900">Create Organization</span>
+            <span className="font-medium">Create Organization</span>
           </Link>
 
           <Link
             href="/superadmin/accounts/create"
-            className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+            className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             <span className="text-2xl">👤</span>
-            <span className="font-medium text-green-900">Create User Account</span>
+            <span className="font-medium">Create User Account</span>
           </Link>
 
           <Link
             href="/superadmin/audit-logs"
-            className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+            className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             <span className="text-2xl">📋</span>
-            <span className="font-medium text-purple-900">View Audit Logs</span>
+            <span className="font-medium">View Audit Logs</span>
           </Link>
 
           <Link
             href="/superadmin/system"
-            className="flex items-center space-x-3 p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
+            className="flex items-center space-x-3 p-4 rounded-lg border hover:bg-accent hover:text-accent-foreground transition-colors"
           >
             <span className="text-2xl">⚙️</span>
-            <span className="font-medium text-orange-900">System Settings</span>
+            <span className="font-medium">System Settings</span>
           </Link>
         </div>
       </div>
 
       {/* Recent Organizations */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Organizations</h3>
+      <div className="bg-card rounded-lg border p-6">
+        <h3 className="text-lg font-semibold mb-4">Organizations</h3>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-border">
             <thead>
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Organization
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Slug
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Users
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {organizations?.slice(0, 5).map((org) => {
-                const orgUsers = allUsers?.filter((u) => u.orgId === org.slug) || [];
+            <tbody className="divide-y divide-border">
+              {visibleOrganizations.slice(0, 5).map((org) => {
+                const orgUsers = visibleUsers.filter((u) => u.orgId === org.slug);
                 return (
                   <tr key={org._id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{org.name}</div>
+                      <div className="font-medium">{org.name}</div>
                       {org.description && (
-                        <div className="text-sm text-gray-500">{org.description}</div>
+                        <div className="text-sm text-muted-foreground">{org.description}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                       {org.slug}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -170,13 +174,13 @@ export default function SuperAdminPage() {
                         {org.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                       {orgUsers.length}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <Link
                         href={`/superadmin/organizations/${org.slug}`}
-                        className="text-indigo-600 hover:text-indigo-900"
+                        className="text-emerald-700 hover:underline dark:text-emerald-300"
                       >
                         Manage
                       </Link>
@@ -187,11 +191,11 @@ export default function SuperAdminPage() {
             </tbody>
           </table>
         </div>
-        {organizations && organizations.length > 5 && (
+        {visibleOrganizations.length > 5 && (
           <div className="mt-4 text-center">
             <Link
               href="/superadmin/organizations"
-              className="text-indigo-600 hover:underline text-sm font-medium"
+              className="text-emerald-700 hover:underline text-sm font-medium dark:text-emerald-300"
             >
               View all organizations →
             </Link>

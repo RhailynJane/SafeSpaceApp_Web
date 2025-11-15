@@ -172,6 +172,13 @@ export const seedInitialData = mutation({
     console.log("🏢 Creating organizations...");
     
     const organizations = [
+            {
+              name: "SafeSpace",
+              slug: "safespace",
+              description: "SafeSpace Development Team - System Organization (Hidden)",
+              contactEmail: "safespace.dev.app@gmail.com",
+              status: "active" as const,
+            },
       {
         name: "CMHA Calgary",
         slug: "cmha-calgary",
@@ -233,6 +240,7 @@ export const seedInitialData = mutation({
         firstName: args.superadminFirstName,
         lastName: args.superadminLastName,
         roleId: "superadmin",
+          orgId: "safespace",
         status: "active",
         createdAt: Date.now(),
         updatedAt: Date.now(),
