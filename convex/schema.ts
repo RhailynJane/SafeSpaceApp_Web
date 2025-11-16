@@ -310,6 +310,25 @@ export default defineSchema({
 		.index("by_createdAt", ["createdAt"]),
 
 	// ============================================
+	// METRICS BUCKETS (per-minute snapshots)
+	// ============================================
+
+	metricsBuckets: defineTable({
+		orgId: v.string(),
+		minute: v.number(), // epoch ms floored to minute
+		users: v.number(),
+		sessions: v.number(),
+		dbOk: v.boolean(),
+		authOk: v.boolean(),
+		apiMs: v.number(),
+		alerts: v.number(),
+		uptime: v.number(), // percentage 0..100
+		createdAt: v.number(),
+	})
+		.index("by_org_minute", ["orgId", "minute"]) 
+		.index("by_minute", ["minute"]),
+
+	// ============================================
 	// MESSAGING (from mobile schema)
 	// ============================================
 	
