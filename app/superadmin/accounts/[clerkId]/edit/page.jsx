@@ -36,6 +36,37 @@ export default function AccountEditPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // Validation helpers
+  const validatePhone = (phone) => {
+    if (!phone) return "";
+    const trimmed = phone.trim();
+    if (!trimmed) return "";
+    const regex = /^[\d\s()+-]+$/;
+    if (!regex.test(trimmed)) return "Invalid phone number (digits, spaces, +, -, ( ) only)";
+    if (trimmed.length > 20) return "Phone number too long (max 20 characters)";
+    return "";
+  };
+
+  const validateEmail = (email) => {
+    if (!email) return "Email is required";
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!regex.test(email)) return "Invalid email format";
+    if (email.length > 255) return "Email too long (max 255 characters)";
+    return "";
+  };
+
+  const validateName = (name, fieldName) => {
+    if (!name || name.trim() === "") return `${fieldName} is required`;
+    if (name.length > 100) return `${fieldName} too long (max 100 characters)`;
+    return "";
+  };
+
+  const validateRequired = (value, fieldName) => {
+    if (!value || value.trim() === "") return `${fieldName} is required`;
+    return "";
+  };
 
   if (!clerkId) return null;
 
@@ -63,17 +94,92 @@ export default function AccountEditPage() {
     }
   }, [target]);
 
-  const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const onChange = (e) => {
+    const { name, value } = e.target;
+    setForm((f) => ({ ...f, [name]: value }));
+    // Clear error for this field
+    setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handleFieldBlur = (field) => {
+    let error = "";
+    const value = form[field];
+
+    switch (field) {
+      case "email":
+        error = validateEmail(value);
+        break;
+      case "firstName":
+        error = validateName(value, "First name");
+        break;
+      case "lastName":
+        error = validateName(value, "Last name");
+        break;
+      case "roleId":
+        error = validateRequired(value, "Role");
+        break;
+      case "orgId":
+        error = validateRequired(value, "Organization");
+        break;
+      case "phoneNumber":
+      case "emergencyContactPhone":
+        error = validatePhone(value);
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldErrors((prev) => ({ ...prev, [field]: error }));
+    }
+  };
 
   const onSave = async () => {
     if (!me || !clerkId) return;
+
+    // Validate all fields before saving
+    const errors = {};
+    errors.firstName = validateName(form.firstName, "First name");
+    errors.lastName = validateName(form.lastName, "Last name");
+    errors.email = validateEmail(form.email);
+    errors.roleId = validateRequired(form.roleId, "Role");
+    errors.orgId = validateRequired(form.orgId, "Organization");
+    if (form.phoneNumber) errors.phoneNumber = validatePhone(form.phoneNumber);
+    if (form.emergencyContactPhone) errors.emergencyContactPhone = validatePhone(form.emergencyContactPhone);
+
+    const nonEmptyErrors = Object.fromEntries(
+      Object.entries(errors).filter(([_, v]) => v !== "")
+    );
+
+    if (Object.keys(nonEmptyErrors).length > 0) {
+      setFieldErrors(nonEmptyErrors);
+      setErrorMsg("Please fix validation errors before saving");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setSaving(true);
+    setErrorMsg("");
+
     try {
-      await updateUser({ clerkId: me, targetClerkId: clerkId, ...form });
+      // Sanitize data before sending
+      const sanitizedForm = {
+        ...form,
+        firstName: form.firstName?.trim(),
+        lastName: form.lastName?.trim(),
+        email: form.email?.trim(),
+        phoneNumber: form.phoneNumber?.trim() || undefined,
+        emergencyContactPhone: form.emergencyContactPhone?.trim() || undefined,
+        address: form.address?.trim(),
+        emergencyContactName: form.emergencyContactName?.trim(),
+        profileImageUrl: form.profileImageUrl?.trim(),
+      };
+
+      await updateUser({ clerkId: me, targetClerkId: clerkId, ...sanitizedForm });
       setShowSuccess(true);
     } catch (e) {
-      console.error("Failed to update user", e);
-      setErrorMsg(e?.message || "Failed to save account");
+      const errMsg = e?.message || "Failed to save account";
+      setErrorMsg(errMsg);
     } finally {
       setSaving(false);
     }
@@ -111,17 +217,41 @@ export default function AccountEditPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="firstName">First Name</Label>
-              <Input id="firstName" name="firstName" value={form.firstName} onChange={onChange} />
+              <Input 
+                id="firstName" 
+                name="firstName" 
+                value={form.firstName} 
+                onChange={onChange}
+                onBlur={() => handleFieldBlur("firstName")}
+                className={fieldErrors.firstName ? "border-red-500" : ""}
+              />
+              {fieldErrors.firstName && <p className="text-red-500 text-xs mt-1">{fieldErrors.firstName}</p>}
             </div>
             <div>
               <Label htmlFor="lastName">Last Name</Label>
-              <Input id="lastName" name="lastName" value={form.lastName} onChange={onChange} />
+              <Input 
+                id="lastName" 
+                name="lastName" 
+                value={form.lastName} 
+                onChange={onChange}
+                onBlur={() => handleFieldBlur("lastName")}
+                className={fieldErrors.lastName ? "border-red-500" : ""}
+              />
+              {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1">{fieldErrors.lastName}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" value={form.email} onChange={onChange} />
+              <Input 
+                id="email" 
+                name="email" 
+                value={form.email} 
+                onChange={onChange}
+                onBlur={() => handleFieldBlur("email")}
+                className={fieldErrors.email ? "border-red-500" : ""}
+              />
+              {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>}
             </div>
             <div>
               <Label htmlFor="roleId">Role</Label>
@@ -159,7 +289,15 @@ export default function AccountEditPage() {
             </div>
             <div>
               <Label htmlFor="phoneNumber">Phone</Label>
-              <Input id="phoneNumber" name="phoneNumber" value={form.phoneNumber} onChange={onChange} />
+              <Input 
+                id="phoneNumber" 
+                name="phoneNumber" 
+                value={form.phoneNumber} 
+                onChange={onChange}
+                onBlur={() => handleFieldBlur("phoneNumber")}
+                className={fieldErrors.phoneNumber ? "border-red-500" : ""}
+              />
+              {fieldErrors.phoneNumber && <p className="text-red-500 text-xs mt-1">{fieldErrors.phoneNumber}</p>}
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -174,7 +312,15 @@ export default function AccountEditPage() {
           </div>
           <div>
             <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
-            <Input id="emergencyContactPhone" name="emergencyContactPhone" value={form.emergencyContactPhone} onChange={onChange} />
+            <Input 
+              id="emergencyContactPhone" 
+              name="emergencyContactPhone" 
+              value={form.emergencyContactPhone} 
+              onChange={onChange}
+              onBlur={() => handleFieldBlur("emergencyContactPhone")}
+              className={fieldErrors.emergencyContactPhone ? "border-red-500" : ""}
+            />
+            {fieldErrors.emergencyContactPhone && <p className="text-red-500 text-xs mt-1">{fieldErrors.emergencyContactPhone}</p>}
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" asChild>

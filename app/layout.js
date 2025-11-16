@@ -5,6 +5,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import SiteHeader from "@/components/site-header";
 import { ConvexClientProvider } from "@/lib/convex-provider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import LastLoginTracker from "@/components/LastLoginTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({ children }) {
         >
           <ConvexClientProvider>
             <ThemeProvider>
+              <LastLoginTracker />
               <SiteHeader />
               {children}
             </ThemeProvider>

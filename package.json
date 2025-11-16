@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backfill:passwords": "node scripts/backfillPasswordChangedAt.mjs"
   },
   "dependencies": {
     "@clerk/backend": "^2.16.0",

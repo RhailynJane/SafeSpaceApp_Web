@@ -72,6 +72,111 @@ export default function CreateAccountPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successInfo, setSuccessInfo] = useState(null); // { email, temporaryPassword }
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [copied, setCopied] = useState(false);
+
+  // Validation helpers
+  const validateEmail = (email) => {
+    if (!email) return "Email is required";
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!regex.test(email)) return "Invalid email format";
+    if (email.length > 255) return "Email too long (max 255 characters)";
+    return "";
+  };
+
+  const validatePhone = (phone) => {
+    if (!phone) return "";
+    const regex = /^[\d\s()+-]+$/;
+    if (!regex.test(phone)) return "Invalid phone number (digits, spaces, +, -, ( ) only)";
+    if (phone.length > 20) return "Phone number too long (max 20 characters)";
+    return "";
+  };
+
+  const validatePostalCode = (code) => {
+    if (!code) return "";
+    // Canadian postal code: A1A 1A1
+    const regex = /^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/;
+    if (!regex.test(code)) return "Invalid postal code format (e.g., A1A 1A1)";
+    return "";
+  };
+
+  const validateRequired = (value, fieldName) => {
+    if (!value || value.trim() === "") return `${fieldName} is required`;
+    return "";
+  };
+
+  const validateName = (name, fieldName) => {
+    if (!name || name.trim() === "") return `${fieldName} is required`;
+    if (name.length > 100) return `${fieldName} too long (max 100 characters)`;
+    return "";
+  };
+
+  const validateDate = (date, fieldName) => {
+    if (!date) return "";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return `Invalid ${fieldName}`;
+    if (fieldName === "Date of Birth" && d > new Date()) return "Date of birth cannot be in the future";
+    return "";
+  };
+
+  const handleFieldChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+    // Clear error for this field on change
+    setFieldErrors({ ...fieldErrors, [field]: "" });
+  };
+
+  const handleFieldBlur = (field) => {
+    let error = "";
+    const value = formData[field];
+
+    switch (field) {
+      case "email":
+        error = validateEmail(value);
+        break;
+      case "firstName":
+        error = validateName(value, "First name");
+        break;
+      case "lastName":
+        error = validateName(value, "Last name");
+        break;
+      case "roleId":
+        error = validateRequired(value, "Role");
+        break;
+      case "orgId":
+        error = validateRequired(value, "Organization");
+        break;
+      case "phoneNumber":
+      case "emergencyContactNumber":
+        error = validatePhone(value);
+        break;
+      case "postalCode":
+        error = validatePostalCode(value);
+        break;
+      case "dateOfBirth":
+        error = validateDate(value, "Date of Birth");
+        break;
+      case "dateCameToCanada":
+        error = validateDate(value, "Date Came to Canada");
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldErrors({ ...fieldErrors, [field]: error });
+    }
+  };
+
+  const copyPassword = async () => {
+    try {
+      await navigator.clipboard.writeText(successInfo.temporaryPassword || "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy password:", err);
+    }
+  };
 
   // Check if SuperAdmin role is selected
   const isSuperAdminRole = formData.roleId === "superadmin";
@@ -87,19 +192,56 @@ export default function CreateAccountPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validate all required fields
+    const errors = {};
+    errors.email = validateEmail(formData.email);
+    errors.firstName = validateName(formData.firstName, "First name");
+    errors.lastName = validateName(formData.lastName, "Last name");
+    errors.roleId = validateRequired(formData.roleId, "Role");
+    errors.orgId = validateRequired(formData.orgId, "Organization");
+    if (formData.phoneNumber) errors.phoneNumber = validatePhone(formData.phoneNumber);
+    if (formData.emergencyContactNumber) errors.emergencyContactNumber = validatePhone(formData.emergencyContactNumber);
+    if (formData.postalCode) errors.postalCode = validatePostalCode(formData.postalCode);
+    if (formData.dateOfBirth) errors.dateOfBirth = validateDate(formData.dateOfBirth, "Date of Birth");
+    if (formData.dateCameToCanada) errors.dateCameToCanada = validateDate(formData.dateCameToCanada, "Date Came to Canada");
+
+    // Filter out empty errors
+    const nonEmptyErrors = Object.fromEntries(
+      Object.entries(errors).filter(([_, v]) => v !== "")
+    );
+
+    if (Object.keys(nonEmptyErrors).length > 0) {
+      setFieldErrors(nonEmptyErrors);
+      setError("Please fix validation errors before submitting");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setError("");
     setLoading(true);
 
     try {
-      // In a real implementation, you would:
-      // 1. Create user in Clerk first
-      // 2. Get the Clerk user ID
-      // 3. Then create in Convex with that ID
-      
-      alert("Account creation requires Clerk integration. This is a placeholder.");
-      // router.push("/superadmin/accounts");
+      const response = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create account");
+      }
+
+      // Success! Show the temporary password once and email notice
+      setSuccessInfo({ email: formData.email, temporaryPassword: data.temporaryPassword });
     } catch (err) {
       setError(err.message || "Failed to create account");
+      // Scroll to top to show error
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setLoading(false);
     }
@@ -121,8 +263,9 @@ export default function CreateAccountPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-          {error}
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+          <p className="font-medium">Error Creating Account</p>
+          <p className="text-sm mt-1">{error}</p>
         </div>
       )}
 
@@ -140,9 +283,15 @@ export default function CreateAccountPage() {
                 type="text"
                 required
                 value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                onChange={(e) => handleFieldChange("firstName", e.target.value)}
+                onBlur={() => handleFieldBlur("firstName")}
+                className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                  fieldErrors.firstName ? "border-red-500" : "border-input"
+                }`}
               />
+              {fieldErrors.firstName && (
+                <p className="text-red-500 text-sm mt-1">{fieldErrors.firstName}</p>
+              )}
             </div>
 
             <div>
@@ -153,9 +302,15 @@ export default function CreateAccountPage() {
                 type="text"
                 required
                 value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                onChange={(e) => handleFieldChange("lastName", e.target.value)}
+                onBlur={() => handleFieldBlur("lastName")}
+                className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                  fieldErrors.lastName ? "border-red-500" : "border-input"
+                }`}
               />
+              {fieldErrors.lastName && (
+                <p className="text-red-500 text-sm mt-1">{fieldErrors.lastName}</p>
+              )}
             </div>
           </div>
 
@@ -167,9 +322,15 @@ export default function CreateAccountPage() {
               type="email"
               required
               value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              onChange={(e) => handleFieldChange("email", e.target.value)}
+              onBlur={() => handleFieldBlur("email")}
+              className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                fieldErrors.email ? "border-red-500" : "border-input"
+              }`}
             />
+            {fieldErrors.email && (
+              <p className="text-red-500 text-sm mt-1">{fieldErrors.email}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -180,8 +341,11 @@ export default function CreateAccountPage() {
               <select
                 required
                 value={formData.roleId}
-                onChange={(e) => setFormData({ ...formData, roleId: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                onChange={(e) => handleFieldChange("roleId", e.target.value)}
+                onBlur={() => handleFieldBlur("roleId")}
+                className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                  fieldErrors.roleId ? "border-red-500" : "border-input"
+                }`}
               >
                 <option value="">Select a role</option>
                 {roles?.map((role) => (
@@ -190,6 +354,9 @@ export default function CreateAccountPage() {
                   </option>
                 ))}
               </select>
+              {fieldErrors.roleId && (
+                <p className="text-red-500 text-sm mt-1">{fieldErrors.roleId}</p>
+              )}
             </div>
 
             <div>
@@ -199,8 +366,11 @@ export default function CreateAccountPage() {
               <select
                 required
                 value={formData.orgId}
-                onChange={(e) => setFormData({ ...formData, orgId: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                onChange={(e) => handleFieldChange("orgId", e.target.value)}
+                onBlur={() => handleFieldBlur("orgId")}
+                className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                  fieldErrors.orgId ? "border-red-500" : "border-input"
+                }`}
               >
                 <option value="">Select an organization</option>
                 {organizations?.map((org) => (
@@ -209,6 +379,9 @@ export default function CreateAccountPage() {
                   </option>
                 ))}
               </select>
+              {fieldErrors.orgId && (
+                <p className="text-red-500 text-sm mt-1">{fieldErrors.orgId}</p>
+              )}
             </div>
           </div>
 
@@ -219,10 +392,16 @@ export default function CreateAccountPage() {
             <input
               type="tel"
               value={formData.phoneNumber}
-              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              onChange={(e) => handleFieldChange("phoneNumber", e.target.value)}
+              onBlur={() => handleFieldBlur("phoneNumber")}
+              className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                fieldErrors.phoneNumber ? "border-red-500" : "border-input"
+              }`}
               placeholder="+1 (555) 123-4567"
             />
+            {fieldErrors.phoneNumber && (
+              <p className="text-red-500 text-sm mt-1">{fieldErrors.phoneNumber}</p>
+            )}
           </div>
         </div>
 
@@ -239,9 +418,15 @@ export default function CreateAccountPage() {
                   <input
                     type="date"
                     value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500"
+                    onChange={(e) => handleFieldChange("dateOfBirth", e.target.value)}
+                    onBlur={() => handleFieldBlur("dateOfBirth")}
+                    className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                      fieldErrors.dateOfBirth ? "border-red-500" : "border-input"
+                    }`}
                   />
+                  {fieldErrors.dateOfBirth && (
+                    <p className="text-red-500 text-sm mt-1">{fieldErrors.dateOfBirth}</p>
+                  )}
                 </div>
 
                 <div>
@@ -354,9 +539,15 @@ export default function CreateAccountPage() {
                     <input
                       type="date"
                       value={formData.dateCameToCanada}
-                      onChange={(e) => setFormData({ ...formData, dateCameToCanada: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500"
+                      onChange={(e) => handleFieldChange("dateCameToCanada", e.target.value)}
+                      onBlur={() => handleFieldBlur("dateCameToCanada")}
+                      className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                        fieldErrors.dateCameToCanada ? "border-red-500" : "border-input"
+                      }`}
                     />
+                    {fieldErrors.dateCameToCanada && (
+                      <p className="text-red-500 text-sm mt-1">{fieldErrors.dateCameToCanada}</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -392,10 +583,16 @@ export default function CreateAccountPage() {
                   <input
                     type="text"
                     value={formData.postalCode}
-                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                    onChange={(e) => handleFieldChange("postalCode", e.target.value)}
+                    onBlur={() => handleFieldBlur("postalCode")}
                     placeholder="A1A 1A1"
-                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500"
+                    className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-emerald-500 ${
+                      fieldErrors.postalCode ? "border-red-500" : "border-input"
+                    }`}
                   />
+                  {fieldErrors.postalCode && (
+                    <p className="text-red-500 text-sm mt-1">{fieldErrors.postalCode}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -431,9 +628,15 @@ export default function CreateAccountPage() {
                   <input
                     type="tel"
                     value={formData.emergencyContactNumber}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactNumber: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500"
+                    onChange={(e) => handleFieldChange("emergencyContactNumber", e.target.value)}
+                    onBlur={() => handleFieldBlur("emergencyContactNumber")}
+                    className={`w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:ring-2 focus:ring-emerald-500 ${
+                      fieldErrors.emergencyContactNumber ? "border-red-500" : "border-input"
+                    }`}
                   />
+                  {fieldErrors.emergencyContactNumber && (
+                    <p className="text-red-500 text-sm mt-1">{fieldErrors.emergencyContactNumber}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -484,19 +687,64 @@ export default function CreateAccountPage() {
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {loading ? "Creating..." : "Create Account"}
+            {loading && (
+              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            {loading ? "Creating Account..." : "Create Account"}
           </button>
         </div>
       </form>
 
-      <div className="bg-muted border rounded-lg p-4">
-        <p className="text-sm text-muted-foreground">
-          <strong>Note:</strong> Account creation requires Clerk webhook integration to sync users between Clerk and Convex.
-          This is a placeholder page for the UI flow.
-        </p>
-      </div>
+      {/* Success modal showing the temporary password once */}
+      {successInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg bg-card border rounded-lg p-6 space-y-4">
+            <h3 className="text-lg font-semibold">Account Created</h3>
+            <p className="text-sm text-muted-foreground">
+              A verification email has been sent to <span className="font-medium text-foreground">{successInfo.email}</span>.
+              Share the temporary password below with the user so they can sign in and will be asked to change it after verification.
+            </p>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium">Temporary Password (shown once)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={successInfo.temporaryPassword || ""}
+                  className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                />
+                <button
+                  type="button"
+                  onClick={copyPassword}
+                  className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                For security, this password is not stored and won’t be shown again.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSuccessInfo(null);
+                  router.push("/superadmin/accounts?created=true");
+                }}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
