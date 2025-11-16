@@ -9,6 +9,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { X, Server, Database, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -383,60 +384,6 @@ const DetailedMetricsModal = ({ onClose }) => {
 };
 
 
-const AuditLogModal = ({ onClose }) => {
-    const [auditLogs, setAuditLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        const fetchAuditLogs = async () => {
-            try {
-                setLoading(true);
-                const response = await fetch('/api/admin/audit-logs');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch audit logs');
-                }
-                const data = await response.json();
-                setAuditLogs(data);
-            } catch (error) {
-                setError(error.message);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchAuditLogs();
-    }, []);
-
-    return (
-        <Dialog open={true} onOpenChange={onClose}>
-            <DialogContent className="w-full max-w-3xl h-3/4 overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Full Audit Log</DialogTitle>
-                    <DialogDescription>
-                        {/* Optional: Add a description if needed */}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                    {loading && <p>Loading...</p>}
-                    {error && <p className="text-red-500">{error}</p>}
-                    {!loading && !error && auditLogs.map(log => (
-                        <div key={log.id} className="bg-card p-4 rounded-xl shadow-sm border border-border">
-                            <p className="font-semibold text-foreground">[{log.type === 'alert' ? 'ALERT' : 'AUDIT'}] {log.action} {log.type === 'audit' ? `by ${log.user}` : ''}</p>
-                            <p className="text-sm text-muted-foreground">{log.details}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{new Date(log.timestamp).toLocaleString()}</p>
-                        </div>
-                    ))}
-                </div>
-                <DialogFooter>
-                    <Button onClick={onClose}>Close</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-};
-
-
 /**
  * The main overview page for the admin dashboard.
  * This component brings together all the smaller components to create the dashboard layout.
@@ -445,6 +392,7 @@ const AuditLogModal = ({ onClose }) => {
  */
 export default function OverviewPage() {
     const { user, isLoaded } = useUser();
+    const router = useRouter();
     const [compact, setCompact] = useState(false);
     // Restore persisted density preference
     useEffect(() => {
@@ -455,8 +403,6 @@ export default function OverviewPage() {
     }, []);
     // State to control the visibility of the detailed metrics modal.
     const [showMetricsModal, setShowMetricsModal] = useState(false);
-    // State to control the visibility of the full audit log modal.
-    const [showAuditLogModal, setShowAuditLogModal] = useState(false);
     const [totalUsers, setTotalUsers] = useState(0);
     const [recentActivities, setRecentActivities] = useState([]);
     const [systemUptime, setSystemUptime] = useState('0.0%');
@@ -663,9 +609,9 @@ export default function OverviewPage() {
                             <ActivityItem key={activity.id} title={activity.action} description={activity.details} time={new Date(activity.timestamp).toLocaleString()} />
                         ))}
                     </div>
-                    {/* Button to open the full audit log modal */}
+                    {/* Navigate to dedicated audit log page */}
                     <Button 
-                        onClick={() => setShowAuditLogModal(true)}
+                        onClick={() => router.push('/admin/audit-logs')}
                         className="w-full"
                         variant="outline"
                     >View Full Audit Log</Button>
@@ -674,7 +620,6 @@ export default function OverviewPage() {
 
             {/* Conditionally render the modals based on their state */}
             {showMetricsModal && <DetailedMetricsModal onClose={() => setShowMetricsModal(false)} />}
-            {showAuditLogModal && <AuditLogModal onClose={() => setShowAuditLogModal(false)} />}
         </>
     );
 }
