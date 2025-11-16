@@ -73,14 +73,14 @@ export default function CreateAccountPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Check if SuperAdmin role is selected
+  const isSuperAdminRole = formData.roleId === "superadmin";
+
   const organizations = useQuery(
     api.organizations.list,
-    user?.id ? { clerkId: user.id } : "skip"
+    user?.id ? { clerkId: user.id, includeSafespace: isSuperAdminRole } : "skip"
   );
   const roles = useQuery(api.roles.list);
-
-  // Filter out safespace organization
-  const visibleOrganizations = organizations?.filter(org => org.slug !== "safespace") || [];
 
   // Check if Client role is selected
   const isClientRole = formData.roleId === "client";
@@ -203,7 +203,7 @@ export default function CreateAccountPage() {
                 className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               >
                 <option value="">Select an organization</option>
-                {visibleOrganizations.map((org) => (
+                {organizations?.map((org) => (
                   <option key={org._id} value={org.slug}>
                     {org.name}
                   </option>

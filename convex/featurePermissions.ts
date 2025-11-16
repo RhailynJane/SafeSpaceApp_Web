@@ -1,6 +1,20 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { requireSuperAdmin } from "./auth";
+
+// Valid feature keys - whitelist approach
+const VALID_FEATURE_KEYS = [
+  'selfAssessment', 'moodTracking', 'journaling', 'resources',
+  'announcements', 'crisisSupport', 'messages', 'appointments',
+  'communityForum', 'videoConsultations'
+];
+
+function validateFeatureKey(key: string): void {
+  if (!VALID_FEATURE_KEYS.includes(key)) {
+    throw new Error(`Invalid feature key: ${key}`);
+  }
+}
 
 // Document shape for featurePermissions table
 export type FeaturePermissionDoc = {
@@ -42,8 +56,16 @@ function buildDefault(per: { key: string; label: string }) {
 // List feature permissions for an organization (by slug).
 // Returns all features, filling in defaults for any missing records.
 export const listByOrg = query({
-  args: { orgSlug: v.string() },
+  args: { 
+    orgSlug: v.string(),
+    clerkId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
+    // Verify SuperAdmin access
+    if (args.clerkId) {
+      await requireSuperAdmin(ctx, args.clerkId);
+    }
+
     const org = await ctx.db
       .query("organizations")
       .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug))
@@ -51,6 +73,11 @@ export const listByOrg = query({
 
     if (!org) {
       throw new Error("Organization not found");
+    }
+
+    // Prevent access to safespace org
+    if (org.slug === "safespace") {
+      throw new Error("Cannot manage permissions for safespace organization.");
     }
 
     const existing = await ctx.db
@@ -84,12 +111,26 @@ export const updatePermission = mutation({
     updatedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Require SuperAdmin
+    if (!args.updatedBy) {
+      throw new Error("updatedBy clerkId is required");
+    }
+    await requireSuperAdmin(ctx, args.updatedBy);
+
+    // Validate feature key
+    validateFeatureKey(args.featureKey);
+
     const org = await ctx.db
       .query("organizations")
       .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug))
       .unique();
 
     if (!org) throw new Error("Organization not found");
+
+    // Prevent modification of safespace org
+    if (org.slug === "safespace") {
+      throw new Error("Cannot modify permissions for safespace organization.");
+    }
 
     // Find existing record
     const existing = await ctx.db
@@ -133,11 +174,27 @@ export const bulkUpdate = mutation({
     updatedBy: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Require SuperAdmin
+    if (!args.updatedBy) {
+      throw new Error("updatedBy clerkId is required");
+    }
+    await requireSuperAdmin(ctx, args.updatedBy);
+
+    // Validate all feature keys before processing
+    for (const upd of args.updates) {
+      validateFeatureKey(upd.featureKey);
+    }
+
     const org = await ctx.db
       .query("organizations")
       .withIndex("by_slug", (q) => q.eq("slug", args.orgSlug))
       .unique();
     if (!org) throw new Error("Organization not found");
+
+    // Prevent modification of safespace org
+    if (org.slug === "safespace") {
+      throw new Error("Cannot modify permissions for safespace organization.");
+    }
 
     const existing = await ctx.db
       .query("featurePermissions")

@@ -1,6 +1,30 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+// Security: Input validation
+function sanitizeString(input: string | undefined, maxLength = 500): string {
+  if (!input) return "";
+  return input.replace(/[<>"'`]/g, "").trim().slice(0, maxLength);
+}
+
+function validateAction(action: string): void {
+  if (!action || typeof action !== 'string') {
+    throw new Error("Action is required");
+  }
+  if (action.length > 100) {
+    throw new Error("Action name too long");
+  }
+}
+
+function validateEntityType(entityType: string | undefined): void {
+  if (!entityType) return;
+  const validTypes = ["user", "organization", "client", "referral", "appointment", "note", "crisis", "feature_permission"];
+  if (!validTypes.includes(entityType)) {
+    // Allow it but log it as other
+    console.warn(`Unknown entity type: ${entityType}`);
+  }
+}
+
 /**
  * List audit logs with optional filters
  * Returns all audit logs from all orgs and users
@@ -222,14 +246,26 @@ export const log = mutation({
     orgId: v.optional(v.id("organizations")),
   },
   handler: async (ctx, args) => {
+    // Validate inputs
+    validateAction(args.action);
+    validateEntityType(args.entityType);
+
+    // Sanitize inputs (limit sizes to prevent DoS)
+    const sanitizedAction = sanitizeString(args.action, 100);
+    const sanitizedEntityType = sanitizeString(args.entityType, 50);
+    const sanitizedEntityId = sanitizeString(args.entityId, 100);
+    const sanitizedDetails = sanitizeString(args.details, 2000); // Allow larger details
+    const sanitizedIp = sanitizeString(args.ipAddress, 45); // IPv6 max length
+    const sanitizedUserAgent = sanitizeString(args.userAgent, 500);
+
     const logId = await ctx.db.insert("auditLogs", {
       userId: args.userId,
-      action: args.action,
-      entityType: args.entityType,
-      entityId: args.entityId,
-      details: args.details,
-      ipAddress: args.ipAddress,
-      userAgent: args.userAgent,
+      action: sanitizedAction,
+      entityType: sanitizedEntityType || undefined,
+      entityId: sanitizedEntityId || undefined,
+      details: sanitizedDetails || undefined,
+      ipAddress: sanitizedIp || undefined,
+      userAgent: sanitizedUserAgent || undefined,
       orgId: args.orgId,
       timestamp: Date.now(),
     });

@@ -7,6 +7,57 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireSuperAdmin, requirePermission, isSuperAdmin, hasOrgAccess, PERMISSIONS } from "./auth";
 
+// Security: Input validation helpers
+function sanitizeString(input: string | undefined, maxLength = 200): string {
+  if (!input) return "";
+  // Remove potentially dangerous characters
+  const sanitized = input
+    .replace(/[<>"'`]/g, "")
+    .trim();
+  // Enforce max length
+  return sanitized.slice(0, maxLength);
+}
+
+function validateEmail(email: string): void {
+  if (!email || typeof email !== 'string') {
+    throw new Error("Email is required");
+  }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error("Invalid email format");
+  }
+  if (email.length > 255) {
+    throw new Error("Email too long");
+  }
+}
+
+function validatePhoneNumber(phone: string | undefined): void {
+  if (!phone) return;
+  // Basic phone validation: alphanumeric, spaces, hyphens, parentheses, plus sign
+  const phoneRegex = /^[\d\s()+-]+$/;
+  if (!phoneRegex.test(phone)) {
+    throw new Error("Invalid phone number format");
+  }
+  if (phone.length > 20) {
+    throw new Error("Phone number too long");
+  }
+}
+
+function validateRoleId(roleId: string): void {
+  const validRoles = ["superadmin", "admin", "client", "team_lead", "support_worker"];
+  if (!validRoles.includes(roleId)) {
+    throw new Error(`Invalid role: ${roleId}`);
+  }
+}
+
+function validateStatus(status: string | undefined): void {
+  if (!status) return;
+  const validStatuses = ["active", "inactive", "suspended"];
+  if (!validStatuses.includes(status)) {
+    throw new Error(`Invalid status: ${status}`);
+  }
+}
+
 /**
  * List all users (SuperAdmin sees all, Admin sees only their org)
  */
@@ -151,6 +202,24 @@ export const create = mutation({
 
     await requirePermission(ctx, clerkId, PERMISSIONS.CREATE_USERS);
 
+    // Validate and sanitize inputs
+    validateEmail(userData.email);
+    validateRoleId(userData.roleId);
+    validatePhoneNumber(userData.phoneNumber);
+    validatePhoneNumber(userData.emergencyContactPhone);
+
+    const sanitizedFirstName = sanitizeString(userData.firstName, 100);
+    const sanitizedLastName = sanitizeString(userData.lastName, 100);
+    const sanitizedEmail = userData.email.toLowerCase().trim();
+    const sanitizedPhone = sanitizeString(userData.phoneNumber, 20);
+    const sanitizedAddress = sanitizeString(userData.address, 500);
+    const sanitizedEmergencyName = sanitizeString(userData.emergencyContactName, 100);
+    const sanitizedEmergencyPhone = sanitizeString(userData.emergencyContactPhone, 20);
+
+    if (!sanitizedFirstName || !sanitizedLastName) {
+      throw new Error("First name and last name are required");
+    }
+
     const currentUser = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
@@ -173,11 +242,11 @@ export const create = mutation({
     // Check email uniqueness
     const existingEmail = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", userData.email))
+      .withIndex("by_email", (q) => q.eq("email", sanitizedEmail))
       .first();
 
     if (existingEmail) {
-      throw new Error(`User with email '${userData.email}' already exists`);
+      throw new Error(`User with email '${sanitizedEmail}' already exists`);
     }
 
     // Determine orgId
@@ -196,17 +265,17 @@ export const create = mutation({
       // Create user (set both imageUrl and profileImageUrl for mobile/web compatibility)
       const userId = await ctx.db.insert("users", {
         clerkId: newUserClerkId,
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
+        email: sanitizedEmail,
+        firstName: sanitizedFirstName,
+        lastName: sanitizedLastName,
         roleId: userData.roleId,
         orgId: finalOrgId,
         imageUrl: userData.profileImageUrl, // For mobile compatibility
         profileImageUrl: userData.profileImageUrl, // For web
-        phoneNumber: userData.phoneNumber,
-        address: userData.address,
-        emergencyContactName: userData.emergencyContactName,
-        emergencyContactPhone: userData.emergencyContactPhone,
+        phoneNumber: sanitizedPhone || undefined,
+        address: sanitizedAddress || undefined,
+        emergencyContactName: sanitizedEmergencyName || undefined,
+        emergencyContactPhone: sanitizedEmergencyPhone || undefined,
         status: "active",
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -252,6 +321,27 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { clerkId, targetClerkId, ...updates } = args;
 
+    // Validate inputs
+    if (updates.email) validateEmail(updates.email);
+    if (updates.roleId) validateRoleId(updates.roleId);
+    if (updates.status) validateStatus(updates.status);
+    if (updates.phoneNumber) validatePhoneNumber(updates.phoneNumber);
+    if (updates.emergencyContactPhone) validatePhoneNumber(updates.emergencyContactPhone);
+
+    // Sanitize string inputs
+    const sanitizedUpdates: any = {};
+    if (updates.firstName) sanitizedUpdates.firstName = sanitizeString(updates.firstName, 100);
+    if (updates.lastName) sanitizedUpdates.lastName = sanitizeString(updates.lastName, 100);
+    if (updates.email) sanitizedUpdates.email = updates.email.toLowerCase().trim();
+    if (updates.phoneNumber) sanitizedUpdates.phoneNumber = sanitizeString(updates.phoneNumber, 20);
+    if (updates.address) sanitizedUpdates.address = sanitizeString(updates.address, 500);
+    if (updates.emergencyContactName) sanitizedUpdates.emergencyContactName = sanitizeString(updates.emergencyContactName, 100);
+    if (updates.emergencyContactPhone) sanitizedUpdates.emergencyContactPhone = sanitizeString(updates.emergencyContactPhone, 20);
+    if (updates.roleId) sanitizedUpdates.roleId = updates.roleId;
+    if (updates.orgId) sanitizedUpdates.orgId = updates.orgId;
+    if (updates.status) sanitizedUpdates.status = updates.status;
+    if (updates.profileImageUrl) sanitizedUpdates.profileImageUrl = updates.profileImageUrl;
+
     const currentUser = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
@@ -279,24 +369,24 @@ export const update = mutation({
     }
 
     // Prevent non-superadmins from changing role to superadmin
-    if (updates.roleId === "superadmin" && !isSA) {
+    if (sanitizedUpdates.roleId === "superadmin" && !isSA) {
       throw new Error("Only SuperAdmins can assign SuperAdmin role");
     }
 
     // Prevent non-superadmins from changing orgId
-    if (updates.orgId && !isSA) {
+    if (sanitizedUpdates.orgId && !isSA) {
       throw new Error("Only SuperAdmins can change user organization");
     }
 
     // Check email uniqueness if updating email
-    if (updates.email && updates.email !== targetUser.email) {
+    if (sanitizedUpdates.email && sanitizedUpdates.email !== targetUser.email) {
       const existingEmail = await ctx.db
         .query("users")
-        .withIndex("by_email", (q) => q.eq("email", updates.email))
+        .withIndex("by_email", (q) => q.eq("email", sanitizedUpdates.email))
         .first();
 
       if (existingEmail) {
-        throw new Error(`User with email '${updates.email}' already exists`);
+        throw new Error(`User with email '${sanitizedUpdates.email}' already exists`);
       }
     }
 
@@ -311,7 +401,7 @@ export const update = mutation({
     }
 
     await ctx.db.patch(dbUser._id, {
-      ...updates,
+      ...sanitizedUpdates,
       updatedAt: Date.now(),
     });
 
@@ -321,7 +411,7 @@ export const update = mutation({
       action: "user_updated",
       entityType: "user",
       entityId: dbUser._id,
-      details: JSON.stringify({ targetClerkId, updates }),
+      details: JSON.stringify({ targetClerkId, updates: sanitizedUpdates }),
       timestamp: Date.now(),
     });
 

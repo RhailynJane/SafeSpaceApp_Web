@@ -7,19 +7,65 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireSuperAdmin, isSuperAdmin } from "./auth";
 
+// Input validation and sanitization helpers
+function sanitizeString(input: string | undefined, maxLength: number = 255): string | undefined {
+  if (!input) return undefined;
+  // Remove potential XSS/injection characters
+  const sanitized = input.trim().replace(/[<>"'`]/g, '');
+  return sanitized.substring(0, maxLength);
+}
+
+function validateSlug(slug: string): void {
+  // Slug must be alphanumeric with hyphens only, 3-50 chars
+  const slugRegex = /^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$/;
+  if (!slugRegex.test(slug)) {
+    throw new Error("Invalid slug format. Must be 3-50 lowercase alphanumeric characters with hyphens.");
+  }
+  // Prevent reserved/sensitive slugs
+  const reserved = ['admin', 'api', 'superadmin', 'system', 'root', 'safespace'];
+  if (reserved.includes(slug.toLowerCase())) {
+    throw new Error(`Slug '${slug}' is reserved and cannot be used.`);
+  }
+}
+
+function validateEmail(email: string | undefined): void {
+  if (!email) return;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error("Invalid email format.");
+  }
+}
+
+function validateUrl(url: string | undefined): void {
+  if (!url) return;
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new Error("URL must use HTTP or HTTPS protocol.");
+    }
+  } catch {
+    throw new Error("Invalid URL format.");
+  }
+}
+
 /**
  * List all organizations (SuperAdmin only)
  */
 export const list = query({
   args: {
     clerkId: v.string(),
+    includeSafespace: v.optional(v.boolean()), // Allow including safespace org for account creation
   },
-  handler: async (ctx, { clerkId }) => {
+  handler: async (ctx, { clerkId, includeSafespace }) => {
     await requireSuperAdmin(ctx, clerkId);
 
     const organizations = await ctx.db.query("organizations").collect();
-    // Hide internal 'safespace' org from all listings
-    const visible = organizations.filter((o) => o.slug !== "safespace");
+    
+    // Filter out safespace org unless explicitly requested
+    const visible = includeSafespace 
+      ? organizations 
+      : organizations.filter((o) => o.slug !== "safespace");
+      
     return visible.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
@@ -85,6 +131,17 @@ export const create = mutation({
     
     await requireSuperAdmin(ctx, clerkId);
 
+    // Input validation
+    validateSlug(args.slug);
+    validateEmail(args.contactEmail);
+    validateUrl(args.website);
+    validateUrl(args.logoUrl);
+
+    const sanitizedName = sanitizeString(args.name, 100);
+    if (!sanitizedName || sanitizedName.length < 2) {
+      throw new Error("Organization name must be at least 2 characters.");
+    }
+
     // Check if slug already exists
     const existing = await ctx.db
       .query("organizations")
@@ -95,16 +152,16 @@ export const create = mutation({
       throw new Error(`Organization with slug '${args.slug}' already exists`);
     }
 
-    // Create organization
+    // Create organization with sanitized inputs
     const orgId = await ctx.db.insert("organizations", {
-      name: orgData.name,
-      slug: orgData.slug,
-      description: orgData.description,
-      contactEmail: orgData.contactEmail,
-      contactPhone: orgData.contactPhone,
-      address: orgData.address,
-      website: orgData.website,
-      logoUrl: orgData.logoUrl,
+      name: sanitizedName,
+      slug: args.slug.toLowerCase(),
+      description: sanitizeString(orgData.description, 500),
+      contactEmail: sanitizeString(orgData.contactEmail, 100),
+      contactPhone: sanitizeString(orgData.contactPhone, 20),
+      address: sanitizeString(orgData.address, 200),
+      website: sanitizeString(orgData.website, 200),
+      logoUrl: sanitizeString(orgData.logoUrl, 500),
       status: "active",
       settings: orgData.settings,
       createdAt: Date.now(),
@@ -157,8 +214,39 @@ export const update = mutation({
       throw new Error("Organization not found");
     }
 
+    // Prevent modification of safespace org
+    if (org.slug === "safespace") {
+      throw new Error("Cannot modify the safespace organization.");
+    }
+
+    // Validate inputs
+    if (updates.contactEmail) validateEmail(updates.contactEmail);
+    if (updates.website) validateUrl(updates.website);
+    if (updates.logoUrl) validateUrl(updates.logoUrl);
+    if (updates.status && !['active', 'inactive', 'suspended'].includes(updates.status)) {
+      throw new Error("Invalid status value.");
+    }
+
+    // Sanitize string inputs
+    const sanitizedUpdates: any = {};
+    if (updates.name) {
+      const sanitized = sanitizeString(updates.name, 100);
+      if (!sanitized || sanitized.length < 2) {
+        throw new Error("Organization name must be at least 2 characters.");
+      }
+      sanitizedUpdates.name = sanitized;
+    }
+    if (updates.description !== undefined) sanitizedUpdates.description = sanitizeString(updates.description, 500);
+    if (updates.contactEmail !== undefined) sanitizedUpdates.contactEmail = sanitizeString(updates.contactEmail, 100);
+    if (updates.contactPhone !== undefined) sanitizedUpdates.contactPhone = sanitizeString(updates.contactPhone, 20);
+    if (updates.address !== undefined) sanitizedUpdates.address = sanitizeString(updates.address, 200);
+    if (updates.website !== undefined) sanitizedUpdates.website = sanitizeString(updates.website, 200);
+    if (updates.logoUrl !== undefined) sanitizedUpdates.logoUrl = sanitizeString(updates.logoUrl, 500);
+    if (updates.status !== undefined) sanitizedUpdates.status = updates.status;
+    if (updates.settings !== undefined) sanitizedUpdates.settings = updates.settings;
+
     await ctx.db.patch(id, {
-      ...updates,
+      ...sanitizedUpdates,
       updatedAt: Date.now(),
     });
 
@@ -191,6 +279,11 @@ export const remove = mutation({
     const org = await ctx.db.get(id);
     if (!org) {
       throw new Error("Organization not found");
+    }
+
+    // Prevent deletion of safespace org
+    if (org.slug === "safespace") {
+      throw new Error("Cannot delete the safespace organization.");
     }
 
     // Check if organization has users
