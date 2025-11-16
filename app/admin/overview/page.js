@@ -389,8 +389,7 @@ export default function OverviewPage() {
     return (
         <>
             <div className="space-y-8">
-                {/* Page Header */}
-                <h1 className="text-2xl font-bold text-foreground">Welcome, {greetingName}!</h1>
+                {/* Page Header moved to AdminGreeting in layout */}
 
                 {/* Section for key statistics */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

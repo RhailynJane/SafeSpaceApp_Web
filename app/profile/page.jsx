@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Edit, Save, ArrowLeft, User, Mail, Phone, Calendar } from "lucide-react";
+import { Edit, Save, ArrowLeft, User, Mail, Phone, Calendar, Image as ImageIcon, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/contexts/ToastContext";
 
 function getInitials(name) {
   if (!name) return "SS";
@@ -21,6 +22,7 @@ function getInitials(name) {
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isLoaded } = useUser();
+  const toast = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -32,6 +34,14 @@ export default function ProfilePage() {
     phone: "",
     profile_image_url: "",
   });
+  const [uploadError, setUploadError] = useState("");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [passwordForm, setPasswordForm] = useState({ current: "", next: "", confirm: "" });
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [notifPrefs, setNotifPrefs] = useState({ email: true, inApp: true });
+  const [notifSaving, setNotifSaving] = useState(false);
 
   const validatePhone = (phone) => {
     if (!phone) return "";
@@ -61,6 +71,13 @@ export default function ProfilePage() {
             last_name: data.last_name || "",
             phone: data.phone || "",
             profile_image_url: data.profile_image_url || "",
+          });
+          // Load notification prefs from Clerk public metadata
+          const pm = user?.publicMetadata || {};
+          const prefs = pm.notifications || {};
+          setNotifPrefs({
+            email: prefs.email !== false,
+            inApp: prefs.inApp !== false,
           });
         }
       };
@@ -215,7 +232,7 @@ export default function ProfilePage() {
           <CardContent className="space-y-6">
             <div className="flex items-center space-x-4">
               <Avatar className="h-24 w-24">
-                <AvatarImage src={profileData.profile_image_url} alt={fullName} />
+                <AvatarImage src={previewUrl || profileData.profile_image_url} alt={fullName} />
                 <AvatarFallback className="bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xl">
                   {getInitials(fullName)}
                 </AvatarFallback>
@@ -223,6 +240,55 @@ export default function ProfilePage() {
               <div>
                 <h2 className="text-2xl font-semibold text-foreground">{fullName}</h2>
                 <p className="text-muted-foreground">{profileData.role}</p>
+              </div>
+              <div className="ml-auto">
+                <label htmlFor="photoUpload" className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border cursor-pointer hover:bg-accent text-sm select-none">
+                  <ImageIcon className="h-4 w-4" />
+                  {isUploadingPhoto ? 'Uploading…' : 'Change Photo'}
+                </label>
+                <input id="photoUpload" type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploadError("");
+                  setIsUploadingPhoto(true);
+                  try {
+                    // Optimistic preview for instant feedback
+                    const url = URL.createObjectURL(file);
+                    setPreviewUrl(url);
+                    // Update Clerk profile image
+                    await user.setProfileImage({ file });
+                    // Refresh user instance
+                    await user.reload();
+                    const imageUrl = user.imageUrl;
+                    // Persist to Convex profile for consistency
+                    await fetch('/api/profile', {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        first_name: formData.first_name,
+                        last_name: formData.last_name,
+                        phone: formData.phone,
+                        profile_image_url: imageUrl,
+                      })
+                    }).catch(() => {});
+
+                    setProfileData((p) => ({ ...p, profile_image_url: imageUrl }));
+                    setFormData((f) => ({ ...f, profile_image_url: imageUrl }));
+                    toast.success('Profile photo updated');
+                    // Revoke preview URL after final image set
+                    setTimeout(() => {
+                      if (url) URL.revokeObjectURL(url);
+                      setPreviewUrl("");
+                    }, 1500);
+                  } catch (err) {
+                    setUploadError('Failed to upload photo. Please try a different image.');
+                    toast.error('Photo upload failed');
+                  } finally {
+                    setIsUploadingPhoto(false);
+                    e.target.value = '';
+                  }
+                }} />
+                {uploadError && <p className="text-red-500 text-sm mt-2">{uploadError}</p>}
               </div>
             </div>
 
@@ -271,7 +337,7 @@ export default function ProfilePage() {
                 <Label htmlFor="email">Email</Label>
                 <p className="mt-1 flex items-center text-muted-foreground">
                   <Mail className="h-4 w-4 mr-2" />
-                  {user.primaryEmailAddress.emailAddress} (Managed by Clerk)
+                  {user.primaryEmailAddress.emailAddress}
                 </p>
               </div>
               <div>
@@ -297,19 +363,7 @@ export default function ProfilePage() {
                   </p>
                 )}
               </div>
-              <div>
-                <Label htmlFor="profile_image_url">Profile Image URL</Label>
-                {isEditing ? (
-                  <Input
-                    id="profile_image_url"
-                    name="profile_image_url"
-                    value={formData.profile_image_url}
-                    onChange={handleInputChange}
-                  />
-                ) : (
-                  <p className="mt-1 text-foreground">{profileData.profile_image_url || "Not set"}</p>
-                )}
-              </div>
+              {/* Removed Profile Image URL field per request */}
                <div>
                 <Label>Role</Label>
                  <p className="mt-1 flex items-center text-foreground capitalize">
@@ -328,6 +382,96 @@ export default function ProfilePage() {
                    }) : "Unknown"}
                  </p>
                </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Security: Change Password */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Security</CardTitle>
+            <CardDescription>Change your account password.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {passwordError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-3 py-2 rounded">
+                {passwordError}
+              </div>
+            )}
+            {passwordSuccess && (
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 px-3 py-2 rounded">
+                {passwordSuccess}
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="current_password">Current Password</Label>
+                <Input className="mt-1" id="current_password" type="password" value={passwordForm.current} onChange={(e)=>setPasswordForm({...passwordForm,current:e.target.value})} />
+              </div>
+              <div>
+                <Label htmlFor="new_password">New Password</Label>
+                <Input className="mt-1" id="new_password" type="password" value={passwordForm.next} onChange={(e)=>setPasswordForm({...passwordForm,next:e.target.value})} />
+              </div>
+              <div>
+                <Label htmlFor="confirm_password">Confirm New Password</Label>
+                <Input className="mt-1" id="confirm_password" type="password" value={passwordForm.confirm} onChange={(e)=>setPasswordForm({...passwordForm,confirm:e.target.value})} />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={async ()=>{
+                setPasswordError(""); setPasswordSuccess("");
+                const { current, next, confirm } = passwordForm;
+                if (!current || !next || !confirm) { setPasswordError('All password fields are required'); return; }
+                if (next !== confirm) { setPasswordError('New passwords do not match'); return; }
+                if (next.length < 8 || !/[A-Z]/.test(next) || !/[a-z]/.test(next) || !/[0-9]/.test(next)) {
+                  setPasswordError('Password must be 8+ chars with upper, lower, and number'); return; }
+                try {
+                  await user.updatePassword({ currentPassword: current, newPassword: next });
+                  setPasswordSuccess('Password updated successfully');
+                  toast.success('Password updated');
+                  setPasswordForm({ current: "", next: "", confirm: "" });
+                } catch (err) {
+                  const msg = err?.errors?.[0]?.message || 'Failed to update password';
+                  setPasswordError(msg);
+                  toast.error(msg);
+                }
+              }}>
+                <Lock className="h-4 w-4 mr-2" /> Update Password
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Notification Settings */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Notifications</CardTitle>
+            <CardDescription>Choose how you want to be notified.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <label className="flex items-center gap-3">
+                <input type="checkbox" checked={notifPrefs.email} onChange={(e)=>setNotifPrefs(p=>({...p,email:e.target.checked}))} />
+                <span>Email notifications</span>
+              </label>
+              <label className="flex items-center gap-3">
+                <input type="checkbox" checked={notifPrefs.inApp} onChange={(e)=>setNotifPrefs(p=>({...p,inApp:e.target.checked}))} />
+                <span>In-app notifications</span>
+              </label>
+            </div>
+            <div className="flex justify-end">
+              <Button disabled={notifSaving} onClick={async ()=>{
+                setNotifSaving(true);
+                try {
+                  const pm = user.publicMetadata || {};
+                  await user.update({ publicMetadata: { ...pm, notifications: { email: notifPrefs.email, inApp: notifPrefs.inApp } } });
+                  toast.success('Preferences saved');
+                } catch (err) {
+                  toast.error('Failed to save preferences');
+                } finally {
+                  setNotifSaving(false);
+                }
+              }}>Save Preferences</Button>
             </div>
           </CardContent>
         </Card>

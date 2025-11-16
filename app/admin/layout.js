@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import AdminNav from "@/components/admindashboard/AdminNav";
 import PresencePinger from "@/components/admindashboard/PresencePinger.jsx";
+import AdminGreeting from "@/components/admindashboard/AdminGreeting";
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2
 // SECURITY: Client-side defense-in-depth authentication verification
@@ -54,6 +55,7 @@ export default function AdminLayout({ children }) {
         <AdminNav />
         <main className="flex-1 p-6">
           {sessionId && <PresencePinger />}
+          <AdminGreeting />
           {children}
         </main>
       </div>

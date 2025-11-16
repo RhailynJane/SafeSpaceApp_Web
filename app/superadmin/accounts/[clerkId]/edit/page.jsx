@@ -188,6 +188,18 @@ export default function AccountEditPage() {
   const onDelete = async () => {
     if (!me || !clerkId) return;
     try {
+      // 1) Remove from Clerk so the user cannot log in anymore
+      const resp = await fetch("/api/admin/delete-clerk-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetClerkId: clerkId }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to delete from Clerk");
+      }
+
+      // 2) Remove from Convex database
       await deleteUser({ clerkId: me, targetClerkId: clerkId });
       router.push("/superadmin/accounts");
     } catch (e) {
