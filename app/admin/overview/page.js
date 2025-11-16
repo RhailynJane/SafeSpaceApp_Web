@@ -8,6 +8,7 @@
 
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Button } from "@/components/ui/button";
 import { X, Server, Database } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -274,6 +275,7 @@ const AuditLogModal = ({ onClose }) => {
  * @returns {JSX.Element} The OverviewPage component.
  */
 export default function OverviewPage() {
+    const { user, isLoaded } = useUser();
     // State to control the visibility of the detailed metrics modal.
     const [showMetricsModal, setShowMetricsModal] = useState(false);
     // State to control the visibility of the full audit log modal.
@@ -382,11 +384,13 @@ export default function OverviewPage() {
         fetchActiveSessions();
     }, []);
 
+    const greetingName = isLoaded && user ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.username || 'Admin' : 'Admin';
+
     return (
         <>
             <div className="space-y-8">
                 {/* Page Header */}
-                <h1 className="text-2xl font-bold text-foreground">Welcome, Admin!</h1>
+                <h1 className="text-2xl font-bold text-foreground">Welcome, {greetingName}!</h1>
 
                 {/* Section for key statistics */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
