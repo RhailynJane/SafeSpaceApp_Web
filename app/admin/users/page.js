@@ -119,17 +119,61 @@ export default function UsersPage() {
         getUsers();
     }, []);
 
-    // Filters the users based on the search query.
-    // This is recalculated on every render, ensuring the list is always up-to-date with the search query.
-    const filteredUsers = Array.isArray(users) ? users.filter(user => {
-        const lowercasedQuery = searchQuery.toLowerCase();
-        return (
-            user.first_name.toLowerCase().includes(lowercasedQuery) ||
-            user.last_name.toLowerCase().includes(lowercasedQuery) ||
-            user.email.toLowerCase().includes(lowercasedQuery) ||
-            user.role.role_name.toLowerCase().includes(lowercasedQuery)
-        );
-    }) : [];
+    // Filters the users based on the search query, role, and status.
+    // Also handles sorting.
+    const filteredUsers = Array.isArray(users) ? users
+        .filter(user => {
+            const lowercasedQuery = searchQuery.toLowerCase();
+            const matchesSearch = (
+                user.first_name.toLowerCase().includes(lowercasedQuery) ||
+                user.last_name.toLowerCase().includes(lowercasedQuery) ||
+                user.email.toLowerCase().includes(lowercasedQuery) ||
+                user.role.role_name.toLowerCase().includes(lowercasedQuery)
+            );
+            const matchesRole = filterRole === 'all' || user.role.role_name.toLowerCase() === filterRole.toLowerCase();
+            const matchesStatus = filterStatus === 'all' || user.status.toLowerCase() === filterStatus.toLowerCase();
+            return matchesSearch && matchesRole && matchesStatus;
+        })
+        .sort((a, b) => {
+            let aVal, bVal;
+            switch (sortBy) {
+                case 'name':
+                    aVal = `${a.first_name} ${a.last_name}`.toLowerCase();
+                    bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
+                    break;
+                case 'email':
+                    aVal = a.email.toLowerCase();
+                    bVal = b.email.toLowerCase();
+                    break;
+                case 'role':
+                    aVal = a.role.role_name.toLowerCase();
+                    bVal = b.role.role_name.toLowerCase();
+                    break;
+                case 'last_login':
+                    aVal = a.last_login === 'N/A' ? 0 : new Date(a.last_login).getTime();
+                    bVal = b.last_login === 'N/A' ? 0 : new Date(b.last_login).getTime();
+                    break;
+                case 'created_at':
+                default:
+                    aVal = new Date(a.created_at).getTime();
+                    bVal = new Date(b.created_at).getTime();
+                    break;
+            }
+            if (sortOrder === 'asc') {
+                return aVal > bVal ? 1 : -1;
+            } else {
+                return aVal < bVal ? 1 : -1;
+            }
+        }) : [];
+
+    const handleSort = (field) => {
+        if (sortBy === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(field);
+            setSortOrder('desc');
+        }
+    };
 
     /**
      * Toggles the visibility of the action menu for a specific user.
@@ -184,12 +228,94 @@ export default function UsersPage() {
                         />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
                     </div>
-                    <Link href="/admin/users/create" passHref>
-                        <Button className="w-full md:w-auto px-5 py-3">
-                            <Plus className="h-5 w-5 mr-2" />
-                            Create New User
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="flex-1 md:flex-initial"
+                        >
+                            <Filter className="h-4 w-4 mr-2" />
+                            Filters
                         </Button>
-                    </Link>
+                        <Link href="/admin/users/create" passHref className="flex-1 md:flex-initial">
+                            <Button className="w-full px-5 py-3">
+                                <Plus className="h-5 w-5 mr-2" />
+                                Create New User
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Advanced Filters */}
+                {showFilters && (
+                    <div className="mb-6 p-4 bg-muted/40 rounded-xl border border-border/60">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-2">Filter by Role</label>
+                                <select 
+                                    value={filterRole} 
+                                    onChange={(e) => setFilterRole(e.target.value)}
+                                    className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                                >
+                                    <option value="all">All Roles</option>
+                                    <option value="admin">Administrator</option>
+                                    <option value="team_leader">Team Leader</option>
+                                    <option value="support_worker">Support Worker</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-2">Filter by Status</label>
+                                <select 
+                                    value={filterStatus} 
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                                >
+                                    <option value="all">All Statuses</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="suspended">Suspended</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Sort Controls */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">Sort by:</span>
+                    <Button 
+                        variant={sortBy === 'name' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleSort('name')}
+                    >
+                        Name {sortBy === 'name' && <ArrowUpDown className="ml-1 h-3 w-3" />}
+                    </Button>
+                    <Button 
+                        variant={sortBy === 'role' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleSort('role')}
+                    >
+                        Role {sortBy === 'role' && <ArrowUpDown className="ml-1 h-3 w-3" />}
+                    </Button>
+                    <Button 
+                        variant={sortBy === 'last_login' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleSort('last_login')}
+                    >
+                        Last Login {sortBy === 'last_login' && <ArrowUpDown className="ml-1 h-3 w-3" />}
+                    </Button>
+                    <Button 
+                        variant={sortBy === 'created_at' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleSort('created_at')}
+                    >
+                        Created {sortBy === 'created_at' && <ArrowUpDown className="ml-1 h-3 w-3" />}
+                    </Button>
+                    {sortBy && (
+                        <span className="text-xs text-muted-foreground flex items-center ml-2">
+                            ({sortOrder === 'asc' ? 'A→Z' : 'Z→A'})
+                        </span>
+                    )}
                 </div>
 
                 {/* User cards - responsive grid */}
@@ -199,47 +325,45 @@ export default function UsersPage() {
                     ) : (
                         filteredUsers.map(user => (
                             <div key={user.id} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1 min-w-0 space-y-3">
-                                        {/* Header with name and status */}
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div className="flex items-center gap-3 min-w-0">
-                                                <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                                    <span className="text-sm font-semibold text-primary">
-                                                        {user.first_name?.[0]}{user.last_name?.[0]}
-                                                    </span>
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <h3 className="font-semibold text-foreground truncate">
-                                                        {user.first_name} {user.last_name}
-                                                    </h3>
-                                                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-                                                </div>
-                                            </div>
-                                            <span className="flex-shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                {user.status}
+                                <div className="flex items-center justify-between gap-4">
+                                    {/* Avatar and Name */}
+                                    <div className="flex items-center gap-3 min-w-0 w-64">
+                                        <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                            <span className="text-sm font-semibold text-primary">
+                                                {user.first_name?.[0]}{user.last_name?.[0]}
                                             </span>
                                         </div>
-
-                                        {/* Details grid */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-                                            <div>
-                                                <span className="text-muted-foreground text-xs">User ID</span>
-                                                <p className="font-medium text-foreground">user_{user.id.slice(-8)}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground text-xs">Role</span>
-                                                <p className="font-medium text-foreground">{user.role.role_name}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground text-xs">Last Login</span>
-                                                <p className="font-medium text-foreground truncate">{user.last_login || 'Never'}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground text-xs">Created</span>
-                                                <p className="font-medium text-foreground truncate">{user.created_at}</p>
-                                            </div>
+                                        <div className="min-w-0">
+                                            <h3 className="font-semibold text-foreground truncate">
+                                                {user.first_name} {user.last_name}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                                            <p className="text-xs text-muted-foreground/70 mt-0.5">ID: {user.id.slice(-12)}</p>
                                         </div>
+                                    </div>
+
+                                    {/* Role */}
+                                    <div className="hidden lg:block w-40">
+                                        <span className="text-muted-foreground text-xs">Role</span>
+                                        <p className="font-medium text-foreground">{user.role.role_name}</p>
+                                    </div>
+
+                                    {/* Last Login */}
+                                    <div className="hidden lg:block w-48">
+                                        <span className="text-muted-foreground text-xs">Last Login</span>
+                                        <p className="font-medium text-foreground truncate">{user.last_login || 'Never'}</p>
+                                    </div>
+
+                                    {/* Created */}
+                                    <div className="hidden lg:block w-48">
+                                        <span className="text-muted-foreground text-xs">Created</span>
+                                        <p className="font-medium text-foreground truncate">{user.created_at}</p>
+                                    </div>
+
+                                    {/* Status */}
+                                    <div className="hidden lg:block w-32">
+                                        <span className="text-muted-foreground text-xs">Status</span>
+                                        <p className="font-medium text-foreground">{user.status}</p>
                                     </div>
 
                                     {/* Action menu */}
@@ -263,6 +387,26 @@ export default function UsersPage() {
                                                 </button>
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+
+                                {/* Mobile view - show details below */}
+                                <div className="lg:hidden mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <span className="text-muted-foreground text-xs">Role</span>
+                                        <p className="font-medium text-foreground">{user.role.role_name}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground text-xs">Status</span>
+                                        <p className="font-medium text-foreground">{user.status}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground text-xs">Last Login</span>
+                                        <p className="font-medium text-foreground truncate">{user.last_login || 'Never'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground text-xs">Created</span>
+                                        <p className="font-medium text-foreground truncate">{user.created_at}</p>
                                     </div>
                                 </div>
                             </div>
