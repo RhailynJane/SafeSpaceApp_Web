@@ -11,11 +11,13 @@ export default function ViewAvailabilityModal({ availability: initialAvailabilit
   const [availability, setAvailability] = useState(initialAvailability || []);
   const [loading, setLoading] = useState(!initialAvailability);
   const [error, setError] = useState(null);
+  const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
     if (isOpen && !initialAvailability) {
       const fetchAvailability = async () => {
         setLoading(true);
+        setFetched(false);
         setError(null);
         try {
           const response = await fetch('/api/user/availability');
@@ -28,11 +30,13 @@ export default function ViewAvailabilityModal({ availability: initialAvailabilit
           setError(err.message);
         } finally {
           setLoading(false);
+          setFetched(true);
         }
       };
       fetchAvailability();
     } else if (initialAvailability) {
       setAvailability(initialAvailability);
+      setFetched(true);
     }
   }, [isOpen, initialAvailability]);
 
@@ -117,7 +121,7 @@ export default function ViewAvailabilityModal({ availability: initialAvailabilit
                   </Button>
                 ))}
               </div>
-              {upcomingSlots.length === 0 && (
+              {fetched && upcomingSlots.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">No available slots in the next 7 days.</p>
               )}
             </div>

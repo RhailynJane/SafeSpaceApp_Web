@@ -760,13 +760,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             <CardContent>
               <div className="flex gap-2 mb-4">
                 <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} />
-                <ViewAvailabilityModal
-                  availability={[
-                    { day: "Monday", time: "10:00 AM - 12:00 PM" },
-                    { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
-                    { day: "Friday", time: "9:00 AM - 11:00 AM" },
-                  ]}
-                />
+                <ViewAvailabilityModal />
                 <ViewCalendarModal schedule={schedule} />
               </div>
 

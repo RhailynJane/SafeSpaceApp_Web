@@ -62,7 +62,6 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
 
   // Enhanced picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   // Availability state
@@ -172,24 +171,10 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
     setShowDatePicker(false);
   };
 
-  const handleTimeSelect = (time) => {
-    setAppointmentTime(time);
-    setShowTimePicker(false);
-  };
-
   const formatDisplayDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString + 'T00:00:00');
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
-  const formatDisplayTime = (timeString) => {
-    if (!timeString) return '';
-    const [hour, minute] = timeString.split(':');
-    const hourNum = parseInt(hour);
-    const period = hourNum >= 12 ? 'PM' : 'AM';
-    const displayHour = hourNum > 12 ? hourNum - 12 : (hourNum === 0 ? 12 : hourNum);
-    return `${displayHour}:${minute} ${period}`;
   };
 
   const isDateDisabled = (day) => {
@@ -200,7 +185,7 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
     if (checkDate < today) return true;
 
     if (availability.length > 0) {
-      const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][checkDate.getDay()];
+      const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][checkDate.getUTCDay()];
       return !availability.some(a => a.day_of_week === dayOfWeek);
     }
     return false;
@@ -425,50 +410,19 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
 
             {/* Time Picker */}
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
+              <Label htmlFor="time" className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                Time
+                Time (UTC)
               </Label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowTimePicker(!showTimePicker)}
-                  disabled={!appointment_date || availableTimeSlots.length === 0}
-                  className="w-full h-11 px-3 py-2 text-left border rounded-md bg-white hover:bg-gray-50 flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <span className={appointment_time ? "text-gray-900" : "text-gray-500"}>
-                    {appointment_time ? formatDisplayTime(appointment_time) : "Select time"}
-                  </span>
-                  <Clock className="h-4 w-4 text-gray-400" />
-                </button>
-
-                {showTimePicker && (
-                  <div className="absolute z-50 mt-2 bg-white border rounded-lg shadow-lg w-full max-h-64 overflow-y-auto">
-                    {availableTimeSlots.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-1 p-2">
-                        {availableTimeSlots.map((slot) => (
-                          <button
-                            key={slot.value}
-                            type="button"
-                            onClick={() => handleTimeSelect(slot.value)}
-                            className={`
-                              py-2 px-3 rounded text-sm transition
-                              ${appointment_time === slot.value
-                                ? 'bg-teal-600 text-white font-semibold'
-                                : 'hover:bg-teal-50 text-gray-700'
-                              }
-                            `}
-                          >
-                            {slot.display}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-center text-sm text-gray-500 p-4">No available slots for this day.</p>
-                    )}
-                  </div>
-                )}
-              </div>
+              <Input
+                id="time"
+                type="time"
+                value={appointment_time}
+                onChange={(e) => setAppointmentTime(e.target.value)}
+                disabled={!appointment_date}
+                className="w-full h-11 px-3 py-2 border rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                step="1800"
+              />
             </div>
           </div>
 
