@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { clerkClient } from '@clerk/clerk-sdk-node';
+import { resolveUserRole } from '@/lib/security';
 
 export async function GET() {
   try {
@@ -10,7 +11,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const role = sessionClaims?.publicMetadata?.role;
+    const role = await resolveUserRole(userId, sessionClaims);
     if (role !== 'admin' && role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

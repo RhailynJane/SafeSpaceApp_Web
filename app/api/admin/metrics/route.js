@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { fetchQuery } from 'convex/nextjs';
 import { api } from '@/convex/_generated/api';
+import { resolveUserRole } from '@/lib/security';
 
 export async function GET() {
   try {
@@ -12,7 +13,7 @@ export async function GET() {
     }
 
     // Check if the user is an admin
-    const userRole = sessionClaims?.publicMetadata?.role;
+    const userRole = await resolveUserRole(userId, sessionClaims);
     if (userRole !== 'admin' && userRole !== 'superadmin') {
       return NextResponse.json({ error: "Unauthorized: User is not an admin" }, { status: 403 });
     }

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { fetchQuery } from 'convex/nextjs';
 import { api } from '@/convex/_generated/api';
+import { resolveUserRole } from '@/lib/security';
 
 export async function GET() {
   try {
@@ -11,7 +12,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userRole = sessionClaims?.publicMetadata?.role;
+    const userRole = await resolveUserRole(userId, sessionClaims);
     if (userRole !== 'admin' && userRole !== 'superadmin') {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

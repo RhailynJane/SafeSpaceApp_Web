@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import SiteHeader from "@/components/site-header";
+import DevRootClient from "@/components/dev/DevRootClient";
 import { ConvexClientProvider } from "@/lib/convex-provider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import LastLoginTracker from "@/components/LastLoginTracker";
@@ -42,6 +43,7 @@ export default function RootLayout({ children }) {
               <ToastProvider>
                 <LastLoginTracker />
                 <SiteHeader />
+                <DevRootClient />
                 {children}
               </ToastProvider>
             </ThemeProvider>

@@ -20,6 +20,7 @@ export default function SuperAdminPage() {
   // Filter out safespace organization (hidden system org)
   const visibleOrganizations = organizations?.filter((org) => org.slug !== "safespace") || [];
   const visibleUsers = allUsers?.filter((u) => u.orgId !== "safespace") || [];
+  const totalUsersCount = (allUsers || []).length; // include all users for the headline metric
 
   return (
     <div className="space-y-6">
@@ -56,9 +57,7 @@ export default function SuperAdminPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Users</p>
-              <p className="text-3xl font-bold mt-2">
-                {visibleUsers.length}
-              </p>
+              <p className="text-3xl font-bold mt-2">{totalUsersCount}</p>
             </div>
             <div className="bg-emerald-50 rounded-full p-3 dark:bg-emerald-900/20">
               <span className="text-2xl">👥</span>

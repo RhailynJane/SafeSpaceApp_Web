@@ -1,6 +1,7 @@
 // app/api/admin/security-alerts/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
+import { resolveUserRole } from '@/lib/security';
 
 export async function GET(req) {
   try {
@@ -9,7 +10,7 @@ export async function GET(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userRole = sessionClaims?.publicMetadata?.role;
+    const userRole = await resolveUserRole(userId, sessionClaims);
     if (userRole !== 'admin' && userRole !== 'superadmin') {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

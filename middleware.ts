@@ -39,11 +39,12 @@ export default clerkMiddleware(async (auth, req) => {
   // Content Security Policy (CSP) - Adjust based on your needs
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://convex.cloud https://*.convex.cloud",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://convex.cloud https://*.convex.cloud",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://*.clerk.accounts.dev https://convex.cloud https://*.convex.cloud wss://*.convex.cloud https://api.sendbird.com wss://*.sendbird.com",
+    "connect-src 'self' https://*.clerk.accounts.dev https://convex.cloud https://*.convex.cloud wss://*.convex.cloud https://*.sendbird.com wss://*.sendbird.com",
+    "worker-src 'self' blob:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

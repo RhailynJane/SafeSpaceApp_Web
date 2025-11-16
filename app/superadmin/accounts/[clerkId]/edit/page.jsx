@@ -209,6 +209,27 @@ export default function AccountEditPage() {
     }
   };
 
+  const onToggleSuspend = async () => {
+    if (!me || !clerkId) return;
+    const nextAction = (form.status || "active") === "suspended" ? "unsuspend" : "suspend";
+    try {
+      const resp = await fetch("/api/admin/suspend-clerk-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetClerkId: clerkId, action: nextAction }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        throw new Error(data?.error || `Failed to ${nextAction} user`);
+      }
+      // reflect status locally without waiting for requery
+      setForm((f) => ({ ...f, status: nextAction === "suspend" ? "suspended" : "active" }));
+      setShowSuccess(true);
+    } catch (e) {
+      setErrorMsg(e?.message || `Failed to ${nextAction} user`);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -339,6 +360,9 @@ export default function AccountEditPage() {
               <Link href={`/superadmin/accounts/${clerkId}`}>Cancel</Link>
             </Button>
             <Button onClick={onSave} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
+            <Button variant={form.status === "suspended" ? "secondary" : "outline"} onClick={onToggleSuspend}>
+              {form.status === "suspended" ? "Unsuspend" : "Suspend"}
+            </Button>
             <Button variant="destructive" onClick={()=>setConfirmOpen(true)}>Delete</Button>
           </div>
         </CardContent>

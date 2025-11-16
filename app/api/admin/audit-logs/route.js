@@ -1,6 +1,7 @@
 // app/api/admin/audit-logs/route.js
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { resolveUserRole } from '@/lib/security';
 
 export async function GET(req) {
   try {
@@ -13,7 +14,7 @@ export async function GET(req) {
     }
 
     // Role check: Only admins can access all audit logs
-    const userRole = sessionClaims?.publicMetadata?.role;
+    const userRole = await resolveUserRole(userId, sessionClaims);
     if (userRole !== "admin" && userRole !== "superadmin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

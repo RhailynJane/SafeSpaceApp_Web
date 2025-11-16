@@ -5,12 +5,24 @@ import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
 import { useState } from "react";
+import { MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/contexts/ToastContext.jsx";
 
 export default function AccountsPage() {
   const { user } = useUser();
   const [selectedOrg, setSelectedOrg] = useState("all");
   const [selectedRole, setSelectedRole] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [statusOverride, setStatusOverride] = useState({});
+  const { success, error } = useToast();
 
   const organizations = useQuery(
     api.organizations.list,
@@ -33,6 +45,30 @@ export default function AccountsPage() {
         }
       : "skip"
   );
+
+  async function handleToggleSuspend(targetClerkId, currentStatus) {
+    const action = currentStatus === "suspended" ? "unsuspend" : "suspend";
+    try {
+      const res = await fetch("/api/admin/suspend-clerk-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetClerkId, action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.message || "Failed to update account status");
+      }
+      setStatusOverride((prev) => ({
+        ...prev,
+        [targetClerkId]: action === "suspend" ? "suspended" : "active",
+      }));
+      success(
+        action === "suspend" ? "User suspended and sessions revoked" : "User unsuspended"
+      );
+    } catch (e) {
+      error(e?.message || "Unable to update user status");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -138,6 +174,7 @@ export default function AccountsPage() {
               {users?.map((u) => {
                 const org = visibleOrganizations.find((o) => o.slug === u.orgId);
                 const role = roles?.find((r) => r.slug === u.roleId);
+                const effectiveStatus = statusOverride[u.clerkId] ?? u.status;
 
                 return (
                   <tr key={u._id} className="hover:bg-muted/30">
@@ -162,14 +199,14 @@ export default function AccountsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          u.status === "active"
+                          effectiveStatus === "active"
                             ? "bg-green-100 text-green-800"
-                            : u.status === "inactive"
+                            : effectiveStatus === "inactive"
                             ? "bg-gray-100 text-gray-800"
                             : "bg-red-100 text-red-800"
                         }`}
                       >
-                        {u.status}
+                        {effectiveStatus}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
@@ -177,19 +214,32 @@ export default function AccountsPage() {
                         ? new Date(u.lastLogin).toLocaleDateString()
                         : "Never"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                      <Link
-                        href={`/superadmin/accounts/${u.clerkId}`}
-                        className="text-emerald-700 hover:underline dark:text-emerald-300"
-                      >
-                        View
-                      </Link>
-                      <Link
-                        href={`/superadmin/accounts/${u.clerkId}/edit`}
-                        className="text-emerald-700 hover:underline dark:text-emerald-300"
-                      >
-                        Edit
-                      </Link>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            aria-label="Actions"
+                            className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted text-foreground"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/superadmin/accounts/${u.clerkId}`}>View</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/superadmin/accounts/${u.clerkId}/edit`}>Edit</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleToggleSuspend(u.clerkId, effectiveStatus)}
+                          >
+                            {effectiveStatus === "suspended" ? "Unsuspend" : "Suspend"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 );
