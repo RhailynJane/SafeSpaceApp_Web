@@ -14,6 +14,7 @@ import type * as auth from "../auth.js";
 import type * as featurePermissions from "../featurePermissions.js";
 import type * as helpers from "../helpers.js";
 import type * as organizations from "../organizations.js";
+import type * as presence from "../presence.js";
 import type * as reports from "../reports.js";
 import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   featurePermissions: typeof featurePermissions;
   helpers: typeof helpers;
   organizations: typeof organizations;
+  presence: typeof presence;
   reports: typeof reports;
   roles: typeof roles;
   seed: typeof seed;

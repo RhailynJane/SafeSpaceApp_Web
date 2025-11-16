@@ -1,12 +1,10 @@
 // app/api/admin/audit-logs/route.js
 import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma.js";
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
   try {
     const { userId, sessionClaims } = await auth();
-    console.log('sessionClaims', sessionClaims);
     const { searchParams } = new URL(req.url);
     const limit = searchParams.get('limit');
 
@@ -16,27 +14,31 @@ export async function GET(req) {
 
     // Role check: Only admins can access all audit logs
     const userRole = sessionClaims?.publicMetadata?.role;
-    if (userRole !== "admin") {
+    if (userRole !== "admin" && userRole !== "superadmin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const auditLogsPromise = prisma.auditLog.findMany({
-      take: limit ? parseInt(limit) : undefined,
-      orderBy: {
-        timestamp: 'desc',
+    // Mock audit logs until Convex schema is updated
+    const auditLogs = [
+      {
+        id: '1',
+        action: 'User Login',
+        details: 'Admin user logged in successfully',
+        timestamp: new Date().toISOString(),
+        type: 'audit',
+        user: 'Admin'
       },
-      include: {
-        user: {
-          select: {
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-      },
-    });
+      {
+        id: '2',
+        action: 'Settings Updated',
+        details: 'System settings were modified',
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        type: 'audit',
+        user: 'Admin'
+      }
+    ];
 
-    return NextResponse.json(auditLogs);
+    return NextResponse.json(limit ? auditLogs.slice(0, parseInt(limit)) : auditLogs);
   } catch (error) {
     console.error("Error fetching audit logs:", error);
     return NextResponse.json(

@@ -109,7 +109,7 @@ const formatMetrics = (metrics) => [
   },
 ];
 
-export default function DashboardPage({ clients, onAdd, schedule = [] }) {
+export default function DashboardPage() {
   const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
 
@@ -232,8 +232,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
         <Card className="bg-teal-50 border-teal-200">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
-            {/* <-- AddAppointmentModal kept exactly as before, now wired to handleAddAppointment */}
-            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} className="bg-white border-teal-200" />
+            <AddAppointmentModal onAdd={handleAddAppointment} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
             {todaysUpcomingAppointments.length > 0 ? (

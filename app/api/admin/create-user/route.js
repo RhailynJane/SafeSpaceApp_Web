@@ -18,12 +18,25 @@ import { NextResponse } from "next/server";
 import { fetchQuery, fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
 import crypto from "crypto";
+import { 
+  authorizeAdmin, 
+  validateRequestBody, 
+  isValidEmail, 
+  sanitizeInput,
+  createErrorResponse,
+  checkRateLimit 
+} from "@/lib/security";
 
 export async function POST(req) {
   try {
     const user = await currentUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Rate limiting: max 10 user creations per minute per admin
+    if (!checkRateLimit(`create-user:${user.id}`, 10, 60000)) {
+      return createErrorResponse('Rate limit exceeded. Please try again later.', 429);
     }
 
     // Verify the user is a superadmin
@@ -36,6 +49,35 @@ export async function POST(req) {
     }
 
     const data = await req.json();
+
+    // Define validation schema
+    const schema = {
+      email: { type: 'email', required: true },
+      firstName: { type: 'string', required: true, maxLength: 100 },
+      lastName: { type: 'string', required: true, maxLength: 100 },
+      roleId: { type: 'string', required: true, maxLength: 50 },
+      orgId: { type: 'string', required: true },
+      phoneNumber: { type: 'phone', required: false },
+      streetAddress: { type: 'string', required: false, maxLength: 255 },
+      city: { type: 'string', required: false, maxLength: 100 },
+      postalCode: { type: 'string', required: false, maxLength: 20 },
+      emergencyContactName: { type: 'string', required: false, maxLength: 100 },
+      emergencyContactNumber: { type: 'phone', required: false },
+    };
+
+    // Validate and sanitize input
+    const validation = validateRequestBody(data, schema);
+    if (!validation.valid) {
+      return createErrorResponse('Validation failed', 400, validation.errors);
+    }
+
+    const sanitizedData = validation.sanitized;
+
+    // Additional role validation (whitelist)
+    const allowedRoles = ['admin', 'therapist', 'case_manager', 'support_worker', 'client', 'nurse', 'psychiatrist'];
+    if (!allowedRoles.includes(sanitizedData.roleId)) {
+      return createErrorResponse('Invalid role specified', 400);
+    }
 
     // Helper: strong temporary password generator
     const generateTempPassword = () => {
@@ -58,11 +100,6 @@ export async function POST(req) {
         .join("");
     };
 
-    // Validate required fields
-    if (!data.email || !data.firstName || !data.lastName || !data.roleId || !data.orgId) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
     // Prepare a temporary password (unless provided)
     const tempPassword = data.password || generateTempPassword();
 
@@ -74,14 +111,14 @@ export async function POST(req) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        email_address: [data.email],
-        first_name: data.firstName,
-        last_name: data.lastName,
+        email_address: [sanitizedData.email],
+        first_name: sanitizedData.firstName,
+        last_name: sanitizedData.lastName,
         password: tempPassword,
         // Allow Clerk to enforce password policy; we generated a strong password above
         public_metadata: {
-          role: data.roleId,
-          orgId: data.orgId,
+          role: sanitizedData.roleId,
+          orgId: sanitizedData.orgId,
           mustChangePassword: true,
         },
       }),
@@ -101,20 +138,20 @@ export async function POST(req) {
       userId = await fetchMutation(api.users.create, {
         clerkId: user.id, // Current user (creator)
         newUserClerkId: clerkUser.id, // New user's Clerk ID
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        roleId: data.roleId,
-        orgId: data.orgId,
-        phoneNumber: data.phoneNumber || undefined,
+        email: sanitizedData.email,
+        firstName: sanitizedData.firstName,
+        lastName: sanitizedData.lastName,
+        roleId: sanitizedData.roleId,
+        orgId: sanitizedData.orgId,
+        phoneNumber: sanitizedData.phoneNumber || undefined,
         profileImageUrl: clerkUser.image_url,
-        address: data.streetAddress ? [
-          data.streetAddress,
-          data.city,
-          data.postalCode
+        address: sanitizedData.streetAddress ? [
+          sanitizedData.streetAddress,
+          sanitizedData.city,
+          sanitizedData.postalCode
         ].filter(Boolean).join(", ") : undefined,
-        emergencyContactName: data.emergencyContactName || undefined,
-        emergencyContactPhone: data.emergencyContactNumber || undefined,
+        emergencyContactName: sanitizedData.emergencyContactName || undefined,
+        emergencyContactPhone: sanitizedData.emergencyContactNumber || undefined,
       });
 
       // Note: Extended client profile fields are stored in the users table
@@ -142,10 +179,10 @@ export async function POST(req) {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                email_address: data.email,
+                email_address: sanitizedData.email,
                 public_metadata: {
-                  role: data.roleId,
-                  orgId: data.orgId,
+                  role: sanitizedData.roleId,
+                  orgId: sanitizedData.orgId,
                 },
                 redirect_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/sign-in`,
               }),
@@ -186,9 +223,6 @@ export async function POST(req) {
 
   } catch (err) {
     console.error("POST /api/admin/create-user error:", err);
-    return NextResponse.json(
-      { error: err.message || "Failed to create user account" },
-      { status: 500 }
-    );
+    return createErrorResponse(err.message || "Failed to create user account", 500);
   }
 }

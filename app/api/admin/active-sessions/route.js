@@ -1,37 +1,38 @@
 // app/api/admin/active-sessions/route.js
 import { NextResponse } from 'next/server';
-import { getAuth } from '@clerk/nextjs/server';
-import { clerkClient } from '@clerk/clerk-sdk-node';
-import { prisma } from '@/lib/prisma';
+import { auth } from '@clerk/nextjs/server';
+import { fetchQuery } from 'convex/nextjs';
+import { api } from '@/convex/_generated/api';
 
-export async function GET(req) {
+export async function GET() {
   try {
-    const { userId } = getAuth(req);
+    const { userId, sessionClaims } = await auth();
     if (!userId) {
-      return new Response(JSON.stringify({ error: "Unauthorized: No user ID in request" }), { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if the user is an admin
-    const user = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-      include: { roles: true },
-    });
-
-    if (user?.roles?.role_name !== 'admin') {
-        return new Response(JSON.stringify({ error: "Unauthorized: User is not an admin" }), { status: 403 });
+    const userRole = sessionClaims?.publicMetadata?.role;
+    if (userRole !== 'admin' && userRole !== 'superadmin') {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const response = await clerkClient.sessions.getSessionList({
-      userId: userId,
-      status: 'active',
-    });
+    // Determine org for current admin and count presence within that org
+    const currentUser = await fetchQuery(api.users.getByClerkId, { clerkId: userId });
+    const orgId = currentUser?.orgId || null;
+    if (!orgId) {
+      return NextResponse.json({ error: 'No organization associated with current user' }, { status: 400 });
+    }
 
-    const activeSessions = response.totalCount;
+    const activeSessions = await fetchQuery(api.presence.onlineCountByOrg, {
+      clerkId: userId,
+      orgId,
+      sinceMs: 6 * 60 * 1000, // last 6 minutes considered online
+    });
 
     return NextResponse.json({ activeSessions });
   } catch (error) {
     console.error('Error fetching active sessions:', error);
-    console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-    return new Response(JSON.stringify({ error: 'Failed to fetch active sessions', details: error.message }), { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch active sessions' }, { status: 500 });
   }
 }
+ 

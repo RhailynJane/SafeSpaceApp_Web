@@ -47,9 +47,9 @@ const CloseIcon = () => ( <X className="h-5 w-5 text-gray-500 hover:text-gray-80
  * @returns {JSX.Element} The StatCard component.
  */
 const StatCard = ({ title, value }) => (
-    <div className="bg-white p-6 rounded-2xl shadow-md text-center">
-        <p className="text-gray-500 text-sm">{title}</p>
-        <p className="text-4xl font-bold text-gray-800 mt-2">{value}</p>
+    <div className="bg-card p-6 rounded-2xl shadow-md text-center border border-border">
+        <p className="text-muted-foreground text-sm">{title}</p>
+        <p className="text-4xl font-bold text-foreground mt-2">{value}</p>
     </div>
 );
 
@@ -66,13 +66,13 @@ const StatCard = ({ title, value }) => (
  * @returns {JSX.Element} The HealthCard component.
  */
 const HealthCard = ({ title, status, value, statusColor = 'text-green-500', icon }) => (
-    <div className="bg-white p-6 rounded-2xl shadow-sm flex-1">
+    <div className="bg-card p-6 rounded-2xl shadow-sm flex-1 border border-border">
         <div className="flex justify-between items-start">
-            <p className="text-gray-500 text-sm">{title}</p>
+            <p className="text-muted-foreground text-sm">{title}</p>
             {icon}
         </div>
         <p className={`text-2xl font-bold ${statusColor} mt-2`}>{status}</p>
-        <p className="text-xs text-gray-400">{value}</p>
+        <p className="text-xs text-muted-foreground">{value}</p>
     </div>
 );
 
@@ -86,13 +86,13 @@ const HealthCard = ({ title, status, value, statusColor = 'text-green-500', icon
  * @returns {JSX.Element} The ActivityItem component.
  */
 const ActivityItem = ({ title, description, time }) => (
-    <div className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center">
+    <div className="bg-card p-4 rounded-xl shadow-sm flex justify-between items-center border border-border">
         <div>
-            <p className="font-semibold text-gray-800">{title}</p>
-            <p className="text-sm text-gray-500">{description}</p>
-            <p className="text-xs text-gray-400 mt-1">{time}</p>
+            <p className="font-semibold text-foreground">{title}</p>
+            <p className="text-sm text-muted-foreground">{description}</p>
+            <p className="text-xs text-muted-foreground mt-1">{time}</p>
         </div>
-        <span className="bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full">info</span>
+        <span className="bg-accent text-accent-foreground text-xs font-semibold px-3 py-1 rounded-full">info</span>
     </div>
 );
 
@@ -165,20 +165,20 @@ const DetailedMetricsModal = ({ onClose }) => {
     }, []);
 
     const MetricBar = ({ label, value, threshold, percentage, status = "normal" }) => (
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <div className="bg-card p-4 rounded-xl shadow-sm border border-border">
             {/* Header with label and status */}
             <div className="flex justify-between items-center mb-1">
-                <p className="text-sm font-semibold text-gray-700">{label}</p>
-                <span className={`px-2 py-0.5 text-xs font-medium rounded ${status === 'normal' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{status}</span>
+                <p className="text-sm font-semibold text-foreground">{label}</p>
+                <span className={`px-2 py-0.5 text-xs font-medium rounded ${status === 'normal' ? 'bg-accent text-accent-foreground' : 'bg-destructive text-destructive-foreground'}`}>{status}</span>
             </div>
             {/* Current value */}
-            <p className="text-2xl font-bold text-gray-800 mb-2">{value}</p>
+            <p className="text-2xl font-bold text-foreground mb-2">{value}</p>
             {/* Progress bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-teal-500 h-2 rounded-full" style={{ width: `${percentage}%` }}></div>
+            <div className="w-full bg-muted rounded-full h-2">
+                <div className="bg-primary h-2 rounded-full" style={{ width: `${percentage}%` }}></div>
             </div>
             {/* Threshold information */}
-            <p className="text-right text-xs text-gray-500 mt-1">Threshold: {threshold}</p>
+            <p className="text-right text-xs text-muted-foreground mt-1">Threshold: {threshold}</p>
         </div>
     );
 
@@ -251,10 +251,10 @@ const AuditLogModal = ({ onClose }) => {
                     {loading && <p>Loading...</p>}
                     {error && <p className="text-red-500">{error}</p>}
                     {!loading && !error && auditLogs.map(log => (
-                        <div key={log.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                            <p className="font-semibold text-gray-800">[{log.type === 'alert' ? 'ALERT' : 'AUDIT'}] {log.action} {log.type === 'audit' ? `by ${log.user}` : ''}</p>
-                            <p className="text-sm text-gray-500">{log.details}</p>
-                            <p className="text-xs text-gray-400 mt-1">{new Date(log.timestamp).toLocaleString()}</p>
+                        <div key={log.id} className="bg-card p-4 rounded-xl shadow-sm border border-border">
+                            <p className="font-semibold text-foreground">[{log.type === 'alert' ? 'ALERT' : 'AUDIT'}] {log.action} {log.type === 'audit' ? `by ${log.user}` : ''}</p>
+                            <p className="text-sm text-muted-foreground">{log.details}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{new Date(log.timestamp).toLocaleString()}</p>
                         </div>
                     ))}
                 </div>
@@ -289,7 +289,6 @@ export default function OverviewPage() {
             try {
                 const response = await fetch('/api/admin/metrics');
                 if (response.status === 403) {
-                    console.error('Unauthorized to fetch total users.');
                     setTotalUsers(0); // Set to 0 on unauthorized access
                     return;
                 }
@@ -308,7 +307,6 @@ export default function OverviewPage() {
             try {
                 const response = await fetch('/api/admin/audit-logs?limit=2');
                 if (response.status === 403) {
-                    console.error('Unauthorized to fetch recent activities.');
                     setRecentActivities([]); // Set to empty array on unauthorized access
                     return;
                 }
@@ -327,7 +325,6 @@ export default function OverviewPage() {
             try {
                 const response = await fetch('/api/admin/system-uptime');
                 if (response.status === 403) {
-                    console.error('Unauthorized to fetch system uptime.');
                     setSystemUptime('N/A'); // Set to N/A on unauthorized access
                     return;
                 }
@@ -346,7 +343,6 @@ export default function OverviewPage() {
             try {
                 const response = await fetch('/api/admin/security-alerts');
                 if (response.status === 403) {
-                    console.error('Unauthorized to fetch security alerts.');
                     setSecurityAlerts(0); // Set to 0 on unauthorized access
                     return;
                 }
@@ -365,7 +361,6 @@ export default function OverviewPage() {
             try {
                 const response = await fetch('/api/admin/active-sessions');
                 if (response.status === 403) {
-                    console.error('Unauthorized to fetch active sessions.');
                     setActiveSessions(0); // Set to 0 on unauthorized access
                     return;
                 }
@@ -391,7 +386,7 @@ export default function OverviewPage() {
         <>
             <div className="space-y-8">
                 {/* Page Header */}
-                <h1 className="text-2xl font-bold text-gray-800">Welcome, Admin!</h1>
+                <h1 className="text-2xl font-bold text-foreground">Welcome, Admin!</h1>
 
                 {/* Section for key statistics */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -402,8 +397,8 @@ export default function OverviewPage() {
                 </div>
 
                 {/* Section for system health overview */}
-                <div className="bg-teal-50/50 border border-teal-100 p-6 rounded-2xl">
-                    <h2 className="font-bold text-lg text-gray-800 mb-4">System Health Overview</h2>
+                <div className="bg-card border border-border p-6 rounded-2xl">
+                    <h2 className="font-bold text-lg text-foreground mb-4">System Health Overview</h2>
                     <div className="flex flex-col md:flex-row gap-6 mb-6">
                         <HealthCard title="Server Status" status="Online" value="99.9% uptime" icon={<ServerIcon />} />
                         <HealthCard title="Database" status="Healthy" value="120 ms avg response" statusColor="text-blue-500" icon={<DatabaseIcon />} />
@@ -418,8 +413,8 @@ export default function OverviewPage() {
                 </div>
 
                 {/* Section for recent admin activities */}
-                <div className="bg-gray-50 border border-gray-100 p-6 rounded-2xl">
-                    <h2 className="font-bold text-lg text-gray-800 mb-4">Recent Admin Activities</h2>
+                <div className="bg-card border border-border p-6 rounded-2xl">
+                    <h2 className="font-bold text-lg text-foreground mb-4">Recent Admin Activities</h2>
                     <div className="space-y-4 mb-6">
                         {recentActivities.map(activity => (
                             <ActivityItem key={activity.id} title={activity.action} description={activity.details} time={new Date(activity.timestamp).toLocaleString()} />

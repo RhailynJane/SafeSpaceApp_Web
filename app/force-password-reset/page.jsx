@@ -31,12 +31,26 @@ export default function ForcePasswordResetPage() {
 
     setLoading(true);
     try {
-      // Update password using Clerk client SDK
-      await user.updatePassword({
-        currentPassword: currentPassword || undefined,
-        newPassword,
-        signOutOfOtherSessions: true,
-      });
+      // For first-time password change (mustChangePassword), use admin API to bypass current password
+      if (mustChange) {
+        const response = await fetch('/api/admin/reset-user-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newPassword }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to update password');
+        }
+      } else {
+        // Regular password update requires current password
+        await user.updatePassword({
+          currentPassword,
+          newPassword,
+          signOutOfOtherSessions: true,
+        });
+      }
 
       // Update public metadata to clear flag and set timestamp
       await user.update({
@@ -57,7 +71,25 @@ export default function ForcePasswordResetPage() {
         else router.replace("/dashboard");
       }, 800);
     } catch (err) {
-      const msg = err?.errors?.[0]?.message || err?.message || "Failed to update password";
+      console.error('Password update error:', err);
+      let msg = "Failed to update password";
+      
+      if (err?.errors?.[0]) {
+        const clerkError = err.errors[0];
+        msg = clerkError.longMessage || clerkError.message || msg;
+        
+        // Handle specific Clerk error codes
+        if (clerkError.code === 'form_password_incorrect') {
+          msg = "Current password is incorrect. Please try again.";
+        } else if (clerkError.code === 'form_password_pwned') {
+          msg = "This password is too common. Please choose a stronger password.";
+        } else if (clerkError.code === 'form_param_format_invalid') {
+          msg = "Password format invalid. Must be at least 8 characters.";
+        }
+      } else if (err?.message) {
+        msg = err.message;
+      }
+      
       setError(msg);
     } finally {
       setLoading(false);
@@ -91,18 +123,37 @@ export default function ForcePasswordResetPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Current Password</label>
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
-              placeholder="Enter current or temporary password"
-              autoComplete="current-password"
-              required
-            />
-          </div>
+          {!mustChange && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Current Password</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                placeholder="Enter current password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+          )}
+
+          {mustChange && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Temporary Password (if provided)</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground"
+                placeholder="Leave blank if not needed"
+                autoComplete="current-password"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                If you received a temporary password, enter it here. Otherwise, leave blank.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-2">New Password</label>

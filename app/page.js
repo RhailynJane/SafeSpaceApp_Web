@@ -89,18 +89,18 @@ export default function SafespacePlatform() {
 
   //  Render
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
 
       {!isSignedIn && (
-  <section className="flex min-h-[calc(100vh-56px)] items-start justify-center pt-8 bg-gradient-to-br from-teal-50 to-green-100 p-4">
+  <section className="flex min-h-[calc(100vh-56px)] items-start justify-center pt-8 bg-gradient-to-br from-accent/10 to-accent/20 dark:from-accent/5 dark:to-accent/10 p-4">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-teal-600">
                 <img src="/images/logo.png" alt="SafeSpace Logo" className="h-10 w-10" />
               </div>
-              <CardTitle className="text-2xl font-bold text-gray-800">
-                <span className="text-teal-600">Safe</span>
-                <span className="text-gray-900">Space</span>
+              <CardTitle className="text-2xl font-bold text-foreground">
+                <span className="text-primary">Safe</span>
+                <span className="text-foreground">Space</span>
               </CardTitle>
               <CardDescription>Mental Health Support Platform</CardDescription>
             </CardHeader>
@@ -138,7 +138,7 @@ export default function SafespacePlatform() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-teal-600 hover:bg-teal-700"
+                  className="w-full"
                 >
                   {loading ? "Signing In..." : "Sign In"}
                 </Button>

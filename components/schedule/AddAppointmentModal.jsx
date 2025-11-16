@@ -17,6 +17,7 @@
 
 // Import necessary React hook for managing state
 import { useState } from 'react';
+import useSWR from 'swr';
 
 // Import Dialog components from a UI library (likely Shadcn UI based on component names)
 import {
@@ -53,11 +54,18 @@ import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
  * @param {Object} props - The component props.
  * @param {function(Object): void} props.onAdd - Callback function to be executed after
  * a successful appointment creation, receiving the new appointment data.
- * @param {Array<Object>} props.clients - An array of client objects to populate
- * the client selection dropdown. Each client object should have 'id', 'client_first_name', and 'client_last_name'.
  * @returns {JSX.Element} The Add Appointment Modal component.
  */
-export default function AddAppointmentModal({ onAdd, clients = [], existingAppointments = [] }) {
+const fetcher = (url) => fetch(url).then((res) => res.json());
+
+export default function AddAppointmentModal({ onAdd }) {
+  // Fetch clients and appointments data
+  const { data: clientsData } = useSWR('/api/clients', fetcher);
+  const { data: appointmentsData } = useSWR('/api/appointments', fetcher);
+  
+  const clients = clientsData?.clients || [];
+  const existingAppointments = appointmentsData?.appointments || [];
+
   // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
 

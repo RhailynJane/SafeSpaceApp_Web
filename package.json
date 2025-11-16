@@ -32,6 +32,7 @@
     "emoji-picker-react": "^4.15.0",
     "express": "^5.1.0",
     "framer-motion": "^12.23.24",
+    "isomorphic-dompurify": "^2.32.0",
     "jspdf": "^3.0.3",
     "lucide-react": "^0.544.0",
     "moment": "^2.30.1",
