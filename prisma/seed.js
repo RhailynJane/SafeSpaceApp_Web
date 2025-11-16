@@ -169,6 +169,20 @@ async function main() {
   for (let i = 0; i < 10; i++) {
     const client = faker.helpers.arrayElement(clients);
     const worker = faker.helpers.arrayElement(supportWorkers);
+    
+    const activities = [];
+    let total_minutes = 0;
+    const numActivities = faker.datatype.number({ min: 1, max: 3 });
+
+    for (let j = 0; j < numActivities; j++) {
+      const minutes = faker.datatype.number({ min: 15, max: 60 });
+      total_minutes += minutes;
+      activities.push({
+        type: faker.lorem.words(3),
+        minutes: minutes,
+      });
+    }
+
     await prisma.note.create({
       data: {
         client_id: client.id,
@@ -178,6 +192,10 @@ async function main() {
         summary: faker.lorem.sentence(),
         detailed_notes: faker.lorem.paragraph(),
         risk_assessment: faker.helpers.arrayElement(["Low", "Medium", "High"]),
+        total_minutes: total_minutes,
+        activities: {
+          create: activities,
+        },
       },
     });
   }

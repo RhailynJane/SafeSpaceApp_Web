@@ -97,7 +97,7 @@ export async function POST(request) {
 
     const data = await request.json();
 
-    const duration = data.duration_minutes ? parseInt(data.duration_minutes, 10) : null;
+    console.log("Received activities:", data.activities);
 
     const note = await prisma.note.create({
       data: {
@@ -105,7 +105,7 @@ export async function POST(request) {
         author_user_id: user.id,
         note_date: new Date(data.note_date),
         session_type: data.session_type,
-        duration_minutes: isNaN(duration) ? null : duration,
+        duration_minutes: data.total_minutes,
         summary: data.summary,
         detailed_notes: data.detailed_notes,
         risk_assessment: data.risk_assessment,

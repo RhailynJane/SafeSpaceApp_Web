@@ -63,14 +63,14 @@ export async function PUT(request, { params }) {
     const { id } = params;
     const data = await request.json();
 
-    const duration = data.duration_minutes ? parseInt(data.duration_minutes, 10) : null;
+    console.log("Received activities for update:", data.activities);
 
     const updatedNote = await prisma.note.update({
       where: { id: Number(id) },
       data: {
         session_type: data.session_type,
         note_date: data.note_date ? new Date(data.note_date) : undefined,
-        duration_minutes: isNaN(duration) ? null : duration,
+        duration_minutes: data.total_minutes,
         summary: data.summary,
         detailed_notes: data.detailed_notes,
         risk_assessment: data.risk_assessment,
