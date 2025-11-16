@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server';
-import { currentUser } from '@clerk/nextjs/server';
-import { fetchMutation, fetchQuery } from 'convex/nextjs';
+import { auth } from '@clerk/nextjs/server';
+import { fetchQuery, fetchMutation } from 'convex/nextjs';
 import { api } from '@/convex/_generated/api';
-import { createErrorResponse, checkRateLimit } from '@/lib/security';
-import { resolveUserRole } from '@/lib/security';
+import { resolveUserRole, createErrorResponse } from '@/lib/security';
 
 /**
- * @file This API route handles fetching, updating, and deleting a specific user.
- * It is a dynamic route where `[id]` is the Clerk ID of the user.
- * This is a protected admin-only endpoint with proper authorization and input validation.
+ * @file This API route handles fetching and updating a single user.
+ * It is intended for admin use.
  */
 
 /**
@@ -19,22 +17,22 @@ import { resolveUserRole } from '@/lib/security';
  */
 export async function GET(request, context) {
   try {
-    const me = await currentUser();
-    if (!me) {
+    const { userId: clerkId, sessionClaims } = await auth();
+    if (!clerkId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const role = await resolveUserRole(me.id, me.publicMetadata);
+    const role = await resolveUserRole(clerkId, sessionClaims);
     if (role !== 'admin' && role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const params = await context.params;
-    const targetUserId = params.id;
+    const targetUserId = params.userId;
 
     // Fetch single user via Convex
     const user = await fetchQuery(api.users.getByClerkId, { 
-      clerkId: me.id,
+      clerkId: clerkId,
       targetClerkId: targetUserId 
     });
 
@@ -69,24 +67,24 @@ export async function GET(request, context) {
  */
 export async function PATCH(request, context) {
   try {
-    const me = await currentUser();
-    if (!me) {
+    const { userId: clerkId, sessionClaims } = await auth();
+    if (!clerkId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const role = await resolveUserRole(me.id, me.publicMetadata);
+    const role = await resolveUserRole(clerkId, sessionClaims);
     if (role !== 'admin' && role !== 'superadmin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const params = await context.params;
-    const targetUserId = params.id;
+    const targetUserId = params.userId;
     const body = await request.json();
     const { first_name, last_name, email, role: userRole } = body;
 
     // Update user via Convex
     await fetchMutation(api.users.update, {
-      clerkId: me.id,
+      clerkId: clerkId,
       targetClerkId: targetUserId,
       firstName: first_name,
       lastName: last_name,
@@ -96,7 +94,7 @@ export async function PATCH(request, context) {
 
     // Fetch updated user
     const updatedUser = await fetchQuery(api.users.getByClerkId, { 
-      clerkId: me.id,
+      clerkId: clerkId,
       targetClerkId: targetUserId 
     });
 
@@ -120,61 +118,5 @@ export async function PATCH(request, context) {
   } catch (error) {
     console.error('Error updating user:', error);
     return createErrorResponse('Error updating user', 500, error.message);
-  }
-}
-
-/**
- * Handles DELETE requests to delete a user by their ID.
- * Requires admin or superadmin role.
- * @param {Request} request - The incoming HTTP request.
- * @param {object} context - The route context, containing params.
- * @returns {NextResponse} A JSON response confirming the deletion or an error message.
- */
-export async function DELETE(request, context) {
-  try {
-    // AuthN
-    const me = await currentUser();
-    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    // Rate-limit deletes per admin
-    if (!checkRateLimit(`delete-user:${me.id}`, 20, 60_000)) {
-      return createErrorResponse('Rate limit exceeded. Please try again later.', 429);
-    }
-
-    // Treat path param as Clerk user ID to delete
-    const params = await context.params;
-    const { id } = params;
-    const targetClerkId = decodeURIComponent(id);
-    if (!targetClerkId || typeof targetClerkId !== 'string') {
-      return createErrorResponse('Invalid target user id', 400);
-    }
-
-    // 1) Delete in Clerk first (prevents future logins)
-    const res = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(targetClerkId)}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
-    });
-    if (!res.ok) {
-      let details = null;
-      try { details = await res.json(); } catch {}
-      const message = details?.errors?.[0]?.message || `Clerk deletion failed (status ${res.status})`;
-      return createErrorResponse(message, 502, details);
-    }
-
-    // 2) Remove from Convex (best-effort; guarded against last SuperAdmin)
-    try {
-      await fetchMutation(api.users.remove, {
-        clerkId: me.id,
-        targetClerkId,
-      });
-    } catch (convexErr) {
-      // Log but do not fail the overall operation since Clerk deletion succeeded
-      console.warn('Convex cleanup failed after Clerk delete:', convexErr);
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    return createErrorResponse('Error deleting user', 500, error.message);
   }
 }

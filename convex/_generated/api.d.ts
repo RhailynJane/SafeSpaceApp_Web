@@ -13,6 +13,7 @@ import type * as auditLogs from "../auditLogs.js";
 import type * as auth from "../auth.js";
 import type * as featurePermissions from "../featurePermissions.js";
 import type * as helpers from "../helpers.js";
+import type * as metrics from "../metrics.js";
 import type * as organizations from "../organizations.js";
 import type * as presence from "../presence.js";
 import type * as reports from "../reports.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   featurePermissions: typeof featurePermissions;
   helpers: typeof helpers;
+  metrics: typeof metrics;
   organizations: typeof organizations;
   presence: typeof presence;
   reports: typeof reports;

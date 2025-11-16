@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Search, Plus, Settings, X } from "lucide-react";
+import { Search, Plus, Settings, X, Filter, ArrowUpDown } from "lucide-react";
 
 // --- ICONS ---
 // A collection of simple, stateless functional components for rendering SVG icons.
@@ -101,6 +101,13 @@ export default function UsersPage() {
     const [modal, setModal] = useState({ type: null, data: null });
     // State to hold the list of users.
     const [users, setUsers] = useState([]);
+    // Filter states
+    const [filterRole, setFilterRole] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [showFilters, setShowFilters] = useState(false);
+    // Sort state
+    const [sortBy, setSortBy] = useState('created_at');
+    const [sortOrder, setSortOrder] = useState('desc');
     const router = useRouter();
 
     useEffect(() => {
@@ -185,54 +192,82 @@ export default function UsersPage() {
                     </Link>
                 </div>
 
-                {/* User table */}
-                <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                        <thead>
-                            <tr className="border-b border-gray-200">
-                                {['ID', 'First Name', 'Last Name', 'Email Address', 'Role', 'Last Login', 'Created At', 'Status', ''].map(header => (
-                                    <th key={header} className="px-6 py-3 text-left text-xs font-bold text-teal-800 uppercase tracking-wider bg-teal-50">{header}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredUsers.map(user => (
-                                <tr key={user.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.id}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.first_name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.last_name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role.role_name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.last_login}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.created_at}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{user.status}</span>
-                                    </td>
-                                    {/* Action menu for each user */}
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center relative">
+                {/* User cards - responsive grid */}
+                <div className="grid grid-cols-1 gap-4">
+                    {filteredUsers.length === 0 ? (
+                        <p className="text-center py-8 text-muted-foreground">No results found</p>
+                    ) : (
+                        filteredUsers.map(user => (
+                            <div key={user.id} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1 min-w-0 space-y-3">
+                                        {/* Header with name and status */}
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                                    <span className="text-sm font-semibold text-primary">
+                                                        {user.first_name?.[0]}{user.last_name?.[0]}
+                                                    </span>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-semibold text-foreground truncate">
+                                                        {user.first_name} {user.last_name}
+                                                    </h3>
+                                                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                                                </div>
+                                            </div>
+                                            <span className="flex-shrink-0 px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                {user.status}
+                                            </span>
+                                        </div>
+
+                                        {/* Details grid */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                                            <div>
+                                                <span className="text-muted-foreground text-xs">User ID</span>
+                                                <p className="font-medium text-foreground">user_{user.id.slice(-8)}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground text-xs">Role</span>
+                                                <p className="font-medium text-foreground">{user.role.role_name}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground text-xs">Last Login</span>
+                                                <p className="font-medium text-foreground truncate">{user.last_login || 'Never'}</p>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground text-xs">Created</span>
+                                                <p className="font-medium text-foreground truncate">{user.created_at}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Action menu */}
+                                    <div className="flex-shrink-0 relative">
                                         <Button variant="ghost" size="icon" onClick={() => handleActionMenu(user.id)}>
                                             <Settings className="h-5 w-5" />
                                         </Button>
-                                        {/* The action menu dropdown, conditionally rendered */}
                                         {activeActionMenu === user.id && (
-                                            <div className="absolute right-8 top-full mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-xl z-10">
-                                                <button onClick={() => router.push(`/admin/users/${user.id}/edit`)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit User</button>
-                                                <button onClick={() => handleDeleteClick(user)} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete User</button>
+                                            <div className="absolute right-0 top-full mt-2 w-40 bg-card border border-border rounded-lg shadow-xl z-10">
+                                                <button 
+                                                    onClick={() => router.push(`/admin/users/${user.id}/edit`)} 
+                                                    className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted rounded-t-lg"
+                                                >
+                                                    Edit User
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteClick(user)} 
+                                                    className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-b-lg"
+                                                >
+                                                    Delete User
+                                                </button>
                                             </div>
                                         )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                     {/* Message to display when no search results are found */}
-                     {filteredUsers.length === 0 && (
-                        <p className="text-center py-8 text-gray-500">No results found</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
                     )}
-                </div>
-                 {/* A simple scrollbar placeholder */}
-                 <div className="w-full h-2 bg-gray-200 rounded-full mt-6">
-                    <div className="h-2 bg-gray-400 rounded-full" style={{ width: '50%' }}></div>
                 </div>
             </div>
 
