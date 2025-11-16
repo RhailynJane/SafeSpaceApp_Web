@@ -432,9 +432,9 @@ export const fetchExternalAffirmation = action({
 			const response = await fetch('https://www.affirmations.dev');
 			const data = await response.json();
 			
-			if (data?.affirmation) {
+			if ((data as any)?.affirmation) {
 				return {
-					affirmation: data.affirmation as string,
+					affirmation: (data as any).affirmation as string,
 				};
 			}
 			
@@ -522,8 +522,8 @@ export const getDailyAffirmationExternal = action({
 			
 			let affirmationText = "I am capable, I am strong, I am worthy of good things.";
 			
-			if (data?.affirmation) {
-				affirmationText = data.affirmation as string;
+			if ((data as any)?.affirmation) {
+				affirmationText = (data as any).affirmation as string;
 			}
 			
 			// Create resource object

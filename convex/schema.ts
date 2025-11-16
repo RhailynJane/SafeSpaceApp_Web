@@ -737,4 +737,20 @@ export default defineSchema({
 		.index("by_org_active", ["orgId", "active"])
 		.index("by_active", ["active"])
 		.index("by_createdAt", ["createdAt"]),
+
+	// ============================================
+	// FEATURE PERMISSIONS / ACCESS CONTROL (NEW)
+	// ============================================
+	// Allows a superadmin to enable/disable features per organization
+	// and specify granular read/write/delete permissions.
+	// If a record does not exist for a feature/org pair, UI will assume defaults (all enabled).
+	featurePermissions: defineTable({
+		orgId: v.string(), // organization _id or slug reference (store slug for stability)
+		featureKey: v.string(), // e.g. 'selfAssessment', 'moodTracking', 'journaling', 'resources', 'announcements', 'crisisSupport', 'messages', 'appointments', 'communityForum', 'videoConsultations'
+		enabled: v.boolean(), // master toggle for the feature visibility
+		updatedAt: v.number(),
+		updatedBy: v.optional(v.string()), // clerkId of admin who changed
+	})
+		.index("by_org", ["orgId"])
+		.index("by_org_and_feature", ["orgId", "featureKey"])
 });
