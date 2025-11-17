@@ -70,6 +70,22 @@ async function requirePermissionOr(ctx: any, clerkId: string, perms: string[]) {
   return false;
 }
 
+// Simple list function without complex permissions (for migration compatibility)
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    const results = await ctx.db.query("referrals").collect();
+    
+    // Sort by submittedDate desc then createdAt desc
+    results.sort((a: any, b: any) => (b.submittedDate ?? 0) - (a.submittedDate ?? 0) || b.createdAt - a.createdAt);
+
+    return results;
+  },
+});
+
 export const create = mutation({
   args: {
     client_first_name: v.string(),
@@ -176,5 +192,52 @@ export const updateStatus = mutation({
     });
 
     return { ok: true };
+  },
+});
+
+export const getTimeline = query({
+  args: {
+    referralId: v.id("referrals"),
+  },
+  handler: async (ctx, { referralId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+
+    // Verify referral exists
+    const referral = await ctx.db.get(referralId);
+    if (!referral) throw new Error("Referral not found");
+
+    // Fetch timeline events
+    const timelineEvents = await ctx.db
+      .query("referralTimeline")
+      .withIndex("by_referral", (q) => q.eq("referralId", referralId))
+      .collect();
+
+    // Sort by createdAt ascending (oldest first)
+    timelineEvents.sort((a, b) => a.createdAt - b.createdAt);
+
+    // Format events for frontend
+    const formattedEvents = timelineEvents.map((event) => {
+      // Extract status from message if available
+      const statusMatch = event.message.match(/changed to (\w+)/i);
+      const status = statusMatch ? statusMatch[1].toUpperCase() : 'SUBMITTED';
+      
+      // Determine icon based on status
+      let icon = 'ClockIcon';
+      if (status === 'IN-REVIEW' || status === 'INREVIEW') icon = 'EyeIcon';
+      if (status === 'ACCEPTED') icon = 'CheckCircleIcon';
+      if (status === 'DECLINED') icon = 'XIcon';
+
+      return {
+        icon,
+        status,
+        message: event.message,
+        timestamp: event.createdAt,
+        actor: event.createdBy || 'System',
+        note: event.message,
+      };
+    });
+
+    return { events: formattedEvents };
   },
 });

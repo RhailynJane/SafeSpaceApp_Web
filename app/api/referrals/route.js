@@ -13,14 +13,21 @@
  */
 
 import { auth, currentUser } from "@clerk/nextjs/server";
-// `auth` retrieves the current session info (like userId).
-// `currentUser` fetches full user details from Clerk, including public metadata like role.
-
-import { prisma } from "@/lib/prisma";
-// Imports the Prisma client instance that manages all database interactions (connected to PostgreSQL).
-
 import { NextResponse } from "next/server";
-// Used to send JSON responses with status codes in Next.js API routes.
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+
+// Helper to get authenticated Convex client
+async function getConvexClient() {
+  const { getToken } = await auth();
+  const token = await getToken({ template: "convex" });
+  
+  const client = new ConvexHttpClient(convexUrl);
+  client.setAuth(token);
+  return client;
+}
 
 // ----------------------
 // 🔎 Validation Utilities
@@ -90,10 +97,9 @@ export async function GET() {
 
     console.log("✅ Access granted for role:", role);
 
-    // Fetch all referrals from the database in descending order of creation.
-    const referrals = await prisma.referral.findMany({
-      orderBy: { created_at: "desc" },
-    });
+    // Fetch all referrals from Convex with authentication
+    const convex = await getConvexClient();
+    const referrals = await convex.query(api.referrals.list, {});
 
     // Return the list of referrals as a JSON response.
     return NextResponse.json(referrals, { status: 200 });
@@ -199,28 +205,25 @@ export async function POST(req) {
       .filter(Boolean)
       .join('\n');
 
-    // Create a new referral record in the database using Prisma.
-    const referral = await prisma.referral.create({
-      data: {
-        client_first_name: (data.client_first_name ?? '').trim(),
-        client_last_name: (data.client_last_name ?? '').trim(),
-        age: age, // already parsed above
-        phone: phone, // normalized digits-only or null
-        address: (data.address ?? '').trim() || null,
-        email: email || null,
-        emergency_first_name: (data.emergency_first_name ?? '').trim() || null,
-        emergency_last_name: (data.emergency_last_name ?? '').trim() || null,
-        emergency_phone: emergency_phone, // normalized digits-only or null
-        referral_source: data.referral_source || "Unknown", // Default to "Unknown" if empty.
-        reason_for_referral: data.reason_for_referral || "", // Optional field.
-        additional_notes: composedAdditional, // Optional field plus appended extras.
-        submitted_date: new Date(), // Automatically set current date and time.
-        status: "Pending", // Default status for new referrals.
-      },
+    // Create a new referral in Convex with authentication
+    const convex = await getConvexClient();
+    const result = await convex.mutation(api.referrals.create, {
+      client_first_name: (data.client_first_name ?? '').trim(),
+      client_last_name: (data.client_last_name ?? '').trim(),
+      age: age,
+      phone: phone,
+      address: (data.address ?? '').trim() || undefined,
+      email: email || undefined,
+      emergency_first_name: (data.emergency_first_name ?? '').trim() || undefined,
+      emergency_last_name: (data.emergency_last_name ?? '').trim() || undefined,
+      emergency_phone: emergency_phone,
+      referral_source: data.referral_source || "Unknown",
+      reason_for_referral: data.reason_for_referral || "",
+      additional_notes: composedAdditional || undefined,
     });
 
-    // Return the created referral record as confirmation with 201 Created status.
-    return NextResponse.json(referral, { status: 201 });
+    // Return the created referral ID as confirmation with 201 Created status.
+    return NextResponse.json(result, { status: 201 });
 
   } catch (error) {
     // Log and handle any unexpected errors during creation.

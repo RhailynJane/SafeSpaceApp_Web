@@ -451,4 +451,40 @@ export default defineSchema({
 		.index("by_org_active", ["orgId", "active"]) // filter by org + active
 		.index("by_active", ["active"]) // global active list
 		.index("by_createdAt", ["createdAt"]),
+
+	// Referrals (mental health intake)
+	referrals: defineTable({
+		client_first_name: v.string(),
+		client_last_name: v.string(),
+		age: v.optional(v.number()),
+		gender: v.optional(v.string()),
+		phone: v.optional(v.string()),
+		secondary_phone: v.optional(v.string()),
+		address: v.optional(v.string()),
+		email: v.optional(v.string()),
+		emergency_first_name: v.optional(v.string()),
+		emergency_last_name: v.optional(v.string()),
+		emergency_phone: v.optional(v.string()),
+		preferred_contact_method: v.optional(v.string()), // 'phone' | 'email' | 'sms'
+		preferred_language: v.optional(v.string()),
+		pronouns: v.optional(v.string()),
+		availability_notes: v.optional(v.string()),
+		referring_provider_name: v.optional(v.string()),
+		referring_provider_phone: v.optional(v.string()),
+		referring_provider_email: v.optional(v.string()),
+		relationship_to_client: v.optional(v.string()),
+		consent_date: v.optional(v.string()),
+		referral_source: v.string(), // Required field
+		reason_for_referral: v.optional(v.string()),
+		additional_notes: v.optional(v.string()),
+		status: v.string(), // 'Pending' | 'In Review' | 'Accepted' | 'Rejected'
+		assigned_to: v.optional(v.string()), // Clerk user ID of assigned team member
+		submitted_date: v.number(), // Timestamp
+		created_at: v.number(),
+		updated_at: v.number(),
+	})
+		.index("by_status", ["status"])
+		.index("by_submitted_date", ["submitted_date"])
+		.index("by_assigned_to", ["assigned_to"])
+		.index("by_created_at", ["created_at"]),
 });
