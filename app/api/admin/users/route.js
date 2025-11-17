@@ -14,7 +14,7 @@ import bcrypt from 'bcrypt'
  * Handles GET requests to fetch all users from the database.
  * @returns {NextResponse} A JSON response with the list of users or an error message.
  */
-export async function GET() {
+export async function GET(request) {
   try {
     const { userId, sessionClaims } = await auth();
     if (!userId) {
@@ -26,8 +26,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // Optional status filter (used to request deleted users)
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get('status') || undefined;
+
     // Fetch users via Convex; authorization is enforced in the query
-    const convexUsers = await fetchQuery(api.users.list, { clerkId: userId });
+    const convexUsers = await fetchQuery(api.users.list, { clerkId: userId, status });
 
     // Map Convex users to legacy shape expected by the admin users table
     const users = (convexUsers || []).map((u) => ({

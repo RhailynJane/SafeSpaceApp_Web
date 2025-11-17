@@ -109,15 +109,19 @@ export default function UsersPage() {
     const [sortBy, setSortBy] = useState('created_at');
     const [sortOrder, setSortOrder] = useState('desc');
     const router = useRouter();
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState(null);
 
     useEffect(() => {
         const getUsers = async () => {
-            const res = await fetch('/api/admin/users');
+            const url = filterStatus === 'deleted' ? '/api/admin/users?status=deleted' : '/api/admin/users';
+            const res = await fetch(url);
             const data = await res.json();
             setUsers(data);
         };
         getUsers();
-    }, []);
+        // refetch when deleted filter toggles
+    }, [filterStatus]);
 
     // Filters the users based on the search query, role, and status.
     // Also handles sorting.
@@ -206,6 +210,24 @@ export default function UsersPage() {
         }
     };
 
+    const handleSyncDeleted = async () => {
+        try {
+            setSyncing(true);
+            setSyncResult(null);
+            const res = await fetch('/api/admin/users/sync-deleted', { method: 'POST' });
+            const data = await res.json();
+            setSyncResult(data);
+            // refresh list after sync (respect current filter)
+            const url = filterStatus === 'deleted' ? '/api/admin/users?status=deleted' : '/api/admin/users';
+            const refresh = await fetch(url);
+            setUsers(await refresh.json());
+        } catch (e) {
+            setSyncResult({ error: String(e?.message || e) });
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     /**
      * Closes any open modal.
      */
@@ -236,6 +258,14 @@ export default function UsersPage() {
                         >
                             <Filter className="h-4 w-4 mr-2" />
                             Filters
+                        </Button>
+                        <Button 
+                            variant="outline"
+                            onClick={handleSyncDeleted}
+                            disabled={syncing}
+                            className="flex-1 md:flex-initial"
+                        >
+                            {syncing ? 'Syncing…' : 'Sync Deleted from Clerk'}
                         </Button>
                         <Link href="/admin/users/create" passHref className="flex-1 md:flex-initial">
                             <Button className="w-full px-5 py-3">
@@ -274,6 +304,7 @@ export default function UsersPage() {
                                     <option value="active">Active</option>
                                     <option value="inactive">Inactive</option>
                                     <option value="suspended">Suspended</option>
+                                    <option value="deleted">Deleted</option>
                                 </select>
                             </div>
                         </div>
@@ -418,6 +449,15 @@ export default function UsersPage() {
             {/* Conditionally render the modals based on the modal state */}
             {modal.type === 'delete-confirm' && <DeleteUserModal user={modal.data} onConfirm={handleConfirmDelete} onCancel={closeModal} />}
             {modal.type === 'delete-success' && <DeleteSuccessModal onClose={closeModal} />}
+            {syncResult && (
+                <div className="mt-4 text-sm text-muted-foreground">
+                    {syncResult.error ? (
+                        <p className="text-red-600">Sync failed: {syncResult.error}</p>
+                    ) : (
+                        <p>Checked {syncResult.checked || 0} users; archived {syncResult.archived || 0}.</p>
+                    )}
+                </div>
+            )}
         </>
     );
 }

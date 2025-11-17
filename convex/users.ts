@@ -52,7 +52,7 @@ function validateRoleId(roleId: string): void {
 
 function validateStatus(status: string | undefined): void {
   if (!status) return;
-  const validStatuses = ["active", "inactive", "suspended"];
+  const validStatuses = ["active", "inactive", "suspended", "deleted"];
   if (!validStatuses.includes(status)) {
     throw new Error(`Invalid status: ${status}`);
   }
@@ -106,6 +106,9 @@ export const list = query({
     }
     if (status) {
       users = users.filter((u) => u.status === status);
+    } else {
+      // By default, exclude deleted users unless explicitly requested
+      users = users.filter((u) => u.status !== "deleted");
     }
 
     // Sort by creation date (newest first)
@@ -421,6 +424,7 @@ export const update = mutation({
 
 /**
  * Delete a user (SuperAdmin only)
+ * Instead of hard-deleting, marks the user as deleted
  */
 export const remove = mutation({
   args: {
@@ -451,7 +455,11 @@ export const remove = mutation({
       }
     }
 
-    await ctx.db.delete(targetUser._id);
+    // Soft delete: mark as deleted instead of removing the record
+    await ctx.db.patch(targetUser._id, {
+      status: "deleted",
+      updatedAt: Date.now(),
+    });
 
     // Log audit event
     await ctx.db.insert("auditLogs", {
@@ -463,6 +471,75 @@ export const remove = mutation({
         email: targetUser.email,
         roleId: targetUser.roleId,
       }),
+      timestamp: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Archive (soft-delete) a user
+ * - Admins can archive users within their own org
+ * - SuperAdmins can archive anyone
+ */
+export const archive = mutation({
+  args: {
+    clerkId: v.string(),
+    targetClerkId: v.string(),
+  },
+  handler: async (ctx, { clerkId, targetClerkId }) => {
+    // Must have org user management permission (admins and superadmins)
+    await requirePermission(ctx, clerkId, PERMISSIONS.MANAGE_ORG_USERS);
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!currentUser) throw new Error("Current user not found");
+
+    const targetUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", targetClerkId))
+      .first();
+
+    if (!targetUser) throw new Error("Target user not found");
+
+    const isSA = currentUser.roleId === "superadmin";
+    const sameOrg = currentUser.orgId && currentUser.orgId === targetUser.orgId;
+
+    if (!isSA && !sameOrg) {
+      throw new Error("Unauthorized: Cannot archive user from different organization");
+    }
+
+    // Only SuperAdmins can archive SuperAdmins
+    if (targetUser.roleId === "superadmin" && !isSA) {
+      throw new Error("Only SuperAdmins can archive SuperAdmin users");
+    }
+
+    // Prevent archiving the last SuperAdmin
+    if (targetUser.roleId === "superadmin") {
+      const superadmins = await ctx.db
+        .query("users")
+        .withIndex("by_roleId", (q) => q.eq("roleId", "superadmin"))
+        .collect();
+      if (superadmins.length <= 1) {
+        throw new Error("Cannot archive the last SuperAdmin user");
+      }
+    }
+
+    await ctx.db.patch(targetUser._id, {
+      status: "deleted",
+      updatedAt: Date.now(),
+    });
+
+    await ctx.db.insert("auditLogs", {
+      userId: clerkId,
+      action: "user_deleted",
+      entityType: "user",
+      entityId: targetUser._id,
+      details: JSON.stringify({ email: targetUser.email, roleId: targetUser.roleId, soft: true }),
       timestamp: Date.now(),
     });
 

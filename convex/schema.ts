@@ -53,7 +53,7 @@ export default defineSchema({
 		roleId: v.optional(v.string()), // Reference to role (role slug: 'superadmin', 'admin', 'team_leader', 'support_worker', 'peer_support', 'client')
 		orgId: v.optional(v.string()), // Organization slug they belong to
 		lastLogin: v.optional(v.number()),
-		status: v.optional(v.string()), // 'active' | 'inactive' | 'suspended' (default: 'active' if not set)
+		status: v.optional(v.string()), // 'active' | 'inactive' | 'suspended' | 'deleted' (default: 'active' if not set)
 		// Additional metadata (web-specific)
 		phoneNumber: v.optional(v.string()),
 		address: v.optional(v.string()),

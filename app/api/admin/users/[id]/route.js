@@ -141,6 +141,9 @@ export async function DELETE(request, context) {
       return createErrorResponse('Rate limit exceeded. Please try again later.', 429);
     }
 
+    // Determine role to decide soft-delete vs hard-delete permissions
+    const myRole = await resolveUserRole(me.id, me.publicMetadata);
+
     // Treat path param as Clerk user ID to delete
     const params = await context.params;
     const { id } = params;
@@ -155,21 +158,26 @@ export async function DELETE(request, context) {
       headers: { Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}` },
     });
     if (!res.ok) {
-      let details = null;
-      try { details = await res.json(); } catch {}
-      const message = details?.errors?.[0]?.message || `Clerk deletion failed (status ${res.status})`;
-      return createErrorResponse(message, 502, details);
+      // If the user is already missing in Clerk, continue with Convex archival
+      if (res.status !== 404) {
+        let details = null;
+        try { details = await res.json(); } catch {}
+        const message = details?.errors?.[0]?.message || `Clerk deletion failed (status ${res.status})`;
+        return createErrorResponse(message, 502, details);
+      }
     }
 
-    // 2) Remove from Convex (best-effort; guarded against last SuperAdmin)
+    // 2) Soft-delete in Convex for Admins; hard-delete (soft in our mutation) pathway for SuperAdmin
     try {
-      await fetchMutation(api.users.remove, {
-        clerkId: me.id,
-        targetClerkId,
-      });
+      if (myRole === 'superadmin') {
+        await fetchMutation(api.users.remove, { clerkId: me.id, targetClerkId });
+      } else {
+        await fetchMutation(api.users.archive, { clerkId: me.id, targetClerkId });
+      }
     } catch (convexErr) {
-      // Log but do not fail the overall operation since Clerk deletion succeeded
-      console.warn('Convex cleanup failed after Clerk delete:', convexErr);
+      console.warn('Convex user status update failed after Clerk delete:', convexErr);
+      // Surface the error so UI can reflect inconsistency if needed
+      return createErrorResponse('User deleted in authentication, but app data could not be updated.', 502, String(convexErr?.message || convexErr));
     }
 
     return NextResponse.json({ success: true });
