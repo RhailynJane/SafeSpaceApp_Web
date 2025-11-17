@@ -106,6 +106,7 @@ export default function CreateReferralPage() {
   const [consentGiven, setConsentGiven] = useState(false); // Checkbox validation
   const [showSuccessModal, setShowSuccessModal] = useState(false); // Controls modal visibility
   const [errors, setErrors] = useState({}); // Inline validation messages
+  const [isProcessingFile, setIsProcessingFile] = useState(false); // OCR processing state
 
   // Mapbox Places Autocomplete state
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -114,10 +115,89 @@ export default function CreateReferralPage() {
   const [isAddrLoading, setIsAddrLoading] = useState(false);
   const addrAbortRef = useRef(null);
 
-  // --- Handle File Upload ---
-  const handleFileChange = (e) => {
+  // --- Handle File Upload with OCR ---
+  const handleFileChange = async (e) => {
     if (e.target.files && e.target.files[0]) {
-      setFileName(e.target.files[0].name); // store uploaded file name
+      const file = e.target.files[0];
+      setFileName(file.name);
+      
+      // Check if it's an image or PDF
+      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+      if (!validTypes.includes(file.type)) {
+        alert('Please upload a PDF, PNG, or JPG file');
+        return;
+      }
+
+      setIsProcessingFile(true);
+      
+      try {
+        // Use Gemini API for document extraction
+        const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+        if (!apiKey) {
+          alert('Gemini API key not configured. Please add NEXT_PUBLIC_GEMINI_API_KEY to .env.local');
+          setIsProcessingFile(false);
+          return;
+        }
+
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        
+        reader.onload = async () => {
+          try {
+            const base64Data = reader.result.split(',')[1];
+            const mimeType = file.type;
+
+            // Call backend API to extract form data
+            const response = await fetch('/api/extract-referral', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ base64Data, mimeType })
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error('Extraction error:', errorData);
+              throw new Error(errorData.suggestion || errorData.error || 'Failed to process document');
+            }
+
+            const { data: extractedData } = await response.json();
+              
+            // Auto-fill form fields with extracted data
+            setFormData(prev => ({
+              ...prev,
+              ...Object.fromEntries(
+                Object.entries(extractedData).map(([key, value]) => [
+                  key,
+                  value || prev[key] // Keep existing value if extraction is empty
+                ])
+              )
+            }));
+            
+            // Update address query for autocomplete
+            if (extractedData.address) {
+              setAddressQuery(extractedData.address);
+            }
+            
+            alert('Form fields auto-filled from uploaded document! Please review and update as needed.');
+          } catch (err) {
+            console.error('OCR error:', err);
+            alert('Could not extract data from document. Please fill the form manually.');
+          } finally {
+            setIsProcessingFile(false);
+          }
+        };
+
+        reader.onerror = () => {
+          alert('Failed to read file');
+          setIsProcessingFile(false);
+        };
+        
+      } catch (err) {
+        console.error('File processing error:', err);
+        alert('Error processing file');
+        setIsProcessingFile(false);
+      }
     }
   };
 
@@ -369,7 +449,14 @@ export default function CreateReferralPage() {
         >
           {/* File Upload Section */}
           <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center">
-            {fileName ? (
+            {isProcessingFile ? (
+              // Show processing state
+              <div className="py-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-3"></div>
+                <p className="text-teal-600 font-medium">Processing document...</p>
+                <p className="text-xs text-gray-500 mt-1">Extracting form data using AI</p>
+              </div>
+            ) : fileName ? (
               // If file is uploaded, show its name
               <div className="flex items-center justify-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-lg max-w-xs mx-auto">
                 <FileIcon />
@@ -380,12 +467,22 @@ export default function CreateReferralPage() {
               <>
                 <UploadIcon />
                 <p className="mt-2 text-gray-600">Upload fax document or referral form</p>
-                <p className="text-xs text-gray-400">PDF, PNG, JPG up to 10MB</p>
+                <p className="text-xs text-gray-400">PDF, PNG, JPG up to 10MB - AI will auto-fill the form</p>
               </>
             )}
-            <label className="cursor-pointer mt-4 inline-block bg-gray-800 text-white px-6 py-2.5 rounded-lg font-semibold hover:bg-gray-900">
-              Choose File
-              <input type="file" className="hidden" onChange={handleFileChange} />
+            <label className={`cursor-pointer mt-4 inline-block px-6 py-2.5 rounded-lg font-semibold ${
+              isProcessingFile 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-gray-800 hover:bg-gray-900'
+            } text-white`}>
+              {isProcessingFile ? 'Processing...' : 'Choose File'}
+              <input 
+                type="file" 
+                className="hidden" 
+                onChange={handleFileChange} 
+                disabled={isProcessingFile}
+                accept=".pdf,.png,.jpg,.jpeg"
+              />
             </label>
           </div>
 

@@ -352,26 +352,26 @@ export default function UsersPage() {
                 {/* Table view for desktop */}
                 <div className="hidden lg:block overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-muted/30 sticky top-0 z-10 border-b border-border">
-                            <tr className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                <th className="text-left py-3 px-4">Name</th>
-                                <th className="text-left py-3 px-4">Role</th>
-                                <th className="text-left py-3 px-4">Last Login</th>
-                                <th className="text-left py-3 px-4">Created</th>
-                                <th className="text-left py-3 px-4">Status</th>
-                                <th className="text-right py-3 px-4">Actions</th>
+                        <thead className="bg-gradient-to-r from-teal-600 to-cyan-600 sticky top-0 z-10">
+                            <tr className="text-xs font-bold text-white uppercase tracking-wider">
+                                <th className="text-left py-3 px-6">Name</th>
+                                <th className="text-left py-3 px-6">Role</th>
+                                <th className="text-left py-3 px-6">Last Login</th>
+                                <th className="text-left py-3 px-6">Created</th>
+                                <th className="text-left py-3 px-6">Status</th>
+                                <th className="text-right py-3 px-6">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-border">
+                        <tbody className="bg-white divide-y divide-gray-200">
                             {filteredUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="text-center py-8 text-muted-foreground">No results found</td>
+                                    <td colSpan="6" className="text-center py-8 text-gray-500">No results found</td>
                                 </tr>
                             ) : (
                                 filteredUsers.map(user => (
-                                    <tr key={user.id} className="hover:bg-muted/50 transition-colors">
+                                    <tr key={user.id} className="hover:bg-teal-50/40 transition-colors">
                                         {/* Name */}
-                                        <td className="py-4 px-4">
+                                        <td className="py-4 px-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                                                     <span className="text-sm font-semibold text-primary">
@@ -379,32 +379,42 @@ export default function UsersPage() {
                                                     </span>
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h3 className="font-semibold text-foreground truncate">
+                                                    <h3 className="font-semibold text-gray-900 truncate">
                                                         {user.first_name} {user.last_name}
                                                     </h3>
-                                                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
-                                                    <p className="text-xs text-muted-foreground/70 mt-0.5">ID: {user.id.slice(-12)}</p>
+                                                    <p className="text-sm text-gray-600 truncate">{user.email}</p>
+                                                    <p className="text-xs text-gray-500 mt-0.5">ID: {user.id.slice(-12)}</p>
                                                 </div>
                                             </div>
                                         </td>
                                         {/* Role */}
-                                        <td className="py-4 px-4">
-                                            <p className="font-medium text-foreground">{user.role.role_name}</p>
+                                        <td className="py-4 px-6">
+                                            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800 capitalize">
+                                                {user.role.role_name.replace('_', ' ')}
+                                            </span>
                                         </td>
                                         {/* Last Login */}
-                                        <td className="py-4 px-4">
-                                            <p className="font-medium text-foreground">{user.last_login || 'N/A'}</p>
+                                        <td className="py-4 px-6">
+                                            <p className="text-sm text-gray-700">{user.last_login || 'N/A'}</p>
                                         </td>
                                         {/* Created */}
-                                        <td className="py-4 px-4">
-                                            <p className="font-medium text-foreground">{user.created_at}</p>
+                                        <td className="py-4 px-6">
+                                            <p className="text-sm text-gray-700">{user.created_at}</p>
                                         </td>
                                         {/* Status */}
-                                        <td className="py-4 px-4">
-                                            <p className="font-medium text-foreground">{user.status}</p>
+                                        <td className="py-4 px-6">
+                                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${
+                                                user.status.toLowerCase() === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                                                user.status.toLowerCase() === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                                                user.status.toLowerCase() === 'suspended' ? 'bg-amber-100 text-amber-800' :
+                                                user.status.toLowerCase() === 'deleted' ? 'bg-rose-100 text-rose-800' :
+                                                'bg-blue-100 text-blue-800'
+                                            }`}>
+                                                {user.status}
+                                            </span>
                                         </td>
                                         {/* Actions */}
-                                        <td className="py-4 px-4 text-right">
+                                        <td className="py-4 px-6 text-right">
                                             <div className="flex justify-end relative">
                                                 <Button variant="ghost" size="icon" onClick={() => handleActionMenu(user.id)}>
                                                     <Settings className="h-5 w-5" />
