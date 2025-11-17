@@ -71,7 +71,9 @@ export const list = query({
       logs.map(async (log) => {
         let userName = "System";
         let userEmail = null;
+        let userRole: string | null = null;
         let orgName = null;
+        let orgSlug: string | null = null;
 
         if (log.userId) {
           const user = await ctx.db
@@ -81,6 +83,8 @@ export const list = query({
           if (user) {
             userName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || "Unknown User";
             userEmail = user.email;
+            userRole = (user as any).roleId || null;
+            orgSlug = (user as any).orgId || null;
           }
         }
 
@@ -88,6 +92,8 @@ export const list = query({
           const org = await ctx.db.get(log.orgId as any);
           if (org && "name" in org) {
             orgName = org.name;
+            // best-effort slug
+            if ((org as any).slug) orgSlug = (org as any).slug as string;
           }
         }
 
@@ -95,7 +101,9 @@ export const list = query({
           ...log,
           userName,
           userEmail,
+          userRole,
           orgName,
+          orgSlug,
         };
       })
     );

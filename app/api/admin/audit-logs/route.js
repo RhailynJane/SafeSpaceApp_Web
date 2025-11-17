@@ -27,18 +27,27 @@ export async function GET(req) {
     }
 
     const client = await getConvexClient();
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+
     const logs = await client.query(api.auditLogs.list, {
-      limit: limit ? parseInt(limit) : 100,
+      limit: limit ? parseInt(limit) : 1000,
+      startDate: startDate ? parseInt(startDate) : undefined,
+      endDate: endDate ? parseInt(endDate) : undefined,
     });
 
-    // Format logs for frontend
+    // Pass through enriched fields for better filtering on UI
     const auditLogs = logs.map(log => ({
       id: log._id,
       action: log.action,
       details: log.details || '',
       timestamp: log.timestamp,
       type: 'audit',
-      user: log.userId || 'System'
+      userId: log.userId || null,
+      userName: log.userName || (log.userId ? 'User' : 'System'),
+      userRole: log.userRole || null,
+      orgName: log.orgName || null,
+      orgSlug: log.orgSlug || null,
     }));
 
     return NextResponse.json(auditLogs);

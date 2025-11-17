@@ -1,128 +1,546 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Shield, AlertTriangle, CheckCircle, Activity, RefreshCw, Filter, Download, Search } from 'lucide-react';
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
-
-// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
-
-// --- STAT CARD COMPONENT ---
-/**
- * A reusable card component to display a key statistic with a title, value, and subtitle.
- * The color of the value can be customized.
- * @param {object} props - The component props.
- * @param {string} props.title - The title of the statistic (e.g., "Security Score").
- * @param {string} props.value - The main value of the statistic (e.g., "98%").
- * @param {string} props.subtitle - A subtitle providing additional context (e.g., "Last audit: 2 days ago").
- * @param {string} [props.valueColor='text-gray-900'] - The Tailwind CSS class for the color of the value.
- * @returns {JSX.Element} The StatCard component.
- */
-const StatCard = ({ title, value, subtitle, valueColor = 'text-gray-900' }) => (
-    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className={`text-4xl font-bold mt-2 ${valueColor}`}>{value}</p>
-        <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
-    </div>
-);
-
+// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2
 
 /**
  * The main page for the Audit & Compliance dashboard.
  * This page provides a high-level overview of security and compliance metrics,
- * as well as a list of recent audit events.
+ * as well as a list of recent audit events with search and filtering capabilities.
  * @returns {JSX.Element} The AuditCompliancePage component.
  */
 export default function AuditCompliancePage() {
     const [auditEvents, setAuditEvents] = useState([]);
+    const [filteredEvents, setFilteredEvents] = useState([]);
     const [activeAlerts, setActiveAlerts] = useState(0);
+    const [alertDetails, setAlertDetails] = useState([]);
     const [securityScore, setSecurityScore] = useState('N/A');
+    const [lastAuditDate, setLastAuditDate] = useState(null);
     const [complianceStatus, setComplianceStatus] = useState('N/A');
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [eventTypeFilter, setEventTypeFilter] = useState('all');
+    const [dateRange, setDateRange] = useState('all');
+    const [customFrom, setCustomFrom] = useState('');
+    const [customTo, setCustomTo] = useState('');
+    const [showAlertDetails, setShowAlertDetails] = useState(false);
 
     useEffect(() => {
-        const getAuditEvents = async () => {
-            const res = await fetch('/api/admin/audit-logs');
-            const data = await res.json();
-            setAuditEvents(data || []);
-        };
-
-        const fetchActiveAlerts = async () => {
-            try {
-                const response = await fetch('/api/admin/security-alerts');
-                if (response.status === 403) {
-                    console.error('Unauthorized to fetch security alerts.');
-                    setActiveAlerts(0);
-                    return;
-                }
-                if (!response.ok) {
-                    throw new Error('Failed to fetch security alerts');
-                }
-                const data = await response.json();
-                setActiveAlerts(data.unreadAlerts);
-            } catch (error) {
-                console.error(error);
-                setActiveAlerts(0);
-            }
-        };
-
-        getAuditEvents();
-        fetchActiveAlerts();
+        fetchData();
     }, []);
 
-    return (
-        <div className="space-y-8">
-            {/* Header section with the main title and a brief description of the page. */}
-            <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <h2 className="text-lg font-bold text-gray-800 mb-1">Audit & Compliance Dashboard</h2>
-                <p className="text-sm text-gray-500 mb-6">Monitor system access, security events, and compliance metrics</p>
+    useEffect(() => {
+        filterEvents();
+    }, [auditEvents, searchQuery, eventTypeFilter, dateRange, customFrom, customTo]);
+
+    const fetchData = async () => {
+        setIsRefreshing(true);
+        try {
+            const [eventsRes, alertsRes] = await Promise.all([
+                fetch('/api/admin/audit-logs?limit=500'),
+                fetch('/api/admin/security-alerts')
+            ]);
+
+            if (eventsRes.ok) {
+                const data = await eventsRes.json();
+                console.log('Audit logs sample:', data.slice(0, 3));
+                setAuditEvents(Array.isArray(data) ? data : []);
                 
-                {/* Grid of key statistics using the StatCard component. */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Security Score</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-4xl font-bold mt-2 text-blue-600">{securityScore}</p>
-                            <p className="text-xs text-gray-500 mt-1">Last audit: N/A</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Active Alerts</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-4xl font-bold mt-2 text-yellow-600">{activeAlerts}</p>
-                            <p className="text-xs text-gray-500 mt-1">Requires attention</p>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Compliance</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-4xl font-bold mt-2 text-green-600">{complianceStatus}</p>
-                            <p className="text-xs text-gray-500 mt-1">All requirements met</p>
-                        </CardContent>
-                    </Card>
+                // Calculate security score based on recent CMHA events (filtered later)
+                const recentEvents = (Array.isArray(data) ? data : []).filter(e => 
+                    e.timestamp > Date.now() - 7 * 24 * 60 * 60 * 1000
+                );
+                const securityEvents = recentEvents.filter(e => {
+                    const a = (e.action || '').toLowerCase();
+                    return a.includes('login_failed') || a.includes('access_denied') || a.includes('unauthorized_access') || a.includes('permission_denied') || a.includes('security_breach');
+                });
+                
+                // Score: 100 - (security events * 2)
+                const score = Math.max(0, 100 - (securityEvents.length * 2));
+                setSecurityScore(`${score}%`);
+                
+                // Set last audit date to most recent event
+                if ((Array.isArray(data) ? data : []).length > 0) {
+                    const latest = [...data].sort((a,b)=> (b.timestamp||0)-(a.timestamp||0))[0];
+                    setLastAuditDate(latest?.timestamp || null);
+                }
+                
+                // Set compliance status based on score
+                setComplianceStatus(score >= 90 ? 'Excellent' : score >= 70 ? 'Good' : 'Needs Review');
+            }
+
+            if (alertsRes.ok) {
+                const data = await alertsRes.json();
+                setActiveAlerts(data.unreadAlerts || 0);
+                setAlertDetails(data.logs || []);
+            }
+        } catch (error) {
+            console.error('Error fetching audit data:', error);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    const filterEvents = () => {
+        let filtered = [...auditEvents];
+
+        // Date range filter
+        const now = Date.now();
+        const dateRanges = {
+            '24hours': now - 24 * 60 * 60 * 1000,
+            '7days': now - 7 * 24 * 60 * 60 * 1000,
+            '30days': now - 30 * 24 * 60 * 60 * 1000,
+            '90days': now - 90 * 24 * 60 * 60 * 1000,
+        };
+        
+        if (dateRange !== 'all') {
+            if (dateRange === 'custom') {
+                // Parse custom date range (inclusive)
+                const fromMs = customFrom ? new Date(`${customFrom}T00:00:00`).getTime() : null;
+                const toMs = customTo ? new Date(`${customTo}T23:59:59.999`).getTime() : null;
+                filtered = filtered.filter(event => {
+                    const ts = Number(event.timestamp) || 0;
+                    if (fromMs !== null && ts < fromMs) return false;
+                    if (toMs !== null && ts > toMs) return false;
+                    return true;
+                });
+            } else if (dateRanges[dateRange]) {
+                filtered = filtered.filter(event => (Number(event.timestamp) || 0) >= dateRanges[dateRange]);
+            }
+        }
+
+        // Only keep events performed by allowed roles (admin, team_leader, support_worker, client)
+        const allowedRoles = new Set(['admin','team_leader','support_worker','client']);
+        filtered = filtered.filter((event) => {
+            const role = (event.userRole || '').toLowerCase();
+            if (allowedRoles.has(role)) return true;
+            // Fallback: parse details for roleId
+            try {
+                const parsed = event.details ? JSON.parse(event.details) : {};
+                const detailRole = (parsed.roleId || '').toLowerCase();
+                if (allowedRoles.has(detailRole)) return true;
+            } catch {}
+            return false;
+        });
+
+        // Enforce CMHA organization (use org fields or parse details.orgId)
+        filtered = filtered.filter((event) => {
+            const orgName = (event.orgName || '').toLowerCase();
+            const orgSlug = (event.orgSlug || '').toLowerCase();
+            if (orgName.includes('cmha') || orgSlug.includes('cmha')) return true;
+            try {
+                const parsed = event.details ? JSON.parse(event.details) : {};
+                const orgId = (parsed.orgId || '').toLowerCase();
+                return orgId.includes('cmha');
+            } catch {
+                return false;
+            }
+        });
+
+        // Exclude internal developer/system seed events (e.g., "Safespace Developer")
+        filtered = filtered.filter((event) => {
+            const name = (event.userName || '').toLowerCase();
+            if (name.includes('safespace') && name.includes('developer')) return false;
+            // Fallback: check details blob
+            try {
+                const d = (event.details || '').toLowerCase();
+                if (d.includes('safespace') && d.includes('developer')) return false;
+            } catch {}
+            return true;
+        });
+
+        // Filter by action type if not 'all'
+        if (eventTypeFilter !== 'all') {
+            filtered = filtered.filter(event => event.type === eventTypeFilter);
+        }
+
+        if (searchQuery) {
+            filtered = filtered.filter(event =>
+                event.action?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                event.details?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                event.userName?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
+
+        // Sort newest first and log counts for debugging
+        filtered.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        console.log('Filtered events count:', filtered.length);
+
+        setFilteredEvents(filtered);
+    };
+
+    const getEventIcon = (type) => {
+        switch (type) {
+            case 'alert':
+                return <AlertTriangle className="h-5 w-5 text-yellow-600" />;
+            case 'security':
+                return <Shield className="h-5 w-5 text-red-600" />;
+            case 'compliance':
+                return <CheckCircle className="h-5 w-5 text-green-600" />;
+            default:
+                return <Activity className="h-5 w-5 text-blue-600" />;
+        }
+    };
+
+    const getEventBadge = (type) => {
+        const variants = {
+            alert: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+            security: 'bg-red-100 text-red-800 border-red-300',
+            compliance: 'bg-green-100 text-green-800 border-green-300',
+            audit: 'bg-blue-100 text-blue-800 border-blue-300',
+        };
+        return variants[type] || variants.audit;
+    };
+
+    return (
+        <div className="space-y-8 bg-white min-h-screen p-6">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 rounded-2xl shadow-lg text-white">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h2 className="text-2xl font-bold mb-2">Audit & Compliance Dashboard</h2>
+                        <p className="text-teal-100">Monitor system access, security events, and compliance metrics</p>
+                    </div>
+                    <Button 
+                        onClick={fetchData}
+                        disabled={isRefreshing}
+                        className="bg-white text-teal-600 hover:bg-teal-50"
+                    >
+                        <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                    </Button>
                 </div>
             </div>
             
-            {/* Section to display recent audit events. */}
-            <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <h2 className="text-lg font-bold text-gray-800 mb-4">Recent Audit Events</h2>
-                <div className="space-y-4">
-                    {/* Map over the auditEvents mock data to render each event in a list. */}
-                    {auditEvents.map(event => (
-                        <div key={event.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex justify-between items-center">
-                            <div>
-                                <p className="font-semibold text-gray-800">[{event.type === 'alert' ? 'ALERT' : 'AUDIT'}] {event.action}</p>
-                                <p className="text-sm text-gray-600">{event.details}</p>
+            {/* Key Metrics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="border-2 border-blue-200 shadow-lg hover:shadow-xl transition-shadow">
+                    <CardHeader className="bg-gradient-to-br from-blue-50 to-blue-100 pb-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-blue-600 rounded-xl">
+                                <Shield className="h-6 w-6 text-white" />
                             </div>
-                            <p className="text-sm text-gray-500">{new Date(event.timestamp).toLocaleString()}</p>
+                            <CardTitle className="text-gray-800">Security Score</CardTitle>
                         </div>
-                    ))}
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <p className="text-5xl font-bold text-blue-600">{securityScore}</p>
+                        <p className="text-sm text-gray-500 mt-2">
+                            Last audit: {lastAuditDate ? new Date(lastAuditDate).toLocaleDateString() : 'N/A'}
+                        </p>
+                        <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                                className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all" 
+                                style={{ width: securityScore }}
+                            ></div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card 
+                    className="border-2 border-yellow-200 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+                    onClick={() => setShowAlertDetails(true)}
+                >
+                    <CardHeader className="bg-gradient-to-br from-yellow-50 to-yellow-100 pb-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-yellow-600 rounded-xl">
+                                <AlertTriangle className="h-6 w-6 text-white" />
+                            </div>
+                            <CardTitle className="text-gray-800">Active Alerts</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <p className="text-5xl font-bold text-yellow-600">{activeAlerts}</p>
+                        <p className="text-sm text-gray-500 mt-2">Last 24 hours</p>
+                        <Badge className="mt-4 bg-yellow-100 text-yellow-800 border border-yellow-300">
+                            {activeAlerts > 0 ? 'Action Required' : 'All Clear'}
+                        </Badge>
+                        {activeAlerts > 0 && (
+                            <p className="text-xs text-gray-500 mt-2">Click to view details</p>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card className="border-2 border-green-200 shadow-lg hover:shadow-xl transition-shadow">
+                    <CardHeader className="bg-gradient-to-br from-green-50 to-green-100 pb-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-green-600 rounded-xl">
+                                <CheckCircle className="h-6 w-6 text-white" />
+                            </div>
+                            <CardTitle className="text-gray-800">Compliance</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                        <p className="text-5xl font-bold text-green-600">{complianceStatus}</p>
+                        <p className="text-sm text-gray-500 mt-2">All requirements met</p>
+                        <Badge className="mt-4 bg-green-100 text-green-800 border border-green-300">
+                            Fully Compliant
+                        </Badge>
+                    </CardContent>
+                </Card>
+            </div>
+            
+            {/* Audit Events Section */}
+            <div className="bg-white p-6 rounded-2xl shadow-lg border-2 border-gray-100">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 className="text-xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                            Recent Audit Events
+                        </h2>
+                        <p className="text-sm text-gray-500 mt-1">
+                            {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'} found
+                        </p>
+                    </div>
+                    <div className="flex gap-3">
+                        <Button variant="outline" size="sm" className="gap-2">
+                            <Download className="h-4 w-4" />
+                            Export
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Filters */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                            placeholder="Search events..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                    <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filter by type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Events</SelectItem>
+                            <SelectItem value="alert">Alerts</SelectItem>
+                            <SelectItem value="security">Security</SelectItem>
+                            <SelectItem value="compliance">Compliance</SelectItem>
+                            <SelectItem value="audit">Audit</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select value={dateRange} onValueChange={setDateRange}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Date range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Time</SelectItem>
+                            <SelectItem value="24hours">Last 24 Hours</SelectItem>
+                            <SelectItem value="7days">Last 7 Days</SelectItem>
+                            <SelectItem value="30days">Last 30 Days</SelectItem>
+                            <SelectItem value="90days">Last 90 Days</SelectItem>
+                            <SelectItem value="custom">Custom Range</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    {dateRange === 'custom' && (
+                        <div className="flex gap-2">
+                            <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+                            <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+                        </div>
+                    )}
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => { setSearchQuery(''); setEventTypeFilter('all'); setDateRange('all'); setCustomFrom(''); setCustomTo(''); }}>
+                            Clear Filters
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Events List */}
+                <div className="space-y-3">
+                    {filteredEvents.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                            <p className="text-gray-500">No audit events found</p>
+                            <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
+                        </div>
+                    ) : (
+                        filteredEvents.map(event => {
+                            // Sanitize event details to remove Clerk IDs and sensitive data
+                            let displayDetails = event.details || '';
+                            let userRole = (event.userRole || '').replace('_',' ');
+                            
+                            try {
+                                const parsed = JSON.parse(displayDetails);
+                                const cleanData = {
+                                    email: parsed.email,
+                                    role: parsed.roleId,
+                                    organization: parsed.orgId,
+                                };
+                                
+                                // Extract role for display
+                                if (!userRole && parsed.roleId) {
+                                    userRole = parsed.roleId.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                }
+                                
+                                Object.keys(cleanData).forEach(key => 
+                                    cleanData[key] === undefined && delete cleanData[key]
+                                );
+                                displayDetails = Object.entries(cleanData)
+                                    .map(([key, value]) => `${key}: ${value}`)
+                                    .join(', ') || displayDetails;
+                            } catch {
+                                displayDetails = displayDetails
+                                    .replace(/"clerkId":"[^"]+"/g, '')
+                                    .replace(/"profileImage":"[^"]+"/g, '')
+                                    .replace(/,,+/g, ',')
+                                    .replace(/,}/g, '}')
+                                    .replace(/{,/g, '{');
+                            }
+                            
+                            return (
+                            <div 
+                                key={event.id} 
+                                className="bg-gradient-to-r from-gray-50 to-white p-5 rounded-xl border-2 border-gray-200 hover:border-teal-300 transition-all hover:shadow-md group"
+                            >
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start gap-4 flex-1">
+                                        <div className="mt-1">
+                                            {getEventIcon(event.type)}
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Badge className={`${getEventBadge(event.type)} border`}>
+                                                    {event.type?.toUpperCase() || 'AUDIT'}
+                                                </Badge>
+                                                <p className="font-semibold text-gray-800 group-hover:text-teal-600 transition-colors">
+                                                    {event.action}
+                                                </p>
+                                            </div>
+                                            {displayDetails && (
+                                                <p className="text-sm text-gray-600 leading-relaxed">{displayDetails}</p>
+                                            )}
+                                            <div className="flex gap-3 mt-2 text-xs text-gray-500">
+                                                <span className="font-medium">By: {event.userName || 'System'}</span>
+                                                {userRole && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="italic">{userRole}</span>
+                                                    </>
+                                                )}
+                                                {event.orgName && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span>{event.orgName}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm font-medium text-gray-700">
+                                            {new Date(event.timestamp).toLocaleDateString()}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {new Date(event.timestamp).toLocaleTimeString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            );
+                        })
+                    )}
                 </div>
             </div>
+
+            {/* Alert Details Modal */}
+            {showAlertDetails && (
+                <div className="fixed inset-0 bg-white bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowAlertDetails(false)}>
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="bg-gradient-to-r from-yellow-600 to-orange-600 p-6 text-white">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-2xl font-bold">Active Security Alerts</h3>
+                                    <p className="text-yellow-100 mt-1">{activeAlerts} alerts in the last 24 hours</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowAlertDetails(false)}
+                                    className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                        <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)] bg-white">
+                            {alertDetails.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                                    <p className="text-gray-600 font-medium">No security alerts</p>
+                                    <p className="text-sm text-gray-400 mt-1">All systems operating normally</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {alertDetails.map((alert, index) => {
+                                        // Parse details to remove sensitive Clerk data
+                                        let displayDetails = alert.details || '';
+                                        try {
+                                            // Try to parse if it's JSON
+                                            const parsed = JSON.parse(displayDetails);
+                                            // Extract only user-friendly fields
+                                            const cleanData = {
+                                                email: parsed.email,
+                                                role: parsed.roleId,
+                                                organization: parsed.orgId,
+                                            };
+                                            // Remove undefined values
+                                            Object.keys(cleanData).forEach(key => 
+                                                cleanData[key] === undefined && delete cleanData[key]
+                                            );
+                                            displayDetails = Object.entries(cleanData)
+                                                .map(([key, value]) => `${key}: ${value}`)
+                                                .join(', ') || displayDetails;
+                                        } catch {
+                                            // If not JSON, remove Clerk-specific patterns
+                                            displayDetails = displayDetails
+                                                .replace(/"clerkId":"[^"]+"/g, '')
+                                                .replace(/"profileImage":"[^"]+"/g, '')
+                                                .replace(/,,+/g, ',')
+                                                .replace(/,}/g, '}')
+                                                .replace(/{,/g, '{');
+                                        }
+                                        
+                                        return (
+                                            <div 
+                                                key={index}
+                                                className="bg-gradient-to-r from-red-50 to-orange-50 p-4 rounded-xl border-2 border-red-200"
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <AlertTriangle className="h-5 w-5 text-red-600 mt-1" />
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold text-gray-800">{alert.action}</p>
+                                                        {displayDetails && (
+                                                            <p className="text-sm text-gray-600 mt-1">{displayDetails}</p>
+                                                        )}
+                                                        <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                                                            <span>User: {alert.userName || 'System'}</span>
+                                                            <span>•</span>
+                                                            <span>{new Date(alert.timestamp).toLocaleString()}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

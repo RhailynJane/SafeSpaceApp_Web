@@ -29,23 +29,30 @@ export async function GET() {
 
     const client = await getConvexClient();
     
-    // Get security-related audit logs (last 100 entries)
+    // Get security-related audit logs (last 500 entries to ensure we get enough data)
     const logs = await client.query(api.auditLogs.list, {
-      limit: 100,
-      startDate: Date.now() - 7 * 24 * 60 * 60 * 1000, // Last 7 days
+      limit: 500,
     });
     
-    // Count unread/recent security alerts
-    const recentSecurityEvents = logs.filter(log => 
-      log.action.includes('security') || 
-      log.action.includes('login_failed') ||
-      log.action.includes('unauthorized') ||
-      log.timestamp > Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
-    );
+    // Filter for CMHA organization security events in the last 24 hours
+    const recentSecurityEvents = logs.filter(log => {
+      const isRecent = log.timestamp > Date.now() - 24 * 60 * 60 * 1000;
+      const isCMHA = log.orgName?.toLowerCase() === 'cmha' || log.orgName?.toLowerCase().includes('canadian mental health');
+      const isSecurityRelated = 
+        log.action?.toLowerCase().includes('login_failed') ||
+        log.action?.toLowerCase().includes('access_denied') ||
+        log.action?.toLowerCase().includes('unauthorized_access') ||
+        log.action?.toLowerCase().includes('permission_denied') ||
+        log.action?.toLowerCase().includes('blocked') ||
+        log.action?.toLowerCase().includes('security_breach') ||
+        log.action?.toLowerCase().includes('failed_authentication');
+      
+      return isRecent && isCMHA && isSecurityRelated;
+    });
     
     return NextResponse.json({ 
       unreadAlerts: recentSecurityEvents.length,
-      logs: logs || [] 
+      logs: recentSecurityEvents
     });
   } catch (error) {
     console.error('Error fetching security alerts:', error);
@@ -53,7 +60,7 @@ export async function GET() {
       message: 'Error fetching security alerts', 
       unreadAlerts: 0,
       logs: [] 
-    }, { status: 500 });
+    }, { status: 200 });
   }
 }
 
