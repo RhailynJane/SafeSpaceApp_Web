@@ -23,6 +23,7 @@ import type * as referrals from "../referrals.js";
 import type * as reports from "../reports.js";
 import type * as roles from "../roles.js";
 import type * as seed from "../seed.js";
+import type * as systemAlerts from "../systemAlerts.js";
 import type * as systemHealth from "../systemHealth.js";
 import type * as users from "../users.js";
 
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   reports: typeof reports;
   roles: typeof roles;
   seed: typeof seed;
+  systemAlerts: typeof systemAlerts;
   systemHealth: typeof systemHealth;
   users: typeof users;
 }>;

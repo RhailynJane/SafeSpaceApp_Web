@@ -11,17 +11,22 @@ export const list = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let query = ctx.db.query("auditLogs");
-    
-    // Filter by organization if provided
-    if (args.orgId) {
-      query = query.withIndex("by_orgId", (q) => q.eq("orgId", args.orgId as any));
-    }
-    
     // Get reports ordered by timestamp descending
-    const reports = await query
-      .order("desc")
-      .take(args.limit || 100);
+    let reports;
+    
+    if (args.orgId) {
+      // Filter by organization if provided
+      reports = await ctx.db
+        .query("auditLogs")
+        .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId as any))
+        .order("desc")
+        .take(args.limit || 100);
+    } else {
+      reports = await ctx.db
+        .query("auditLogs")
+        .order("desc")
+        .take(args.limit || 100);
+    }
     
     // Transform audit logs into report format
     const formattedReports = reports.map(log => ({
