@@ -6,6 +6,9 @@ import { api } from '@/convex/_generated/api';
 import { resolveUserRole } from '@/lib/security';
 import { clerkClient } from '@clerk/clerk-sdk-node';
 
+// In-memory lock to prevent concurrent writes to the same minute bucket
+const writeLocks = new Map();
+
 function parseWindow(param) {
   // Accept formats like "10m", "600s"; default to 10 samples regardless
   if (!param) return { samples: 10 };
@@ -63,8 +66,7 @@ export async function GET(req) {
 
     const mk = (val) => Array(samples).fill(val);
 
-    // Persist a per-minute bucket so we can build real series
-    const minute = Math.floor(Date.now() / 60000) * 60000;
+    // Create snapshot for metrics
     const snapshot = {
       users: totalUsers,
       uptime: uptimePct,
@@ -74,20 +76,33 @@ export async function GET(req) {
       authOk: Boolean(clerkOk),
       apiMs: Math.max(20, Math.min(500, Number(health?.database?.latency ?? 120))),
     };
-    try {
-      await fetchMutation(api.metrics.upsertMetricsBucket, {
-        orgId,
-        minute,
-        users: snapshot.users,
-        sessions: snapshot.sessions,
-        dbOk: snapshot.dbOk,
-        authOk: snapshot.authOk,
-        apiMs: snapshot.apiMs,
-        alerts: snapshot.alerts,
-        uptime: snapshot.uptime,
-      });
-    } catch (e) {
-      console.warn('Failed to upsert metrics bucket:', e);
+
+    // Persist a per-minute bucket so we can build real series
+    const minute = Math.floor(Date.now() / 60000) * 60000;
+    const lockKey = `${orgId}:${minute}`;
+    
+    // Only write if no other request is currently writing to this bucket
+    if (!writeLocks.has(lockKey)) {
+      writeLocks.set(lockKey, true);
+      
+      try {
+        await fetchMutation(api.metrics.upsertMetricsBucket, {
+          orgId,
+          minute,
+          users: snapshot.users,
+          sessions: snapshot.sessions,
+          dbOk: snapshot.dbOk,
+          authOk: snapshot.authOk,
+          apiMs: snapshot.apiMs,
+          alerts: snapshot.alerts,
+          uptime: snapshot.uptime,
+        });
+      } catch (e) {
+        console.warn('Failed to upsert metrics bucket:', e);
+      } finally {
+        // Clear lock after 5 seconds to prevent memory leak
+        setTimeout(() => writeLocks.delete(lockKey), 5000);
+      }
     }
 
     // Fetch recent series from Convex (newest->oldest), then build arrays

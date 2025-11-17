@@ -1,6 +1,4 @@
-// File path: app/(admin)/users/[userId]/edit/page.js
-
-// REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
+// File path: app/admin/users/[id]/edit/page.js
 
 'use client';
 import React, { useState, useEffect } from 'react';
@@ -43,15 +41,15 @@ export default function EditUserPage() {
     // State to control the visibility of the success modal.
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-    // This effect runs when the component mounts or when the userId in the URL changes.
+    // This effect runs when the component mounts or when the id in the URL changes.
     // It fetches the user from the API and sets it in the state.
     useEffect(() => {
         async function fetchUser() {
-            if (!params.userId) return;
+            if (!params.id) return;
             
             try {
                 setLoading(true);
-                const res = await fetch(`/api/admin/users/${params.userId}`);
+                const res = await fetch(`/api/admin/users/${params.id}`);
                 if (!res.ok) {
                     throw new Error('Failed to fetch user data');
                 }
@@ -64,7 +62,7 @@ export default function EditUserPage() {
             }
         }
         fetchUser();
-    }, [params.userId]);
+    }, [params.id]);
 
     /**
      * Handles changes in the form fields and updates the user state.
@@ -84,7 +82,7 @@ export default function EditUserPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch(`/api/admin/users/${params.userId}`, {
+            const res = await fetch(`/api/admin/users/${params.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
