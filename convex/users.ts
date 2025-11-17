@@ -44,7 +44,7 @@ function validatePhoneNumber(phone: string | undefined): void {
 }
 
 function validateRoleId(roleId: string): void {
-  const validRoles = ["superadmin", "admin", "client", "team_lead", "support_worker"];
+  const validRoles = ["client", "peer_support", "support_worker", "team_leader", "admin", "superadmin"];
   if (!validRoles.includes(roleId)) {
     throw new Error(`Invalid role: ${roleId}`);
   }

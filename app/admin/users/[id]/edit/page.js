@@ -5,25 +5,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
-
-// --- SUCCESS MODAL ---
-/**
- * A modal component that is displayed upon successful saving of user settings.
- * @param {object} props - The component props.
- * @param {Function} props.onClose - The function to call to close the modal.
- * @returns {JSX.Element} The SaveSuccessModal component.
- */
-const SaveSuccessModal = ({ onClose }) => (
-    <div className="fixed inset-0 bg-white/20 backdrop-blur-2xl flex items-center justify-center z-50 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">User Settings Saved</h2>
-            <p className="text-gray-600 mb-8">User settings saved successfully.</p>
-            <button onClick={onClose} className="w-full bg-teal-600 text-white font-semibold py-3 rounded-lg hover:bg-teal-700 transition-colors">Close</button>
-        </div>
-    </div>
-);
-
+import { Loader2, KeyRound } from "lucide-react";
+import { StatusModal, ConfirmModal } from '@/components/ui/modal';
 
 /**
  * The main page for editing an existing user's details.
@@ -40,6 +23,10 @@ export default function EditUserPage() {
     const [error, setError] = useState(null);
     // State to control the visibility of the success modal.
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [resettingPassword, setResettingPassword] = useState(false);
+    const [passwordResetSuccess, setPasswordResetSuccess] = useState(false);
 
     // This effect runs when the component mounts or when the id in the URL changes.
     // It fetches the user from the API and sets it in the state.
@@ -108,6 +95,36 @@ export default function EditUserPage() {
     const handleCloseModal = () => {
         setShowSuccessModal(false);
         router.push('/admin/users');
+    }
+
+    /**
+     * Handles password reset for the user
+     */
+    const handlePasswordReset = async () => {
+        if (!newPassword || newPassword.length < 8) {
+            alert('Password must be at least 8 characters long');
+            return;
+        }
+
+        try {
+            setResettingPassword(true);
+            const res = await fetch(`/api/admin/users/${params.id}/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: newPassword }),
+            });
+            if (!res.ok) {
+                throw new Error('Failed to reset password');
+            }
+            setShowPasswordResetModal(false);
+            setNewPassword('');
+            setPasswordResetSuccess(true);
+        } catch (err) {
+            console.error('Error resetting password:', err);
+            alert('Failed to reset password. Please try again.');
+        } finally {
+            setResettingPassword(false);
+        }
     }
 
     // Display a loading spinner while the user data is being fetched.
@@ -206,25 +223,82 @@ export default function EditUserPage() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex justify-end gap-4 mt-8">
+                    <div className="flex justify-between items-center mt-8">
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => router.push('/admin/users')}
+                            onClick={() => setShowPasswordResetModal(true)}
+                            className="flex items-center gap-2"
                         >
-                            Cancel
+                            <KeyRound className="h-4 w-4" />
+                            Reset Password
                         </Button>
-                        <Button
-                            type="submit"
-                            className="bg-teal-600 hover:bg-teal-700"
-                        >
-                            Save Changes
-                        </Button>
+                        <div className="flex gap-4">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => router.push('/admin/users')}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                className="bg-teal-600 hover:bg-teal-700"
+                            >
+                                Save Changes
+                            </Button>
+                        </div>
                     </div>
                 </form>
             </div>
-            {/* Conditionally render the success modal */}
-            {showSuccessModal && <SaveSuccessModal onClose={handleCloseModal} />}
+            {/* Success Modal */}
+            <StatusModal
+                open={showSuccessModal}
+                onOpenChange={(open) => {
+                    setShowSuccessModal(open);
+                    if (!open) router.push('/admin/users');
+                }}
+                status="success"
+                title="User Settings Saved"
+                message="User settings saved successfully."
+            />
+
+            {/* Password Reset Modal */}
+            <ConfirmModal
+                open={showPasswordResetModal}
+                onOpenChange={setShowPasswordResetModal}
+                title="Reset User Password"
+                description={
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-600">Enter a new password for {user?.first_name} {user?.last_name}.</p>
+                        <div>
+                            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                            <Input
+                                type="password"
+                                id="newPassword"
+                                placeholder="Enter new password (min 8 characters)"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="w-full"
+                            />
+                        </div>
+                    </div>
+                }
+                confirmText="Reset Password"
+                cancelText="Cancel"
+                onConfirm={handlePasswordReset}
+                loading={resettingPassword}
+                variant="warning"
+            />
+
+            {/* Password Reset Success Modal */}
+            <StatusModal
+                open={passwordResetSuccess}
+                onOpenChange={setPasswordResetSuccess}
+                status="success"
+                title="Password Reset"
+                message="Password has been reset successfully."
+            />
         </>
     );
 }

@@ -1,10 +1,10 @@
 // app/api/admin/create-user/route.js
 /**
  * @file This API route handles the creation of a new user.
- * It is a superadmin-only endpoint.
+ * It is an admin/superadmin endpoint.
  *
  * The process involves:
- * 1. Verify that the user making the request is a superadmin.
+ * 1. Verify that the user making the request is an admin or superadmin.
  * 2. Create the user in the Clerk authentication service.
  * 3. Create the user's data in Convex database.
  * 4. If client role, create extended client profile.
@@ -39,13 +39,13 @@ export async function POST(req) {
       return createErrorResponse('Rate limit exceeded. Please try again later.', 429);
     }
 
-    // Verify the user is a superadmin
+    // Verify the user is a superadmin or admin
     const currentUserData = await fetchQuery(api.users.getByClerkId, { 
       clerkId: user.id 
     });
 
-    if (!currentUserData || currentUserData.roleId !== "superadmin") {
-      return NextResponse.json({ error: "Forbidden: SuperAdmin access required" }, { status: 403 });
+    if (!currentUserData || (currentUserData.roleId !== "superadmin" && currentUserData.roleId !== "admin")) {
+      return NextResponse.json({ error: "Forbidden: Admin or SuperAdmin access required" }, { status: 403 });
     }
 
     const data = await req.json();
@@ -74,7 +74,7 @@ export async function POST(req) {
     const sanitizedData = validation.sanitized;
 
     // Additional role validation (whitelist)
-    const allowedRoles = ['admin', 'therapist', 'case_manager', 'support_worker', 'client', 'nurse', 'psychiatrist'];
+    const allowedRoles = ['client', 'peer_support', 'support_worker', 'team_leader', 'admin', 'superadmin'];
     if (!allowedRoles.includes(sanitizedData.roleId)) {
       return createErrorResponse('Invalid role specified', 400);
     }
