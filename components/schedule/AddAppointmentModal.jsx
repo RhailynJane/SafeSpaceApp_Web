@@ -17,7 +17,9 @@
 
 // Import necessary React hook for managing state
 import { useState } from 'react';
-import useSWR from 'swr';
+import { useUser } from '@clerk/nextjs';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 // Import Dialog components from a UI library (likely Shadcn UI based on component names)
 import {
@@ -56,15 +58,17 @@ import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
  * a successful appointment creation, receiving the new appointment data.
  * @returns {JSX.Element} The Add Appointment Modal component.
  */
-const fetcher = (url) => fetch(url).then((res) => res.json());
-
 export default function AddAppointmentModal({ onAdd }) {
-  // Fetch clients and appointments data
-  const { data: clientsData } = useSWR('/api/clients', fetcher);
-  const { data: appointmentsData } = useSWR('/api/appointments', fetcher);
-  
-  const clients = clientsData?.clients || [];
-  const existingAppointments = appointmentsData?.appointments || [];
+  const { user, isLoaded } = useUser();
+  const clients = useQuery(
+    api.clients.list,
+    isLoaded && user?.id ? { clerkId: user.id } : 'skip'
+  ) || [];
+  const listForDate = useQuery(
+    api.appointments.listByDate,
+    isLoaded && user?.id ? { clerkId: user.id, date: new Date().toISOString().split('T')[0] } : 'skip'
+  );
+  const createAppt = useMutation(api.appointments.create);
 
   // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
@@ -122,19 +126,17 @@ export default function AddAppointmentModal({ onAdd }) {
     }
     const newAppointmentEnd = new Date(selectedDateTime.getTime() + durationInMinutes * 60000);
 
-    const hasConflict = (existingAppointments || []).some(existingAppt => {
-        if (!existingAppt.appointment_date || !existingAppt.appointment_time || !existingAppt.duration) {
+    const hasConflict = (listForDate || []).some(existingAppt => {
+      if (!existingAppt.appointmentDate || !existingAppt.appointmentTime || !existingAppt.duration) {
             return false;
         }
 
         // Create a Date object for the existing appointment's time of day
-        const timeObj = new Date(existingAppt.appointment_time);
-        const hours = timeObj.getUTCHours();
-        const minutes = timeObj.getUTCMinutes();
-        const seconds = timeObj.getUTCSeconds();
+      const [hours, minutes] = String(existingAppt.appointmentTime).split(":").map(Number);
+      const seconds = 0;
 
         // Create a Date object for the existing appointment's date part
-        const dateObj = new Date(existingAppt.appointment_date);
+        const dateObj = new Date(existingAppt.appointmentDate);
         const year = dateObj.getUTCFullYear();
         const month = dateObj.getUTCMonth();
         const day = dateObj.getUTCDate();
@@ -142,7 +144,7 @@ export default function AddAppointmentModal({ onAdd }) {
         // Combine them to create a new Date object in the local timezone
         const existingStart = new Date(year, month, day, hours, minutes, seconds);
 
-        const existingDuration = parseInt(existingAppt.duration.split(" ")[0], 10);
+        const existingDuration = parseInt(existingAppt.duration, 10);
         if (isNaN(existingDuration)) {
             return false;
         }
@@ -172,25 +174,19 @@ export default function AddAppointmentModal({ onAdd }) {
       };
 
       // 5. API Call: Send a POST request to the appointments API endpoint
-      const res = await fetch("/api/appointments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData), // Convert JavaScript object to JSON string
+      // Create via Convex
+      const createdId = await createAppt({
+        clerkId: user.id,
+        appointmentDate: appointment_date,
+        appointmentTime: appointment_time,
+        type,
+        duration: durationInMinutes,
+        notes: details,
+        clientDbId: client_id ? client_id : undefined,
       });
 
-      // 6. Handle HTTP errors (e.g., 400, 500 status codes)
-      if (!res.ok) {
-        // Try to parse an error message from the response body
-        const err = await res.json().catch(() => ({}));
-        // Throw an error with a specific message or a generic one
-        throw new Error(err.error || "Failed to add appointment");
-      }
-
-      // 7. Successful API call: Parse the created appointment data
-      const created = await res.json();
-
-      // 8. Execute the 'onAdd' callback with the new data
-      if (onAdd) onAdd(created);
+      // 8. Execute the 'onAdd' callback with a minimal object
+      if (onAdd) onAdd({ _id: createdId, appointmentDate: appointment_date, appointmentTime: appointment_time, type, duration: `${durationInMinutes} min` });
 
       // 9. Reset form states for the next use
       setClientId("");
@@ -247,8 +243,8 @@ export default function AddAppointmentModal({ onAdd }) {
               </SelectTrigger>
               <SelectContent>
                 {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id.toString()}>
-                    {client.client_first_name} {client.client_last_name}
+                  <SelectItem key={client._id} value={client._id}>
+                    {client.firstName} {client.lastName}
                   </SelectItem>
                 ))}
               </SelectContent>

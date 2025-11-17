@@ -10,6 +10,8 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Edit, Save, ArrowLeft, User, Mail, Phone, Calendar, Image as ImageIcon, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 function getInitials(name) {
   if (!name) return "SS";
@@ -43,6 +45,13 @@ export default function ProfilePage() {
   const [notifPrefs, setNotifPrefs] = useState({ email: true, inApp: true });
   const [notifSaving, setNotifSaving] = useState(false);
 
+  // Convex: load my user from Convex
+  const convexUser = useQuery(
+    api.users.getByClerkId,
+    isLoaded && user?.id ? { clerkId: user.id } : "skip"
+  );
+  const updateUser = useMutation(api.users.update);
+
   const validatePhone = (phone) => {
     if (!phone) return "";
     const trimmed = phone.trim();
@@ -60,30 +69,33 @@ export default function ProfilePage() {
   };
 
   useEffect(() => {
-    if (isLoaded && user) {
-      const fetchProfile = async () => {
-        const res = await fetch("/api/profile");
-        if (res.ok) {
-          const data = await res.json();
-          setProfileData(data);
-          setFormData({
-            first_name: data.first_name || "",
-            last_name: data.last_name || "",
-            phone: data.phone || "",
-            profile_image_url: data.profile_image_url || "",
-          });
-          // Load notification prefs from Clerk public metadata
-          const pm = user?.publicMetadata || {};
-          const prefs = pm.notifications || {};
-          setNotifPrefs({
-            email: prefs.email !== false,
-            inApp: prefs.inApp !== false,
-          });
-        }
+    if (!isLoaded || !user) return;
+    // Map Convex user to profileData shape used by UI
+    if (convexUser) {
+      const mapped = {
+        first_name: convexUser.firstName || "",
+        last_name: convexUser.lastName || "",
+        phone: convexUser.phoneNumber || "",
+        profile_image_url: convexUser.profileImageUrl || convexUser.imageUrl || "",
+        role: convexUser.roleId || "",
+        created_at: convexUser.createdAt || null,
       };
-      fetchProfile();
+      setProfileData(mapped);
+      setFormData({
+        first_name: mapped.first_name,
+        last_name: mapped.last_name,
+        phone: mapped.phone,
+        profile_image_url: mapped.profile_image_url,
+      });
     }
-  }, [isLoaded, user]);
+    // Load notification prefs from Clerk public metadata
+    const pm = user?.publicMetadata || {};
+    const prefs = pm.notifications || {};
+    setNotifPrefs({
+      email: prefs.email !== false,
+      inApp: prefs.inApp !== false,
+    });
+  }, [isLoaded, user, convexUser]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -134,40 +146,43 @@ export default function ProfilePage() {
 
     setIsSaving(true);
     setError("");
-    
+
     try {
       // Trim and sanitize data before sending
-      const sanitizedData = {
-        first_name: formData.first_name?.trim(),
-        last_name: formData.last_name?.trim(),
-        phone: formData.phone?.trim() || undefined,
-        profile_image_url: formData.profile_image_url?.trim(),
-      };
+      const firstName = formData.first_name?.trim();
+      const lastName = formData.last_name?.trim();
+      const phoneNumber = formData.phone?.trim() || undefined;
+      const profileImageUrl = formData.profile_image_url?.trim();
 
-      const res = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sanitizedData),
+      if (!user?.id) throw new Error("Not authenticated");
+
+      await updateUser({
+        clerkId: user.id,
+        targetClerkId: user.id,
+        firstName,
+        lastName,
+        phoneNumber,
+        profileImageUrl,
       });
 
-      if (res.ok) {
-        const updatedData = await res.json();
-        setProfileData(updatedData);
-        setFormData({
-          first_name: updatedData.first_name || "",
-          last_name: updatedData.last_name || "",
-          phone: updatedData.phone || "",
-          profile_image_url: updatedData.profile_image_url || "",
-        });
-        setIsEditing(false);
-      } else {
-        const errorData = await res.json();
-        const errorMsg = errorData.error || "Failed to update profile";
-        setError(errorMsg);
-        // Don't log to console - show in UI only
-      }
+      const updatedData = {
+        first_name: firstName,
+        last_name: lastName,
+        phone: phoneNumber || "",
+        profile_image_url: profileImageUrl,
+        role: profileData?.role,
+        created_at: profileData?.created_at,
+      };
+      setProfileData(updatedData);
+      setFormData({
+        first_name: updatedData.first_name || "",
+        last_name: updatedData.last_name || "",
+        phone: updatedData.phone || "",
+        profile_image_url: updatedData.profile_image_url || "",
+      });
+      setIsEditing(false);
     } catch (err) {
-      setError("An error occurred while updating your profile");
+      setError(err?.message || "An error occurred while updating your profile");
     } finally {
       setIsSaving(false);
     }
@@ -261,16 +276,15 @@ export default function ProfilePage() {
                     await user.reload();
                     const imageUrl = user.imageUrl;
                     // Persist to Convex profile for consistency
-                    await fetch('/api/profile', {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        first_name: formData.first_name,
-                        last_name: formData.last_name,
-                        phone: formData.phone,
-                        profile_image_url: imageUrl,
-                      })
-                    }).catch(() => {});
+                    try {
+                      if (user?.id) {
+                        await updateUser({
+                          clerkId: user.id,
+                          targetClerkId: user.id,
+                          profileImageUrl: imageUrl,
+                        });
+                      }
+                    } catch {}
 
                     setProfileData((p) => ({ ...p, profile_image_url: imageUrl }));
                     setFormData((f) => ({ ...f, profile_image_url: imageUrl }));

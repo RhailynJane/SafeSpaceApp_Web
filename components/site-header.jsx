@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import Sendbird from 'sendbird';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 function getInitials(name) {
   if (!name) return "SS";
@@ -32,19 +34,18 @@ export default function SiteHeader() {
   const [profileData, setProfileData] = useState(null);
   const { isDark, toggleDarkMode } = useTheme();
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      const res = await fetch("/api/profile");
-      if (res.ok) {
-        const data = await res.json();
-        setProfileData(data);
-      }
-    };
+  // Load profile from Convex
+  const convexSelf = useQuery(
+    api.users.getByClerkId,
+    isAuthenticated && user?.id ? { clerkId: user.id } : "skip"
+  );
 
-    if (isAuthenticated) {
-      fetchProfile();
-    }
-  }, [isAuthenticated]);
+  useEffect(() => {
+    if (!convexSelf) return;
+    setProfileData({
+      profile_image_url: convexSelf.profileImageUrl || convexSelf.imageUrl || "",
+    });
+  }, [convexSelf]);
 
   useEffect(() => {
     const sb = new Sendbird({ appId: '201BD956-A3BA-448A-B8A2-8E1A23404303' });
@@ -59,23 +60,24 @@ export default function SiteHeader() {
     }
   }, [user]);
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const response = await fetch('/api/notifications/mine');
-        if (response.ok) {
-          const data = await response.json();
-          setNotifications(data.notifications);
-        }
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
-      }
-    };
+  const convexNotifications = useQuery(
+    api.notifications.listMine,
+    isAuthenticated && user?.id ? { userId: user.id } : "skip"
+  );
 
-    if (isAuthenticated) {
-      fetchNotifications();
-    }
-  }, [isAuthenticated]);
+  useEffect(() => {
+    if (!Array.isArray(convexNotifications)) return;
+    // Map Convex docs to UI shape expected by header
+    const mapped = convexNotifications.map((n) => ({
+      id: n._id,
+      message: n.message,
+      is_read: !!n.isRead,
+      created_at: new Date(n.createdAt).toISOString(),
+      type: n.type || 'system',
+      title: n.title || 'Notification',
+    }));
+    setNotifications(mapped);
+  }, [convexNotifications]);
 
   const handleSignOutClick = async () => {
     setSignOutLoading(true);
@@ -123,10 +125,15 @@ export default function SiteHeader() {
     router.push('/profile');
   };
 
+  const markAllAsReadMut = useMutation(api.notifications.markAllAsRead);
+  const clearAllMut = useMutation(api.notifications.clearAll);
+
   const handleClearAll = async () => {
     if (confirm('Are you sure you want to clear all notifications?')) {
       try {
-        await fetch('/api/notifications', { method: 'DELETE' });
+        if (user?.id) {
+          await clearAllMut({ userId: user.id });
+        }
         setNotifications([]);
         setNotificationModal(false);
       } catch (error) {
@@ -137,7 +144,9 @@ export default function SiteHeader() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/mark-as-read', { method: 'PATCH' });
+      if (user?.id) {
+        await markAllAsReadMut({ userId: user.id });
+      }
       setNotifications(notifications.map(n => ({ ...n, is_read: true })));
       setNotificationModal(false);
     } catch (error) {

@@ -22,6 +22,32 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 // Used to send JSON responses with status codes in Next.js API routes.
 
+// ----------------------
+// 🔎 Validation Utilities
+// ----------------------
+function isValidEmail(email) {
+  const re = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+  return re.test(String(email).toLowerCase());
+}
+
+function normalizePhone(input) {
+  if (!input) return null;
+  const digits = String(input).replace(/\D/g, "");
+  return digits || null; // store digits-only; country-agnostic
+}
+
+function isValidPhone(digitsOnly) {
+  if (!digitsOnly) return true; // treat empty as valid (optional field)
+  const len = String(digitsOnly).length;
+  return len >= 10 && len <= 15;
+}
+
+function isValidAge(n) {
+  if (n === null || n === undefined || n === "") return true; // optional
+  const num = Number(n);
+  return Number.isInteger(num) && num >= 0 && num <= 120;
+}
+
 
 // ----------------------
 // 📍 GET /api/referrals
@@ -112,21 +138,82 @@ export async function POST(req) {
     // Parse the JSON body sent from the frontend request.
     const data = await req.json();
 
+    // Server-side validations mirroring client checks
+    const errors = {};
+
+    const email = (data.email ?? "").trim();
+    if (email && !isValidEmail(email)) {
+      errors.email = "Invalid email format";
+    }
+
+    const age = data.age !== undefined && data.age !== null && data.age !== "" ? parseInt(data.age, 10) : null;
+    if (!isValidAge(age)) {
+      errors.age = "Age must be an integer between 0 and 120";
+    }
+
+    const phone = normalizePhone(data.phone);
+    if (phone && !isValidPhone(phone)) {
+      errors.phone = "Invalid phone number";
+    }
+
+    const emergency_phone = normalizePhone(data.emergency_phone);
+    if (emergency_phone && !isValidPhone(emergency_phone)) {
+      errors.emergency_phone = "Invalid emergency phone number";
+    }
+
+    // Optional: validate additional provider/contact fields if present
+    const providerEmail = (data.referring_provider_email ?? '').trim();
+    if (providerEmail && !isValidEmail(providerEmail)) {
+      errors.referring_provider_email = 'Invalid email format';
+    }
+    const providerPhone = normalizePhone(data.referring_provider_phone);
+    if (providerPhone && !isValidPhone(providerPhone)) {
+      errors.referring_provider_phone = 'Invalid phone number';
+    }
+    const secondaryPhone = normalizePhone(data.secondary_phone);
+    if (secondaryPhone && !isValidPhone(secondaryPhone)) {
+      errors.secondary_phone = 'Invalid phone number';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return NextResponse.json(
+        { error: "Validation failed", errors },
+        { status: 400 }
+      );
+    }
+
+    // Compose additional optional fields into notes for persistence without schema changes
+    const extraLines = [];
+    const addLine = (label, val) => { if (val) extraLines.push(`${label}: ${val}`); };
+    addLine('Secondary Phone', secondaryPhone);
+    addLine('Preferred Contact', (data.preferred_contact_method ?? '').trim());
+    addLine('Preferred Language', (data.preferred_language ?? '').trim());
+    addLine('Pronouns', (data.pronouns ?? '').trim());
+    addLine('Availability', (data.availability_notes ?? '').trim());
+    addLine('Referring Provider Name', (data.referring_provider_name ?? '').trim());
+    addLine('Referring Provider Phone', providerPhone);
+    addLine('Referring Provider Email', providerEmail);
+    addLine('Relationship To Client', (data.relationship_to_client ?? '').trim());
+    addLine('Consent Date', (data.consent_date ?? '').trim());
+    const composedAdditional = [data.additional_notes || '', extraLines.join('\n')]
+      .filter(Boolean)
+      .join('\n');
+
     // Create a new referral record in the database using Prisma.
     const referral = await prisma.referral.create({
       data: {
-        client_first_name: data.client_first_name,
-        client_last_name: data.client_last_name,
-        age: data.age ? parseInt(data.age) : null, // Convert age to integer safely.
-        phone: data.phone,
-        address: data.address,
-        email: data.email,
-        emergency_first_name: data.emergency_first_name,
-        emergency_last_name: data.emergency_last_name,
-        emergency_phone: data.emergency_phone,
+        client_first_name: (data.client_first_name ?? '').trim(),
+        client_last_name: (data.client_last_name ?? '').trim(),
+        age: age, // already parsed above
+        phone: phone, // normalized digits-only or null
+        address: (data.address ?? '').trim() || null,
+        email: email || null,
+        emergency_first_name: (data.emergency_first_name ?? '').trim() || null,
+        emergency_last_name: (data.emergency_last_name ?? '').trim() || null,
+        emergency_phone: emergency_phone, // normalized digits-only or null
         referral_source: data.referral_source || "Unknown", // Default to "Unknown" if empty.
         reason_for_referral: data.reason_for_referral || "", // Optional field.
-        additional_notes: data.additional_notes || "", // Optional field.
+        additional_notes: composedAdditional, // Optional field plus appended extras.
         submitted_date: new Date(), // Automatically set current date and time.
         status: "Pending", // Default status for new referrals.
       },

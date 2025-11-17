@@ -7,11 +7,11 @@ import { prisma } from '@/lib/prisma';
  */
 export async function GET() {
   try {
-    // Query via Prisma - assumes 'users' table maps to a Prisma model (User)
-        const therapists = await prisma.user.findMany({
+    // Fetch users with role_name matching team_leader (therapists)
+    const therapists = await prisma.user.findMany({
       where: {
-        roles: {
-          role_name: 'team_leader',
+        role: {
+          role_name: { in: ['team_leader'] },
         },
       },
       select: {

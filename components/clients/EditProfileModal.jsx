@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
+import { useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +12,8 @@ export default function EditProfileModal({ open, onOpenChange, client, onSave })
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const { user } = useUser();
+  const updateClient = useMutation(api.clients.update);
 
   useEffect(() => {
     if (client) {
@@ -33,19 +38,31 @@ export default function EditProfileModal({ open, onOpenChange, client, onSave })
     setError("");
 
     try {
-      const res = await fetch(`/api/clients/${client.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      const clientId = client?._id || client?.id; // support both shapes
+      if (!clientId) throw new Error('Invalid client');
+
+      // Map legacy fields to Convex fields
+      const payload = {
+        clerkId: user?.id,
+        clientId,
+        firstName: formData.client_first_name,
+        lastName: formData.client_last_name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+      };
+
+      // If legacy numeric id, this will fail type-wise; Convex expects Id<"clients">. Prefer _id.
+      const result = await updateClient(payload);
+
+      if (onSave) onSave({
+        _id: client._id || result,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        email: payload.email,
+        phone: payload.phone,
+        address: payload.address,
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to update profile");
-      }
-
-      const updatedClient = await res.json();
-      if (onSave) onSave(updatedClient);
       onOpenChange(false);
     } catch (err) {
       setError(err.message || "Something went wrong");

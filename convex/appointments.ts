@@ -23,6 +23,7 @@ export const create = mutation({
     notes: v.optional(v.string()),
     meetingLink: v.optional(v.string()),
     status: v.optional(v.string()),
+    duration: v.optional(v.number()),
     orgId: v.optional(v.string()),
     clientDbId: v.optional(v.id("clients")),
     clientId: v.optional(v.string()), // keep legacy string id reference if used
@@ -95,6 +96,7 @@ export const create = mutation({
       // web fields
       appointmentDate,
       appointmentTime,
+      duration: args.duration,
       type: args.type,
       status: args.status ?? "scheduled",
       notes: args.notes,
