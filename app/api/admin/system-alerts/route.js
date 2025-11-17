@@ -1,21 +1,37 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { auth } from "@clerk/nextjs/server";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+
+async function getConvexClient() {
+  const { getToken } = await auth();
+  const token = await getToken({ template: "convex" });
+  
+  const client = new ConvexHttpClient(convexUrl);
+  client.setAuth(token);
+  
+  return client;
+}
 
 /**
- * @file This API route handles fetching system alerts from the database.
+ * @file This API route handles fetching system alerts from Convex.
  * It is intended for admin use to monitor system-wide notifications.
  */
 export async function GET() {
   try {
-    // Query the database to get all records from the system_alerts table.
-    // The results are ordered by timestamp in descending order to show the most recent alerts first.
-    const alerts = await prisma.$queryRaw`SELECT * FROM system_alerts ORDER BY timestamp DESC`;
-    return NextResponse.json(alerts);
-  } catch (error) {
-    // If there is an error during the database query, log the error to the console.
-    console.error('Error fetching system alerts:', error);
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // Return a JSON response with an error message and a 500 Internal Server Error status.
-    return NextResponse.json({ message: 'Error fetching system alerts' }, { status: 500 });
+    const client = await getConvexClient();
+    const alerts = await client.query(api.systemAlerts.list, {});
+    
+    return NextResponse.json({ alerts: alerts || [] });
+  } catch (error) {
+    console.error('Error fetching system alerts:', error);
+    return NextResponse.json({ message: 'Error fetching system alerts', alerts: [] }, { status: 500 });
   }
 }

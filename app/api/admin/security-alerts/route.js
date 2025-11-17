@@ -1,25 +1,59 @@
 // app/api/admin/security-alerts/route.js
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { resolveUserRole } from '@/lib/security';
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
 
-export async function GET(req) {
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+
+async function getConvexClient() {
+  const { getToken } = await auth();
+  const token = await getToken({ template: "convex" });
+  
+  const client = new ConvexHttpClient(convexUrl);
+  client.setAuth(token);
+  
+  return client;
+}
+
+/**
+ * @file This API route handles fetching security-related audit logs from Convex.
+ * It is intended for admin use to monitor security events.
+ */
+export async function GET() {
   try {
-    const { userId, sessionClaims } = await auth();
+    const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userRole = await resolveUserRole(userId, sessionClaims);
-    if (userRole !== 'admin' && userRole !== 'superadmin') {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    // Mock security alerts - would come from security monitoring
-    return NextResponse.json({ unreadAlerts: 0 });
+    const client = await getConvexClient();
+    
+    // Get security-related audit logs (last 100 entries)
+    const logs = await client.query(api.auditLogs.list, {
+      limit: 100,
+      startDate: Date.now() - 7 * 24 * 60 * 60 * 1000, // Last 7 days
+    });
+    
+    // Count unread/recent security alerts
+    const recentSecurityEvents = logs.filter(log => 
+      log.action.includes('security') || 
+      log.action.includes('login_failed') ||
+      log.action.includes('unauthorized') ||
+      log.timestamp > Date.now() - 24 * 60 * 60 * 1000 // Last 24 hours
+    );
+    
+    return NextResponse.json({ 
+      unreadAlerts: recentSecurityEvents.length,
+      logs: logs || [] 
+    });
   } catch (error) {
     console.error('Error fetching security alerts:', error);
-    return NextResponse.json({ error: 'Failed to fetch security alerts' }, { status: 500 });
+    return NextResponse.json({ 
+      message: 'Error fetching security alerts', 
+      unreadAlerts: 0,
+      logs: [] 
+    }, { status: 500 });
   }
 }
 

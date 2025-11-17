@@ -1,5 +1,71 @@
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+
+/**
+ * List all reports with optional filters
+ * Returns reports ordered by creation date descending
+ */
+export const list = query({
+  args: {
+    orgId: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    let query = ctx.db.query("auditLogs");
+    
+    // Filter by organization if provided
+    if (args.orgId) {
+      query = query.withIndex("by_orgId", (q) => q.eq("orgId", args.orgId as any));
+    }
+    
+    // Get reports ordered by timestamp descending
+    const reports = await query
+      .order("desc")
+      .take(args.limit || 100);
+    
+    // Transform audit logs into report format
+    const formattedReports = reports.map(log => ({
+      id: log._id,
+      report_date: new Date(log.timestamp).toISOString(),
+      action: log.action,
+      entity_type: log.entityType,
+      entity_id: log.entityId,
+      user_id: log.userId,
+      details: log.details,
+      timestamp: log.timestamp,
+      orgId: log.orgId,
+    }));
+    
+    return formattedReports;
+  },
+});
+
+/**
+ * Generate a new report entry (for future use)
+ */
+export const create = mutation({
+  args: {
+    reportType: v.string(),
+    title: v.string(),
+    data: v.string(),
+    orgId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Create an audit log entry for the report generation
+    const reportId = await ctx.db.insert("auditLogs", {
+      action: `report_generated_${args.reportType}`,
+      entityType: "report",
+      details: JSON.stringify({
+        title: args.title,
+        data: args.data,
+      }),
+      timestamp: Date.now(),
+      orgId: args.orgId as any,
+    });
+    
+    return reportId;
+  },
+});
 
 // Health summary metrics per user. For now returns deterministic data
 // derived from clerkId so charts are stable without historical records.
