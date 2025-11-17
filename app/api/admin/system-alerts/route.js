@@ -32,6 +32,15 @@ export async function GET() {
     return NextResponse.json({ alerts: alerts || [] });
   } catch (error) {
     console.error('Error fetching system alerts:', error);
-    return NextResponse.json({ message: 'Error fetching system alerts', alerts: [] }, { status: 500 });
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    return NextResponse.json({ 
+      message: 'Error fetching system alerts', 
+      error: error.message,
+      alerts: [] 
+    }, { status: 200 }); // Return 200 with empty alerts to prevent UI crashes
   }
 }
