@@ -35,14 +35,12 @@
 import { NextResponse } from 'next/server';
 
 // Import PrismaClient - the database ORM client class
-import { PrismaClient } from '@prisma/client';
-
-// Import getAuth - Clerk authentication helper to identify logged-in user
-import { getAuth } from '@clerk/nextjs/server';
+// Import NextResponse - Next.js helper for creating API responses
+import { NextResponse } from 'next/server';
 
 // Create a new instance of Prisma client for database operations
 // This establishes the connection to your database
-const prisma = new PrismaClient();
+// Deprecated route: handled by Convex now
 
 /**
  * DELETE Handler Function
@@ -56,72 +54,4 @@ const prisma = new PrismaClient();
  * @param {string} params.params.id - The ID of the appointment to delete
  * @returns {Promise<NextResponse>} JSON response with success message or error
  */
-export async function DELETE(req, { params }) {
-  try {
-    // Step 1: Authenticate the user using Clerk
-    // Extract the Clerk user ID from the request to identify who's making this request
-    const { userId } = getAuth(req);
-    
-    // Security check: ensure user is logged in
-    // Without authentication, we don't know who's trying to delete the appointment
-    if (!userId) {
-      // Return 401 Unauthorized if no user is logged in
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Step 2: Extract the appointment ID from the URL path parameters
-    // Example: If URL is /api/appointments/123, then id = "123"
-    const { id } = params;
-    
-    // Convert the ID from string to integer
-    // URL parameters are always strings, but database IDs are typically integers
-    // parseInt(id, 10) means: parse 'id' as a base-10 (decimal) integer
-    const appointmentId = parseInt(id, 10);
-
-    // Step 3: Query the database to check if this appointment exists
-    // We need to verify the appointment exists before trying to delete it
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId }, // Filter: find appointment with this specific ID
-    });
-
-    // Step 4: Check if appointment was found in the database
-    if (!appointment) {
-      // If no appointment with this ID exists, return 404 Not Found
-      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
-    }
-
-    // Step 5: Authorization check - verify user has permission to delete this appointment
-    // Optional security layer: ensures users can only delete their own appointments
-    // A user is authorized if they either:
-    // 1. Scheduled the appointment (appointment.scheduled_by_user_id === userId)
-    // 2. Own the client (appointment.client.user_id === userId)
-    // The && means "AND" - if NEITHER condition is true, deny access
-    if (appointment.scheduled_by_user_id !== userId && appointment.client.user_id !== userId) {
-        // Return 403 Forbidden if user doesn't have permission
-        // This is different from 401 (not logged in) - they ARE logged in, just not authorized
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Step 6: Delete the appointment from the database
-    // At this point, we've verified:
-    // - User is authenticated (logged in)
-    // - Appointment exists
-    // - User has permission to delete it
-    await prisma.appointment.delete({
-      where: { id: appointmentId }, // Specify which appointment to delete
-    });
-
-    // Step 7: Return success response
-    // Status 200 indicates successful deletion
-    return NextResponse.json({ message: 'Appointment deleted successfully' }, { status: 200 });
-    
-  } catch (error) {
-    // Catch any unexpected errors that occurred during the process
-    // This could include database connection failures, validation errors, etc.
-    console.error('Error deleting appointment:', error);
-    
-    // Return a generic error response to the client
-    // Status 500 indicates an internal server error (something went wrong on our end)
-    return NextResponse.json({ error: 'Internal ServerError' }, { status: 500 });
-  }
-}
+export async function DELETE() { return NextResponse.json({ message: 'Appointments API deprecated. Use Convex.' }, { status: 410 }); }

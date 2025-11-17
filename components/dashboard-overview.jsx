@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from "react";
 import Link from 'next/link';
@@ -6,10 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit, Plus } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 
 export function DashboardOverview({ userRole }) {
   const metrics = getMetricsForRole(userRole);
+  const { user, isLoaded } = useUser();
 
   const [notifications] = useState([
     {
@@ -37,20 +41,25 @@ export function DashboardOverview({ userRole }) {
 
   const [todaySchedule, setTodaySchedule] = useState([]);
 
-  // This useEffect hook would fetch today's schedule from your API.
-  // For now, it just filters a static list to demonstrate.
+  // Load today's schedule via Convex
+  const today = new Date().toISOString().split("T")[0];
+  const convexToday = useQuery(
+    api.appointments.listByDate,
+    isLoaded && user?.id ? { clerkId: user.id, date: today } : "skip"
+  );
+
   useEffect(() => {
-    const fetchTodaySchedule = async () => {
-      try {
-        const response = await fetch('/api/appointments?date=today');
-        const data = await response.json();
-        setTodaySchedule(data);
-      } catch (error) {
-        console.error("Failed to fetch today's schedule:", error);
-      }
-    };
-    fetchTodaySchedule();
-  }, []);
+    if (!Array.isArray(convexToday)) return;
+    // Map Convex appointments to overview UI shape
+    const mapped = convexToday.map((a) => ({
+      id: a._id,
+      clientName: a.clientName || "Client",
+      type: a.type,
+      time: a.appointmentTime,
+      status: a.status || "scheduled",
+    }));
+    setTodaySchedule(mapped);
+  }, [convexToday]);
 
   return (
     <div className="space-y-6">

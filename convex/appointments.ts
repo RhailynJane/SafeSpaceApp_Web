@@ -152,9 +152,25 @@ export const listByDate = query({
 
     const items = await q.collect();
 
+    // Enrich with client names if available
+    const withNames = await Promise.all(
+      items.map(async (a) => {
+        let clientName: string | undefined = undefined;
+        if (a.clientId) {
+          const client = await ctx.db
+            .query("clients")
+            .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
+            .collect();
+          const found = client.find((c) => c._id === (a as any).clientId);
+          if (found) clientName = `${found.firstName || ""} ${found.lastName || ""}`.trim();
+        }
+        return { ...a, clientName };
+      })
+    );
+
     if (orgId) {
-      return items.filter(a => a.orgId === orgId);
+      return withNames.filter(a => a.orgId === orgId);
     }
-    return items;
+    return withNames;
   },
 });

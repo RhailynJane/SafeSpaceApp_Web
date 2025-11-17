@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import useSWR, { mutate as globalMutate } from "swr";
+import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -116,7 +116,6 @@ export default function DashboardPage() {
   const handleAddAppointment = async (newAppt) => {
     try {
       await mutate();
-      globalMutate("/api/appointments");
     } catch (err) {
       console.error("Error revalidating dashboard after add:", err);
     }

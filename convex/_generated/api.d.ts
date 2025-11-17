@@ -15,6 +15,7 @@ import type * as clients from "../clients.js";
 import type * as featurePermissions from "../featurePermissions.js";
 import type * as helpers from "../helpers.js";
 import type * as metrics from "../metrics.js";
+import type * as notes from "../notes.js";
 import type * as notifications from "../notifications.js";
 import type * as organizations from "../organizations.js";
 import type * as presence from "../presence.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   featurePermissions: typeof featurePermissions;
   helpers: typeof helpers;
   metrics: typeof metrics;
+  notes: typeof notes;
   notifications: typeof notifications;
   organizations: typeof organizations;
   presence: typeof presence;

@@ -57,7 +57,9 @@ export default clerkMiddleware(async (auth, req) => {
   }
 
   // Enforce password change policy for all authenticated pages (except auth/reset/static)
-  if (!isApiRoute(req) && !isAuthOrResetRoute(req) && !isStaticOrNext(req)) {
+  // Can be disabled via ENFORCE_PASSWORD_POLICY=false in environment
+  const enforcePasswordPolicy = (process.env.ENFORCE_PASSWORD_POLICY ?? 'true') !== 'false';
+  if (enforcePasswordPolicy && !isApiRoute(req) && !isAuthOrResetRoute(req) && !isStaticOrNext(req)) {
     const { userId, sessionClaims } = await auth();
     if (userId) {
       try {

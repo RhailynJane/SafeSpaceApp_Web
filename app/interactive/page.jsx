@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 
 import DashboardOverview from "../dashboard/page";
@@ -61,6 +63,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [showChat, setShowChat] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
   const [chatChannelName, setChatChannelName] = useState("Chat");
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(todayStr);
 
   const dragHandleRef = useRef(null);
   const position = useDraggable(dragHandleRef);
@@ -97,26 +101,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         return;
       }
 
-      // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes] = await Promise.all([
-        fetch("/api/clients"),
-        fetch("/api/notes"),
+      // Always fetch crisis events and audit logs (clients handled via Convex)
+      const [crisisRes, auditRes] = await Promise.all([
         fetch("/api/crisis-events"),
-        fetch("/api/appointments"),
         fetch("/api/audit-logs"),
       ]);
-
-      if (clientRes.ok) {
-        const clientData = await clientRes.json();
-        setClients(Array.isArray(clientData) ? clientData : []);
-      } else {
-      }
-
-      if (noteRes.ok) {
-        const noteData = await noteRes.json();
-        setNotes(Array.isArray(noteData) ? noteData : []);
-      } else {
-      }
 
       if (crisisRes.ok) {
         const crisisData = await crisisRes.json();
@@ -124,11 +113,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       } else {
       }
 
-      if (appointmentRes.ok) {
-        const appointmentData = await appointmentRes.json();
-        setSchedule(Array.isArray(appointmentData) ? appointmentData : []);
-      } else {
-      }
+      // Notes and appointments now loaded via Convex below
 
       if (auditRes.ok) {
         const auditData = await auditRes.json();
@@ -167,8 +152,95 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     fetchData();
   }, [fetchData]);
 
+  // Load Convex data for clients, today's appointments, and my notes
+  const isUserLoaded = Boolean(user?.id);
+  const convexClients = useQuery(
+    api.clients.list,
+    isUserLoaded ? { clerkId: user.id } : 'skip'
+  ) || [];
+  const convexTodaysAppts = useQuery(
+    api.appointments.listByDate,
+    isUserLoaded ? { clerkId: user.id, date: selectedDate } : 'skip'
+  ) || [];
+  const convexMyNotes = useQuery(
+    api.notes.listForUser,
+    isUserLoaded ? { clerkId: user.id } : 'skip'
+  ) || [];
+
+  // Map Convex data into the legacy UI shapes used in this view
+  useEffect(() => {
+    // Map clients into legacy shape used in this view and modals
+    const mappedClients = (convexClients || []).map((c) => ({
+      id: String(c._id),
+      client_first_name: c.firstName || "",
+      client_last_name: c.lastName || "",
+      email: c.email || "",
+      phone: c.phone || "",
+      address: c.address || "",
+      status: (c.status || "active").replace(/^[a-z]/, (m) => m.toUpperCase()),
+      risk_level: (c.riskLevel || "low").replace(/^[a-z]/, (m) => m.toUpperCase()),
+      last_session_date: c.lastSessionDate ? new Date(c.lastSessionDate).toISOString() : new Date(c.createdAt).toISOString(),
+    }));
+    setClients(mappedClients);
+
+    // Map appointments
+    const appts = (convexTodaysAppts || []).map((a) => {
+      const found = convexClients.find(c => c._id === a.clientId);
+      let first = "";
+      let last = "";
+      if (found) {
+        first = found.firstName || "";
+        last = found.lastName || "";
+      } else if (a.clientName) {
+        const parts = String(a.clientName).trim().split(" ");
+        first = parts[0] || "";
+        last = parts.slice(1).join(" ") || "";
+      }
+      return {
+        id: a._id,
+        appointment_date: a.appointmentDate,
+        appointment_time: a.appointmentTime || "",
+        type: a.type || "",
+        duration: a.duration ? `${a.duration} min` : "",
+        details: a.notes || "",
+        client: { client_first_name: first, client_last_name: last },
+      };
+    });
+    setSchedule(appts);
+
+    // Map notes
+    const mappedNotes = (convexMyNotes || []).map((n) => {
+      const found = convexClients.find(c => c._id === n.clientId);
+      return {
+        id: n._id,
+        client: {
+          client_first_name: found?.firstName || "",
+          client_last_name: found?.lastName || "",
+        },
+        session_type: n.sessionType || "",
+        note_date: n.noteDate || "",
+        duration_minutes: n.durationMinutes || null,
+        summary: n.summary || "",
+        detailed_notes: n.detailedNotes || "",
+        risk_assessment: n.riskAssessment || "",
+        next_steps: n.nextSteps || "",
+      };
+    });
+    setNotes(mappedNotes);
+  }, [convexTodaysAppts, convexMyNotes, convexClients]);
+
   const handleAddAppointment = (newAppointment) => {
-    setSchedule((prev) => [...prev, newAppointment]);
+    // Optimistically add in legacy shape; Convex query will refresh shortly
+    const optim = {
+      id: newAppointment._id || newAppointment.id || Math.random().toString(36).slice(2),
+      appointment_date: newAppointment.appointmentDate || newAppointment.appointment_date || todayStr,
+      appointment_time: newAppointment.appointmentTime || newAppointment.appointment_time || "",
+      type: newAppointment.type || "",
+      duration: typeof newAppointment.duration === 'number' ? `${newAppointment.duration} min` : (newAppointment.duration || ""),
+      details: newAppointment.details || newAppointment.notes || "",
+      client: { client_first_name: "", client_last_name: "" },
+    };
+    setSchedule((prev) => [...prev, optim]);
     mutate("/api/dashboard");
   };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
@@ -179,38 +251,43 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     );
   };
 
+  // Convex: notes mutations
+  const createNote = useMutation(api.notes.create);
+  const updateNoteMut = useMutation(api.notes.update);
+  const removeNote = useMutation(api.notes.remove);
+
   const handleCreateNote = async (noteData) => {
     try {
-      const token = await getToken();
-      const res = await fetch('/api/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(noteData),
+      await createNote({
+        clerkId: user.id,
+        clientId: String(noteData.client_id),
+        noteDate: noteData.note_date,
+        sessionType: noteData.session_type,
+        durationMinutes: noteData.duration_minutes ? parseInt(noteData.duration_minutes, 10) : undefined,
+        summary: noteData.summary,
+        detailedNotes: noteData.detailed_notes,
+        riskAssessment: noteData.risk_assessment,
+        nextSteps: noteData.next_steps,
       });
-      if (res.ok) {
-        const newNote = await res.json();
-        setNotes(prev => [newNote, ...prev]);
-        closeModal('newNote');
-      } else {
-      }
+      closeModal('newNote');
     } catch (error) {
     }
   };
 
   const handleUpdateNote = async (noteData) => {
     try {
-      const token = await getToken();
-      const res = await fetch(`/api/notes/${noteData.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(noteData),
+      await updateNoteMut({
+        clerkId: user.id,
+        noteId: noteData.id,
+        noteDate: noteData.note_date,
+        sessionType: noteData.session_type,
+        durationMinutes: noteData.duration_minutes ? parseInt(noteData.duration_minutes, 10) : undefined,
+        summary: noteData.summary,
+        detailedNotes: noteData.detailed_notes,
+        riskAssessment: noteData.risk_assessment,
+        nextSteps: noteData.next_steps,
       });
-      if (res.ok) {
-        const updatedNote = await res.json();
-        setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n));
-        closeModal('editNote');
-      } else {
-      }
+      closeModal('editNote');
     } catch (error) {
     }
   };
@@ -218,17 +295,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const handleDeleteNote = async (noteId) => {
     if (confirm('Are you sure you want to delete this note?')) {
       try {
-        const token = await getToken();
-        const res = await fetch(`/api/notes/${noteId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          setNotes(prev => prev.filter(n => n.id !== noteId));
-        } else {
-        }
-      } catch (error) {
-      }
+        await removeNote({ clerkId: user.id, noteId });
+      } catch (error) {}
     }
   };
 
@@ -754,8 +822,21 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         <TabsContent value="Schedule" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Today's Schedule</CardTitle>
-              <CardDescription>Your appointments and sessions for today</CardDescription>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle>Schedule</CardTitle>
+                  <CardDescription>Your appointments for the selected date</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    className="border rounded px-2 py-2 text-sm"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => setSelectedDate(todayStr)}>Today</Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
@@ -771,65 +852,48 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </div>
 
               <div className="space-y-4">
-                {
-                  (() => {
-                    const now = new Date();
-                    const upcomingAppointments = schedule
-                      .map(appt => {
-                        if (!appt.appointment_date || !appt.appointment_time) {
-                          return { ...appt, combinedDateTime: null };
-                        }
-                        // Construct a date string in 'YYYY-MM-DDTHH:mm:ss.sss' format, which is parsed as local time
-                        const dateStr = `${appt.appointment_date.substring(0, 10)}T${appt.appointment_time.substring(11, 23)}`;
-                        const combinedDateTime = new Date(dateStr);
-                        return { ...appt, combinedDateTime };
-                      })
-                      .filter(appt => {
-                        if (!appt.combinedDateTime) {
-                          return false;
-                        }
-                        const now = new Date();
-                        const tomorrow = new Date();
-                        tomorrow.setDate(now.getDate() + 1);
-                        tomorrow.setHours(0, 0, 0, 0);
+                {(() => {
+                  const items = schedule
+                    .map((appt) => {
+                      if (!appt.appointment_date || !appt.appointment_time) return { ...appt, combinedDateTime: null };
+                      // Combine local date and time for consistent sorting/display
+                      const dateStr = `${appt.appointment_date.substring(0, 10)}T${appt.appointment_time.substring(0,5)}`;
+                      const combinedDateTime = new Date(dateStr);
+                      return { ...appt, combinedDateTime };
+                    })
+                    .sort((a, b) => {
+                      if (!a.combinedDateTime) return 1;
+                      if (!b.combinedDateTime) return -1;
+                      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
+                    });
 
-                        return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
-                      })
-                          .sort((a, b) => {
-      if (!a.combinedDateTime) return 1;
-      if (!b.combinedDateTime) return -1;
-      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
-    });
-
-                    if (upcomingAppointments.length > 0) {
-                      return upcomingAppointments.map((appt) => (
-                        <div key={appt.id} className="border rounded-lg p-4">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
-                              <p className="text-sm text-gray-600">
-                                {new Date(appt.appointment_date).toLocaleDateString(undefined, { timeZone: 'UTC' })} at {new Date(appt.combinedDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
-                              </p>
-                              {appt.details && (
-                                <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <ViewDetailsModal appointment={appt} />
-                            </div>
+                  if (items.length > 0) {
+                    return items.map((appt) => (
+                      <div key={appt.id} className="border rounded-lg p-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
+                            <p className="text-sm text-gray-600">
+                              {new Date(appt.appointment_date).toLocaleDateString()} at {appt.appointment_time} • {appt.type} • {appt.duration}
+                            </p>
+                            {appt.details && (
+                              <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <ViewDetailsModal appointment={appt} />
                           </div>
                         </div>
-                      ));
-                    } else {
-                      return (
-                        <div className="text-center py-8 text-gray-500">
-                          <p>No upcoming appointments scheduled for today.</p>
-                          <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
-                        </div>
-                      );
-                    }
-                  })()
-                }
+                      </div>
+                    ));
+                  }
+                  return (
+                    <div className="text-center py-8 text-gray-500">
+                      <p>No appointments for this date.</p>
+                      <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
+                    </div>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>

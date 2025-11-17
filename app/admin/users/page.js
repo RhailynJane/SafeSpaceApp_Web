@@ -349,8 +349,93 @@ export default function UsersPage() {
                     )}
                 </div>
 
-                {/* User cards - responsive grid */}
-                <div className="grid grid-cols-1 gap-4">
+                {/* Table view for desktop */}
+                <div className="hidden lg:block overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-muted/30 sticky top-0 z-10 border-b border-border">
+                            <tr className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                <th className="text-left py-3 px-4">Name</th>
+                                <th className="text-left py-3 px-4">Role</th>
+                                <th className="text-left py-3 px-4">Last Login</th>
+                                <th className="text-left py-3 px-4">Created</th>
+                                <th className="text-left py-3 px-4">Status</th>
+                                <th className="text-right py-3 px-4">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {filteredUsers.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="text-center py-8 text-muted-foreground">No results found</td>
+                                </tr>
+                            ) : (
+                                filteredUsers.map(user => (
+                                    <tr key={user.id} className="hover:bg-muted/50 transition-colors">
+                                        {/* Name */}
+                                        <td className="py-4 px-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                                    <span className="text-sm font-semibold text-primary">
+                                                        {user.first_name?.[0]}{user.last_name?.[0]}
+                                                    </span>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-semibold text-foreground truncate">
+                                                        {user.first_name} {user.last_name}
+                                                    </h3>
+                                                    <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                                                    <p className="text-xs text-muted-foreground/70 mt-0.5">ID: {user.id.slice(-12)}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {/* Role */}
+                                        <td className="py-4 px-4">
+                                            <p className="font-medium text-foreground">{user.role.role_name}</p>
+                                        </td>
+                                        {/* Last Login */}
+                                        <td className="py-4 px-4">
+                                            <p className="font-medium text-foreground">{user.last_login || 'N/A'}</p>
+                                        </td>
+                                        {/* Created */}
+                                        <td className="py-4 px-4">
+                                            <p className="font-medium text-foreground">{user.created_at}</p>
+                                        </td>
+                                        {/* Status */}
+                                        <td className="py-4 px-4">
+                                            <p className="font-medium text-foreground">{user.status}</p>
+                                        </td>
+                                        {/* Actions */}
+                                        <td className="py-4 px-4 text-right">
+                                            <div className="flex justify-end relative">
+                                                <Button variant="ghost" size="icon" onClick={() => handleActionMenu(user.id)}>
+                                                    <Settings className="h-5 w-5" />
+                                                </Button>
+                                                {activeActionMenu === user.id && (
+                                                    <div className="absolute right-0 top-full mt-2 w-40 bg-card border border-border rounded-lg shadow-xl z-20">
+                                                        <button 
+                                                            onClick={() => router.push(`/admin/users/${user.id}/edit`)} 
+                                                            className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted rounded-t-lg"
+                                                        >
+                                                            Edit User
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDeleteClick(user)} 
+                                                            className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-b-lg"
+                                                        >
+                                                            Delete User
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Mobile card view */}
+                <div className="lg:hidden grid grid-cols-1 gap-4">
                     {filteredUsers.length === 0 ? (
                         <p className="text-center py-8 text-muted-foreground">No results found</p>
                     ) : (
@@ -358,7 +443,7 @@ export default function UsersPage() {
                             <div key={user.id} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow">
                                 <div className="flex items-center justify-between gap-4">
                                     {/* Avatar and Name */}
-                                    <div className="flex items-center gap-3 min-w-0 w-64">
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
                                         <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                                             <span className="text-sm font-semibold text-primary">
                                                 {user.first_name?.[0]}{user.last_name?.[0]}
@@ -371,30 +456,6 @@ export default function UsersPage() {
                                             <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                                             <p className="text-xs text-muted-foreground/70 mt-0.5">ID: {user.id.slice(-12)}</p>
                                         </div>
-                                    </div>
-
-                                    {/* Role */}
-                                    <div className="hidden lg:block w-40">
-                                        <span className="text-muted-foreground text-xs">Role</span>
-                                        <p className="font-medium text-foreground">{user.role.role_name}</p>
-                                    </div>
-
-                                    {/* Last Login */}
-                                    <div className="hidden lg:block w-48">
-                                        <span className="text-muted-foreground text-xs">Last Login</span>
-                                        <p className="font-medium text-foreground truncate">{user.last_login || 'Never'}</p>
-                                    </div>
-
-                                    {/* Created */}
-                                    <div className="hidden lg:block w-48">
-                                        <span className="text-muted-foreground text-xs">Created</span>
-                                        <p className="font-medium text-foreground truncate">{user.created_at}</p>
-                                    </div>
-
-                                    {/* Status */}
-                                    <div className="hidden lg:block w-32">
-                                        <span className="text-muted-foreground text-xs">Status</span>
-                                        <p className="font-medium text-foreground">{user.status}</p>
                                     </div>
 
                                     {/* Action menu */}
@@ -422,7 +483,7 @@ export default function UsersPage() {
                                 </div>
 
                                 {/* Mobile view - show details below */}
-                                <div className="lg:hidden mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3 text-sm">
+                                <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3 text-sm">
                                     <div>
                                         <span className="text-muted-foreground text-xs">Role</span>
                                         <p className="font-medium text-foreground">{user.role.role_name}</p>
