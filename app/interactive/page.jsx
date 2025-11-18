@@ -70,20 +70,35 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const position = useDraggable(dragHandleRef);
 
   useEffect(() => {
-    const fetchSupervisor = async () => {
+    const fetchSupervisorAndDbUser = async () => {
       try {
-        const response = await fetch('/api/supervisor');
-        if (response.ok) {
-          const data = await response.json();
+        // Fetch supervisor
+        const supervisorResponse = await fetch('/api/supervisor');
+        if (supervisorResponse.ok) {
+          const data = await supervisorResponse.json();
           setSupervisor(data);
         } else {
+          console.error("Failed to fetch supervisor data.");
+        }
+
+        // Fetch dbUser based on Clerk user ID
+        if (user?.id) {
+          const dbUserResponse = await fetch(`/api/user?clerkUserId=${user.id}`);
+          if (dbUserResponse.ok) {
+            const data = await dbUserResponse.json();
+            setDbUser(data);
+          } else {
+            const errorData = await dbUserResponse.json();
+            console.error("Failed to fetch database user data.", dbUserResponse.status, errorData);
+          }
         }
       } catch (error) {
+        console.error("Error fetching initial data:", error);
       }
     };
 
-    fetchSupervisor();
-  }, []);
+    fetchSupervisorAndDbUser();
+  }, [user?.id]); // Re-run if Clerk user ID changes
 
 
   const fetchData = useCallback(async () => {
@@ -1131,7 +1146,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         <TabsContent value="Audit Log" className="space-y-6">
           <AuditLogTab
             auditLogs={auditLogs}
-            currentUser={user}
+            currentUser={dbUser}
           />
         </TabsContent>
       </Tabs>
