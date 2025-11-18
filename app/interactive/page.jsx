@@ -111,14 +111,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
       // Always fetch clients and notes
       const [clientRes, noteRes, crisisRes, appointmentRes, auditRes, reportRes, availabilityRes, trackingRes] = await Promise.all([
-        fetch("/api/clients"),
-        fetch("/api/notes"),
-        fetch("/api/crisis-events"),
-        fetch("/api/appointments"),
-        fetch("/api/audit-logs"),
-        fetch("/api/reports"),
-        fetch("/api/availability"),
-        fetch("/api/tracking"),
+        fetch("/api/clients", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/notes", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/crisis-events", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/appointments", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/audit-logs", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/reports", { headers: { Authorization: `Bearer ${token}` } }), // This fetches recent reports
+        fetch("/api/availability", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/tracking", { headers: { Authorization: `Bearer ${token}` } }), // This fetches tracking metrics
       ]);
 
       if (clientRes.ok) {
@@ -186,8 +186,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       // Conditionally fetch referrals and assignable users
       if (userRole === "team-leader") {
         const [refRes, usersRes] = await Promise.all([
-          fetch("/api/referrals"),
-          fetch("/api/assignable-users"),
+          fetch("/api/referrals", { headers: { Authorization: `Bearer ${token}` } }),
+          fetch("/api/assignable-users", { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
         if (refRes.ok) {
@@ -400,6 +400,25 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       endDate: eDate.toISOString(),
     };
 
+    // 1. Save the report to the database first
+    try {
+      const saveResponse = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newReportPayload),
+      });
+
+      if (saveResponse.ok) {
+        const savedReport = await saveResponse.json();
+        // 2. Add the new report to the top of the recent reports list
+        setRecentReports(prev => [savedReport, ...prev]);
+      } else {
+        console.error("Failed to save the report record.");
+      }
+    } catch (error) {
+      console.error("Error saving report record:", error);
+    }
+
     // Use the on-the-fly download endpoint
     const response = await fetch('/api/reports/download', {
       method: 'POST', // Use POST to send data
@@ -435,10 +454,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     a.remove();
     window.URL.revokeObjectURL(url);
 
-    // Optionally, you can still save the report to the DB if needed
-    // For example, you could have a "Save and Download" button
-    // that does both actions. For now, this provides instant download.
-    setReportData(generatedData); // Show the generated data in the UI
+    
+    setReportData(generatedData); // Show the generated data 
   };
 
   const reopenReferral = async (id) => {
