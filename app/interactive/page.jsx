@@ -35,6 +35,7 @@ import jsPDF from "jspdf";
 import AuditLogTab from "../auditlogtab/page";
 
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
+import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal"; // Import the new modal
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
@@ -61,6 +62,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [showChat, setShowChat] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
   const [chatChannelName, setChatChannelName] = useState("Chat");
+
+  const [isUpdateRiskModalOpen, setIsUpdateRiskModalOpen] = useState(false);
+  const [selectedCrisisEvent, setSelectedCrisisEvent] = useState(null);
 
   const dragHandleRef = useRef(null);
   const position = useDraggable(dragHandleRef);
@@ -279,6 +283,27 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   };
 
   const handleCallEnd = () => {};
+
+  const handleUpdateCrisisEvent = async (updatedEvent) => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/crisis-events/${updatedEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updatedEvent),
+      });
+      if (res.ok) {
+        const newEvent = await res.json();
+        setCrisisEvents(prev => prev.map(event => event.id === newEvent.id ? newEvent : event));
+        setIsUpdateRiskModalOpen(false);
+        setSelectedCrisisEvent(null);
+      } else {
+        console.error("Failed to update crisis event");
+      }
+    } catch (error) {
+      console.error("Error updating crisis event:", error);
+    }
+  };
 
   const openChat = async (otherUser, channelName) => {
     let otherUserId = null;
@@ -906,14 +931,22 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button className="bg-red-600 hover:bg-red-700 h-16">
+                  <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => {
+                    if (window.confirm("Are you sure you want to call Emergency Services (911)?")) {
+                      window.open('tel:911');
+                    }
+                  }}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Emergency Services</div>
                       <div className="text-xs">911</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => {
+                    if (window.confirm("Are you sure you want to call the Crisis Hotline (988)?")) {
+                      window.open('tel:988');
+                    }
+                  }}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Crisis Hotline</div>
@@ -946,8 +979,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <p className="text-sm text-gray-600 mb-1">Date: {new Date(event.event_date).toLocaleDateString()}</p>
                         <p className="text-sm mb-2">{event.description}</p>
                         <div className="flex gap-2 mt-3">
-                          <Button size="sm">Contact Now</Button>
-                          <Button variant="outline" size="sm">Update Status</Button>
+                          <Button size="sm" onClick={() => openChat(client)}>Contact Now</Button>
+                          <Button variant="outline" size="sm" onClick={() => {
+                            setSelectedCrisisEvent(event);
+                            setIsUpdateRiskModalOpen(true);
+                          }}>Update Status</Button>
                         </div>
                       </div>
                     );
@@ -956,6 +992,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardContent>
             </Card>
           </div>
+          {selectedCrisisEvent && (
+            <UpdateRiskStatusModal
+              isOpen={isUpdateRiskModalOpen}
+              onClose={() => setIsUpdateRiskModalOpen(false)}
+              crisisEvent={selectedCrisisEvent}
+              onSave={handleUpdateCrisisEvent}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="Reports" className="space-y-6">
