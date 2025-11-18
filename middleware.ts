@@ -1,7 +1,7 @@
 // middleware.ts
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma-edge'; // Import prisma for edge
+import { prisma } from '@/lib/prisma'; // Import prisma
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)']);
 const isDashboardRoute = createRouteMatcher(['/dashboard(.*)', '/interactive(.*)']);

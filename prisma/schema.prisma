@@ -1,12 +1,11 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-1.0.x"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider     = "postgresql"
-  url          = env("DATABASE_URL")
-  directUrl    = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -143,7 +142,7 @@ model Note {
   author_user_id   Int
   note_date        DateTime @db.Date
   session_type     String?
-  total_minutes    Int?
+  duration_minutes Int?
   summary          String?
   detailed_notes   String?
   risk_assessment  String?
@@ -152,19 +151,8 @@ model Note {
   updated_at       DateTime @updatedAt
   author           User     @relation("AuthoredNotes", fields: [author_user_id], references: [id])
   client           Client   @relation(fields: [client_id], references: [id])
-  activities       Activity[]
 
   @@map("notes")
-}
-
-model Activity {
-  id      Int    @id @default(autoincrement())
-  type    String
-  minutes Int
-  note_id Int
-  note    Note   @relation(fields: [note_id], references: [id], onDelete: Cascade)
-
-  @@map("activities")
 }
 
 model SystemAlert {
