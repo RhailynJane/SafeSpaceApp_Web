@@ -1,73 +1,71 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Clock, Edit, Save, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button"
+import { Clock, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils";
 
-export default function ViewAvailabilityModal({ availability = [], onSelect, isOpen, onOpenChange, onSaveSuccess }) {
+export default function ViewAvailabilityModal({ availability: initialAvailability, onSelect, isOpen, onOpenChange }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editableAvailability, setEditableAvailability] = useState([]);
-  const [isSaving, setIsSaving] = useState(false);
+  const [availability, setAvailability] = useState(initialAvailability || []);
+  const [loading, setLoading] = useState(!initialAvailability);
+  const [error, setError] = useState(null);
+  const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      const availabilityMap = new Map(availability.map(a => [a.day, a.time]));
-      const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      const fullSchedule = allDays.map(day => ({ day, time: availabilityMap.get(day) || '' }));
-      setEditableAvailability(fullSchedule);
-    } else {
-      setIsEditing(false);
+    if (isOpen && !initialAvailability) {
+      const fetchAvailability = async () => {
+        setLoading(true);
+        setFetched(false);
+        setError(null);
+        try {
+          const response = await fetch('/api/user/availability');
+          if (!response.ok) {
+            throw new Error('Failed to fetch availability');
+          }
+          const data = await response.json();
+          setAvailability(data);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+          setFetched(true);
+        }
+      };
+      fetchAvailability();
+    } else if (initialAvailability) {
+      setAvailability(initialAvailability);
+      setFetched(true);
     }
-  }, [isOpen, availability]);
+  }, [isOpen, initialAvailability]);
 
   const upcomingSlots = useMemo(() => {
     const slots = [];
     const today = new Date();
     const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const now = new Date();
 
     for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dayName = daysOfWeek[date.getDay()];
-      const dayAvailability = editableAvailability.find(a => a.day === dayName);
+      const date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + i));
+      
+      const dayName = daysOfWeek[date.getUTCDay()];
+      const dayAvailability = availability.find(a => a.day_of_week === dayName);
 
-      if (dayAvailability && dayAvailability.time) {
-        const [startTimeStr, endTimeStr] = dayAvailability.time.split(' - ');
-
-        const parseTime = (timeStr) => {
-          if (!timeStr) return null; // Add this safety check
-          const match = timeStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i);
-          if (!match) return null;
-          let [_, hour, minute, meridiem] = match;
-          hour = parseInt(hour, 10);
-          if (meridiem.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-          if (meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
-          return hour;
-        };
-
-        const startHour = parseTime(startTimeStr);
-        const endHour = parseTime(endTimeStr);
-
-        if (startHour === null || endHour === null) continue;
+      if (dayAvailability) {
+        const startTime = new Date(dayAvailability.start_time);
+        const endTime = new Date(dayAvailability.end_time);
+        const startHour = startTime.getUTCHours();
+        const endHour = endTime.getUTCHours();
 
         for (let h = startHour; h < endHour; h++) {
-          const slotDate = new Date(date);
-          slotDate.setHours(h, 0, 0, 0);
-          if (slotDate > new Date()) { // Only show future slots
-            slots.push(slotDate);
+          for (let m = 0; m < 60; m += 30) {
+            const slotDate = new Date(date);
+            slotDate.setUTCHours(h, m, 0, 0);
+
+            if (slotDate.getTime() > now.getTime()) {
+              slots.push(slotDate);
+            }
           }
         }
       }
@@ -87,6 +85,7 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
         displayTime: `${selectedSlot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${new Date(selectedSlot.getTime() + 60 * 60 * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
       });
       setSelectedSlot(null);
+      onOpenChange(false);
     }
   };
 
@@ -124,70 +123,39 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
             {isEditing ? "Set your weekly working hours." : "Choose an available slot below to book an appointment."}
           </DialogDescription>
         </DialogHeader>
-
-        {isEditing ? (
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            {editableAvailability.map(({ day, time }) => (
-              <div key={day} className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">{day}</Label>
-                <Input
-                  className="col-span-2"
-                  placeholder="e.g., 9:00 AM - 5:00 PM"
-                  value={time}
-                  onChange={(e) => {
-                    setEditableAvailability(prev =>
-                      prev.map(a => a.day === day ? { ...a, time: e.target.value } : a)
-                    );
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {upcomingSlots.map((slot, index) => (
-                <Button
-                  key={index}
-                  variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
-                  className={cn("h-auto flex-col py-2", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
-                  onClick={() => handleSelectSlot(slot)}
-                >
-                  <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div>
-                  <div className="text-sm">{`${slot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${new Date(slot.getTime() + 60 * 60 * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}</div>
-                </Button>
-              ))}
+        <div className="space-y-4">
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-            {upcomingSlots.length === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                <h3 className="font-semibold text-lg mb-4">No upcoming slots found.</h3>
-                <p className="text-sm mb-2">Click "Edit Schedule" to set your weekly availability.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <DialogFooter className="flex-shrink-0 mt-4">
-          {isEditing ? (
-            <>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-              <Button onClick={handleSaveAvailability} disabled={isSaving}>
-                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Save Availability
-              </Button>
-            </>
+          ) : error ? (
+            <p className="text-center text-red-500 py-8">{error}</p>
           ) : (
-            <>
-              <Button variant="ghost" className="mr-auto" onClick={() => setIsEditing(true)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Schedule
-              </Button>
-              <Button onClick={handleConfirm} disabled={!selectedSlot} className="bg-teal-600 hover:bg-teal-700">
-                Confirm Slot
-              </Button>
-            </>
+            <div className="max-h-[60vh] overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {upcomingSlots.map((slot, index) => (
+                  <Button
+                    key={index}
+                    variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
+                    className={cn("h-auto flex-col py-2", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
+                    onClick={() => handleSelectSlot(slot)}
+                  >
+                    <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                    <div className="text-sm">{slot.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  </Button>
+                ))}
+              </div>
+              {fetched && upcomingSlots.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No available slots in the next 7 days.</p>
+              )}
+            </div>
           )}
-        </DialogFooter>
+          <div className="flex justify-end pt-4">
+            <Button onClick={handleConfirm} disabled={!selectedSlot} className="bg-teal-600 hover:bg-teal-700">
+              Confirm Slot
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

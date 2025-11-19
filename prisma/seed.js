@@ -18,8 +18,18 @@ async function main() {
     skipDuplicates: true,
   });
 
-  const teamLeaderRole = await prisma.role.findUnique({ where: { role_name: "team_leader" } });
-  const supportWorkerRole = await prisma.role.findUnique({ where: { role_name: "support_worker" } });
+  const adminRole = await prisma.role.findUnique({
+    where: { role_name: "admin" },
+  });
+  const teamLeaderRole = await prisma.role.findUnique({
+    where: { role_name: "team_leader" },
+  });
+  const supportWorkerRole = await prisma.role.findUnique({
+    where: { role_name: "support_worker" },
+  });
+  const clientRole = await prisma.role.findUnique({
+    where: { role_name: "client" },
+  });
 
   // 2️⃣ Lookup tables
   await prisma.riskLevel.createMany({
@@ -50,7 +60,20 @@ async function main() {
     skipDuplicates: true,
   });
 
-  // 3️⃣ Team Leader User
+  // 3️⃣ REAL ADMIN (From Clerk)
+  const admin = await prisma.user.upsert({
+    where: { email: "admin@test.com" },
+    update: {},
+    create: {
+      first_name: "admin",
+      last_name: "safespace",
+      email: "admin@test.com",
+      role_id: adminRole.id,
+      clerk_user_id: "user_33QgZSox3HWVj7cOFzajyUeU7E1",
+    },
+  });
+
+  // 4️⃣ REAL TEAM LEADER (From Clerk)
   const leader = await prisma.user.upsert({
     where: { email: "leader@safespace.com" },
     update: {},
@@ -63,24 +86,9 @@ async function main() {
     },
   });
 
-  // 4️⃣ Support Worker Users
+  // 5️⃣ Support Workers (Fake users without Clerk accounts)
   const supportWorkers = [];
-
-  const supportWorker = await prisma.user.upsert({
-    where: { email: "supportworker@test.com" },
-    update: {},
-    create: {
-      first_name: "Support",
-      last_name: "Worker",
-      email: "supportworker@test.com",
-      role_id: supportWorkerRole.id,
-      clerk_user_id: "user_33ykux9arPfJry1yCW0ljDKbluy",
-    },
-  });
-  supportWorkers.push(supportWorker);
-
-  // Additional random support workers
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     const user = await prisma.user.create({
       data: {
         first_name: faker.person.firstName(),
@@ -92,7 +100,7 @@ async function main() {
     supportWorkers.push(user);
   }
 
-  // 5️⃣ Clients
+  // 6️⃣ Clients assigned to the Team Leader
   const clients = [];
   for (let i = 0; i < 10; i++) {
     const client = await prisma.client.create({
@@ -104,29 +112,17 @@ async function main() {
         address: faker.location.streetAddress(),
         status: faker.helpers.arrayElement(["Active", "Inactive", "Pending"]),
         risk_level: faker.helpers.arrayElement(["Low", "Medium", "High"]),
-        user_id: leader.id, // assigned to team leader
+        user_id: leader.id,
       },
     });
     clients.push(client);
-  }
-
-  // 6️⃣ Assign Support Workers to Clients (Many-to-Many)
-  for (const client of clients) {
-    const assignedWorkers = faker.helpers.arrayElements(supportWorkers, faker.number.int({ min: 1, max: 3 }));
-    for (const worker of assignedWorkers) {
-      await prisma.clientSupportWorker.create({
-        data: {
-          client_id: client.id,
-          support_worker_id: worker.id,
-        },
-      });
-    }
   }
 
   // 7️⃣ Referrals
   for (let i = 0; i < 10; i++) {
     const client = faker.helpers.arrayElement(clients);
     const worker = faker.helpers.arrayElement(supportWorkers);
+
     await prisma.referral.create({
       data: {
         client_id: client.id,
@@ -145,52 +141,95 @@ async function main() {
   for (let i = 0; i < 10; i++) {
     const client = faker.helpers.arrayElement(clients);
     const date = faker.date.future();
+
     await prisma.appointment.create({
       data: {
         client_id: client.id,
         scheduled_by_user_id: leader.id,
         appointment_date: date,
         appointment_time: date,
-        type: faker.helpers.arrayElement(["Individual Therapy", "Group Therapy", "Assessment"]),
+        type: faker.helpers.arrayElement([
+          "Individual Therapy",
+          "Group Therapy",
+          "Assessment",
+        ]),
         duration: faker.helpers.arrayElement(["30 min", "60 min", "90 min"]),
         details: faker.lorem.sentence(),
-        status: faker.helpers.arrayElement(["Scheduled", "Completed", "Cancelled"]),
+        status: faker.helpers.arrayElement([
+          "Scheduled",
+          "Completed",
+          "Cancelled",
+        ]),
       },
     });
   }
 
-  // 9️⃣ Notes
+  // 9️⃣ Notes (Updated to match new schema)
   for (let i = 0; i < 10; i++) {
     const client = faker.helpers.arrayElement(clients);
     const worker = faker.helpers.arrayElement(supportWorkers);
-    await prisma.note.create({
+
+    const note = await prisma.note.create({
       data: {
         client_id: client.id,
         author_user_id: worker.id,
-        note_date: faker.date.past(),
-        session_type: faker.helpers.arrayElement(["Individual Therapy", "Group Therapy", "Assessment"]),
+        note_date: faker.date.past(), // required Date
+        session_type: faker.helpers.arrayElement([
+          "Individual Therapy",
+          "Group Therapy",
+          "Assessment",
+          "Follow-up",
+        ]),
+        duration_minutes: faker.number.int({ min: 30, max: 120 }),
         summary: faker.lorem.sentence(),
         detailed_notes: faker.lorem.paragraph(),
         risk_assessment: faker.helpers.arrayElement(["Low", "Medium", "High"]),
+        next_steps: faker.lorem.sentence(),
       },
     });
+
+    // Add related activities for each note
+    const activityCount = faker.number.int({ min: 1, max: 3 });
+
+    for (let j = 0; j < activityCount; j++) {
+      await prisma.activity.create({
+        data: {
+          type: faker.helpers.arrayElement([
+            "Counseling",
+            "Safety Planning",
+            "Crisis Intervention",
+            "Case Management",
+          ]),
+          minutes: faker.number.int({ min: 10, max: 60 }),
+          note_id: note.id,
+        },
+      });
+    }
   }
 
   // 🔟 Crisis Events
   for (let i = 0; i < 5; i++) {
     const client = faker.helpers.arrayElement(clients);
+
     await prisma.crisisEvent.create({
       data: {
         client_id: client.id,
         initiator_user_id: leader.id,
-        event_type: faker.helpers.arrayElement(["Emergency Call", "Safety Plan Activation"]),
+        event_type: faker.helpers.arrayElement([
+          "Emergency Call",
+          "Safety Plan Activation",
+        ]),
         description: faker.lorem.sentence(),
-        risk_level_at_event: faker.helpers.arrayElement(["Low", "Medium", "High"]),
+        risk_level_at_event: faker.helpers.arrayElement([
+          "Low",
+          "Medium",
+          "High",
+        ]),
       },
     });
   }
 
-  // 1️⃣1️⃣ Notifications for Leader
+  // 1️⃣1️⃣ Notifications for leader
   await prisma.notification.createMany({
     data: [
       {
@@ -225,6 +264,35 @@ async function main() {
       },
     ],
   });
+
+  // 1️⃣2️⃣ Default availability for all non-client users
+  const nonClientUsers = await prisma.user.findMany({
+    where: {
+      role: {
+        role_name: { not: "client" },
+      },
+    },
+  });
+
+  const defaultAvailability = [
+    { day_of_week: "Monday", start_time: "09:00", end_time: "17:00" },
+    { day_of_week: "Tuesday", start_time: "09:00", end_time: "17:00" },
+    { day_of_week: "Wednesday", start_time: "09:00", end_time: "17:00" },
+    { day_of_week: "Thursday", start_time: "09:00", end_time: "17:00" },
+    { day_of_week: "Friday", start_time: "09:00", end_time: "17:00" },
+  ];
+
+  for (const user of nonClientUsers) {
+    await prisma.userAvailability.createMany({
+      data: defaultAvailability.map((slot) => ({
+        user_id: user.id,
+        day_of_week: slot.day_of_week,
+        start_time: new Date(`1970-01-01T${slot.start_time}:00Z`),
+        end_time: new Date(`1970-01-01T${slot.end_time}:00Z`),
+      })),
+      skipDuplicates: true,
+    });
+  }
 
   console.log("✅ Database seeded successfully!");
 }

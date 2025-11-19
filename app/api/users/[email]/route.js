@@ -1,20 +1,22 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { clerkClient } from '@clerk/nextjs/server';
 
 export async function GET(request, { params }) {
   const { email } = params;
 
-  const user = await prisma.user.findUnique({
-    where: {
-      email: email,
-    },
-  });
+  try {
+    const users = await clerkClient.users.getUserList({ emailAddress: [email] });
 
-  if (user) {
-    return NextResponse.json({ userId: user.clerk_user_id });
-  } else {
-    return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (users.length === 0) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    // Assuming the first user found is the correct one
+    const user = users[0];
+
+    return NextResponse.json({ userId: user.id });
+  } catch (error) {
+    console.error('Error fetching user by email:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

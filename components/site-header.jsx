@@ -177,20 +177,7 @@ export default function SiteHeader() {
     }
   };
 
-  // ---- Unread count ----
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
-  // ---- Render placeholder during hydration ----
-  if (!mounted) {
-    return (
-      <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
-        <div className="flex h-14 items-center justify-between px-4">
-          <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
-          <div className="h-8 w-8 bg-gray-200 animate-pulse rounded-full"></div>
-        </div>
-      </header>
-    );
-  }
 
   // ---- Render full header ----
   return (
@@ -303,8 +290,12 @@ export default function SiteHeader() {
                         </p>
                         {!n.is_read && <div className="h-2 w-2 bg-blue-500 rounded-full" />}
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{n.message}</p>
-                      <p className="text-xs text-gray-400">{timeAgo(n.created_at)}</p>
+                      <p className="text-sm text-gray-600 mb-1">
+                        {notification.message}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {new Date(notification.created_at).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -1,7 +1,5 @@
 // Comments and documentation generated with Claude AI assistance
 // Prompt: "Add proper comments and documentation to this file, explain what this file is doing, 
-// and separately explain each line of code like each React or JavaScript code or component used, 
-// why used, explanation, what it does - explain as if you would do to a complete beginner"
 
 /**
  * API Route: Today's Schedule
@@ -72,16 +70,16 @@ export async function GET() {
 
     // Step 4: Calculate today's date range
     // We need to find all appointments from midnight today to 11:59:59 PM today
+    // this part of code is written using gemini assist
     
     // Get the current date and time
     const today = new Date();
     
-    // Create start of day: today at 00:00:00.000 (midnight)
-    // setHours modifies the date object and returns the timestamp
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    // Create start of day: today at 00:00:00.000 UTC (midnight)
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
     
-    // Create end of day: today at 23:59:59.999 (one millisecond before midnight)
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    // Create end of day: today at 23:59:59.999 UTC
+    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
 
     // Step 5: Query database for today's appointments
     // Fetch appointments scheduled today

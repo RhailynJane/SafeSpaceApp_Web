@@ -5,9 +5,34 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// Roles
+model User {
+  id                         Int           @id @default(autoincrement())
+  clerk_user_id              String?       @unique
+  first_name                 String
+  last_name                  String
+  email                      String        @unique
+  profile_image_url          String?
+  last_login                 DateTime?
+  created_at                 DateTime      @default(now())
+  updated_at                 DateTime      @updatedAt
+  role_id                    Int
+  role                       Role          @relation(fields: [role_id], references: [id])
+  clients                    Client[]
+  notes                      Note[]        @relation("AuthoredNotes")
+  processed_referrals        Referral[]    @relation("ProcessedByUser")
+  appointments               Appointment[] @relation("ScheduledAppointments")
+  initiated_crisis_events    CrisisEvent[] @relation("InitiatedCrisisEvents")
+  supervised_crisis_events   CrisisEvent[] @relation("SupervisedCrisisEvents")
+  notifications              Notification[]
+  auditLogs                  AuditLog[]
+  user_availabilities        UserAvailability[]
+
+  @@map("users")
+}
+
 model Role {
   id          Int    @id @default(autoincrement())
   role_name   String @unique
@@ -91,7 +116,96 @@ model Client {
   @@map("clients")
 }
 
-// Appointments
+model Referral {
+  id                   Int        @id @default(autoincrement())
+  client_id            Int?
+  client_first_name    String
+  client_last_name     String
+  age                  Int?
+  phone                String?
+  address              String?
+  email                String?
+  emergency_first_name String?
+  emergency_last_name  String?
+  emergency_phone      String?
+  referral_source      String
+  reason_for_referral  String
+  additional_notes     String?
+  submitted_date       DateTime?
+  status               String     @default("Pending")
+  processed_date       DateTime?
+  processed_by_user_id Int?
+  created_at           DateTime   @default(now())
+  updated_at           DateTime   @updatedAt
+  referral_timeline    Timeline[]
+  client               Client?    @relation("ClientReferrals", fields: [client_id], references: [id])
+  processed_by         User?      @relation("ProcessedByUser", fields: [processed_by_user_id], references: [id])
+
+  @@map("referrals")
+}
+
+model Timeline {
+  id         Int      @id @default(autoincrement())
+  referralId Int
+  message    String
+  createdAt  DateTime @default(now())
+  referrals  Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@map("referral_timeline")
+}
+
+model Note {
+  id               Int      @id @default(autoincrement())
+  client_id        Int
+  author_user_id   Int
+  note_date        DateTime @db.Date
+  session_type     String?
+  duration_minutes Int?
+  summary          String?
+  detailed_notes   String?
+  risk_assessment  String?
+  next_steps       String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  author           User     @relation("AuthoredNotes", fields: [author_user_id], references: [id])
+  client           Client   @relation(fields: [client_id], references: [id])
+  activities       Activity[]
+
+  @@map("notes")
+}
+
+model Activity {
+  id        Int      @id @default(autoincrement())
+  type      String
+  minutes   Int
+  note_id   Int
+  note      Note     @relation(fields: [note_id], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("activities")
+}
+
+model SystemAlert {
+  id        Int      @id @default(autoincrement())
+  message   String
+  timestamp DateTime @default(now())
+  type      String
+  is_read   Boolean  @default(false)
+
+  @@map("system_alerts")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  action    String   @db.VarChar(255)
+  user_id   Int?
+  timestamp DateTime @default(now()) @map("timestamp") @db.Timestamp
+  details   String?  @db.Text
+  user      User?    @relation(fields: [user_id], references: [id])
+
+  @@map("audit_logs")
+}
+
 model Appointment {
   id                   Int       @id @default(autoincrement())
   client_id            Int
@@ -213,16 +327,15 @@ model Notification {
   @@map("notifications")
 }
 
-// Audit Logs
-model AuditLog {
-  id        Int      @id @default(autoincrement())
-  action    String
-  user_id   Int?
-  timestamp DateTime @default(now())
-  details   String?
-  user      User?    @relation("UserAuditLogs", fields: [user_id], references: [id])
+model UserAvailability {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  day_of_week String // e.g., "Monday", "Tuesday"
+  start_time  DateTime @db.Time(6)
+  end_time    DateTime @db.Time(6)
+  user        User     @relation(fields: [user_id], references: [id])
 
-  @@map("audit_logs")
+  @@map("user_availabilities")
 }
 
 // Availability

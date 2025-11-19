@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import useDraggable from "../../hooks/useDraggable";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useSWRConfig } from "swr";
@@ -17,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Calendar as CalendarIcon, Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
+
 
 import DashboardOverview from "../dashboard/page";
 import ClientActionButtons from "@/components/ClientActionButtons";
@@ -36,6 +38,8 @@ import AuditLogTab from "../auditlogtab/page";
 
 import { format } from "date-fns";
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
+import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal"; // Import the new modal
+import VideoCallModal from "@/components/schedule/VideoCallModal";
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
@@ -48,17 +52,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [availability, setAvailability] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [supervisor, setSupervisor] = useState(null);
-  const [referralSearchQuery, setReferralSearchQuery] = useState("");
-  const [filteredReferrals, setFilteredReferrals] = useState([]);
-  const [clientSearchQuery, setClientSearchQuery] = useState("");
-  const [filteredClients, setFilteredClients] = useState([]);
+  const [dbUser, setDbUser] = useState(null);
+
   const [reportType, setReportType] = useState("caseload");
   const [reportFormat, setReportFormat] = useState("PDF");
   const [date, setDate] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
-  const [recentReports, setRecentReports] = useState([]);
-  const [trackingData, setTrackingData] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -70,31 +70,49 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [chatChannelName, setChatChannelName] = useState("Chat");
   const [selectedClientId, setSelectedClientId] = useState("");
 
+  const [isUpdateRiskModalOpen, setIsUpdateRiskModalOpen] = useState(false);
+  const [selectedCrisisEvent, setSelectedCrisisEvent] = useState(null);
+  const [isVideoCallModalOpen, setIsVideoCallModalOpen] = useState(false);
+  const [otherUserId, setOtherUserId] = useState(null);
+  const [chattingWith, setChattingWith] = useState(null);
+
+  const dragHandleRef = useRef(null);
+  const position = useDraggable(dragHandleRef);
+
   useEffect(() => {
-    const fetchSupervisor = async () => {
+    const fetchSupervisorAndDbUser = async () => {
       try {
-        const response = await fetch('/api/supervisor');
-        if (response.ok) {
-          const data = await response.json();
+        // Fetch supervisor
+        const supervisorResponse = await fetch('/api/supervisor');
+        if (supervisorResponse.ok) {
+          const data = await supervisorResponse.json();
           setSupervisor(data);
         } else {
-          console.error("Failed to fetch supervisor");
+          console.error("Failed to fetch supervisor data.");
+        }
+
+        // Fetch dbUser based on Clerk user ID
+        if (user?.id) {
+          const dbUserResponse = await fetch(`/api/user?clerkUserId=${user.id}`);
+          if (dbUserResponse.ok) {
+            const data = await dbUserResponse.json();
+            setDbUser(data);
+          } else {
+            const errorData = await dbUserResponse.json();
+            console.error("Failed to fetch database user data.", dbUserResponse.status, errorData);
+          }
         }
       } catch (error) {
-        console.error("Error fetching supervisor:", error);
+        console.error("Error fetching initial data:", error);
       }
     };
 
-    fetchSupervisor();
-  }, []);
+    fetchSupervisorAndDbUser();
+  }, [user?.id]); // Re-run if Clerk user ID changes
 
-  const [availabilityModalOpen, setAvailabilityModalOpen] = useState(false);
-  const [addAppointmentModalOpen, setAddAppointmentModalOpen] = useState(false);
-  const [prefilledSlot, setPrefilledSlot] = useState(null);
 
   const fetchData = useCallback(async () => {
     if (!getToken) {
-      console.log("getToken is not available yet");
       return;
     }
 
@@ -104,83 +122,47 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       const token = await getToken();
 
       if (!token) {
-        console.log("No token available - user may not be authenticated");
         setLoading(false);
         return;
       }
 
       // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes, reportRes, availabilityRes, trackingRes] = await Promise.all([
-        fetch("/api/clients", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/notes", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/crisis-events", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/appointments", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/audit-logs", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/reports", { headers: { Authorization: `Bearer ${token}` } }), // This fetches recent reports
-        fetch("/api/availability", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/tracking", { headers: { Authorization: `Bearer ${token}` } }), // This fetches tracking metrics
+      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes] = await Promise.all([
+        fetch("/api/clients"),
+        fetch("/api/notes"),
+        fetch("/api/crisis-events"),
+        fetch("/api/appointments"),
+        fetch("/api/audit-logs"),
       ]);
 
       if (clientRes.ok) {
         const clientData = await clientRes.json();
         setClients(Array.isArray(clientData) ? clientData : []);
       } else {
-        const errorData = await clientRes.json().catch(() => ({ error: "Failed to parse error response." }));
-        console.error("Failed to fetch clients:", clientRes.status, clientRes.statusText, errorData);
       }
 
       if (noteRes.ok) {
         const noteData = await noteRes.json();
         setNotes(Array.isArray(noteData) ? noteData : []);
       } else {
-        const errorData = await noteRes.json().catch(() => ({ error: "Failed to parse error response." }));
-        console.error("Failed to fetch notes:", noteRes.status, noteRes.statusText, errorData);
       }
 
       if (crisisRes.ok) {
         const crisisData = await crisisRes.json();
         setCrisisEvents(Array.isArray(crisisData) ? crisisData : []);
       } else {
-        const errorData = await crisisRes.json().catch(() => ({ error: "Failed to parse error response." }));
-        console.error("Failed to fetch crisis events:", crisisRes.status, crisisRes.statusText, errorData);
       }
 
       if (appointmentRes.ok) {
         const appointmentData = await appointmentRes.json();
         setSchedule(Array.isArray(appointmentData) ? appointmentData : []);
       } else {
-        const errorData = await appointmentRes.json().catch(() => ({ error: "Failed to parse error response." }));
-        console.error("Failed to fetch appointments:", appointmentRes.status, appointmentRes.statusText, errorData);
       }
 
       if (auditRes.ok) {
         const auditData = await auditRes.json();
         setAuditLogs(Array.isArray(auditData) ? auditData : []);
       } else {
-        const errorData = await auditRes.json().catch(() => ({ error: "Failed to parse error response." }));
-        console.error("Failed to fetch audit logs:", auditRes.status, auditRes.statusText, errorData);
-      }
-      if (reportRes.ok) {
-        const reportData = await reportRes.json();
-        setRecentReports(Array.isArray(reportData) ? reportData : []);
-      } else {
-        const errorData = await reportRes.json().catch(() => ({ error: "Failed to parse error response." }));
-        console.error("Failed to fetch reports:", reportRes.status, reportRes.statusText, errorData);
-      }
-
-      if (availabilityRes.ok) {
-        const availabilityData = await availabilityRes.json();
-        setAvailability(Array.isArray(availabilityData) ? availabilityData : []);
-      } else {
-        const errorData = await availabilityRes.json().catch(() => ({ error: "Failed to parse error response." }));
-        console.error("Failed to fetch availability:", availabilityRes.status, availabilityRes.statusText, errorData);
-      }
-
-      if (trackingRes.ok) {
-        const data = await trackingRes.json();
-        setTrackingData(data);
-      } else {
-        console.error("Failed to fetch tracking data:", trackingRes.status, trackingRes.statusText);
       }
 
       // Conditionally fetch referrals and assignable users
@@ -194,21 +176,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           const refData = await refRes.json();
           setReferrals(Array.isArray(refData) ? refData : []);
         } else {
-          const errorData = await refRes.json().catch(() => ({ error: "Failed to parse error response." }));
-          console.error("Failed to fetch referrals:", refRes.status, refRes.statusText, errorData);
         }
 
         if (usersRes.ok) {
           const usersData = await usersRes.json();
           setAssignableUsers(Array.isArray(usersData) ? usersData : []);
         } else {
-          const errorData = await usersRes.json().catch(() => ({ error: "Failed to parse error response." }));
-          console.error("Failed to fetch assignable users:", usersRes.status, usersRes.statusText, errorData);
         }
       }
 
     } catch (error) {
-      console.error("Error fetching data:", error);
       setError("Failed to load data. Please try again.");
     } finally {
       setLoading(false);
@@ -219,40 +196,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    const lowercasedQuery = referralSearchQuery.toLowerCase();
-    const filtered = referrals.filter(r => {
-      return (
-        r.client_first_name?.toLowerCase().includes(lowercasedQuery) ||
-        r.client_last_name?.toLowerCase().includes(lowercasedQuery) ||
-        r.referral_source?.toLowerCase().includes(lowercasedQuery)
-      );
-    });
-    setFilteredReferrals(filtered);
-  }, [referralSearchQuery, referrals]);
-
-  useEffect(() => {
-    const lowercasedQuery = clientSearchQuery.toLowerCase();
-    const filtered = clients.filter(c => {
-      return (
-        c.client_first_name.toLowerCase().includes(lowercasedQuery) ||
-        c.client_last_name.toLowerCase().includes(lowercasedQuery)
-      );
-    });
-    setFilteredClients(filtered);
-  }, [clientSearchQuery, clients]);
-
   const handleAddAppointment = (newAppointment) => {
     setSchedule((prev) => [...prev, newAppointment]);
     mutate("/api/dashboard");
   };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
-
-  const handleSlotSelect = (slot) => {
-    setPrefilledSlot(slot);
-    setAvailabilityModalOpen(false); // Close availability modal
-    setAddAppointmentModalOpen(true); // Open appointment modal
-  };
 
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
     setReferrals(prev =>
@@ -273,10 +221,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         setNotes(prev => [newNote, ...prev]);
         closeModal('newNote');
       } else {
-        console.error("Failed to create note");
       }
     } catch (error) {
-      console.error("Error creating note:", error);
     }
   };
 
@@ -293,10 +239,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n));
         closeModal('editNote');
       } else {
-        console.error("Failed to update note");
       }
     } catch (error) {
-      console.error("Error updating note:", error);
     }
   };
 
@@ -311,10 +255,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         if (res.ok) {
           setNotes(prev => prev.filter(n => n.id !== noteId));
         } else {
-          console.error("Failed to delete note");
         }
       } catch (error) {
-        console.error("Error deleting note:", error);
       }
     }
   };
@@ -322,9 +264,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const tabs = userRole === "team-leader"
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Audit Log"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
-
-  const [prefilledAppointment, setPrefilledAppointment] = useState(null);
-
 
   const [modals, setModals] = useState({
     newNote: false,
@@ -339,113 +278,28 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   };
   const closeModal = (modalName) => setModals(prev => ({ ...prev, [modalName]: false }));
 
-
-
-  const generateReport = async () => {
-    if (!date?.from || !date?.to) {
-      alert("Please select a start and end date for the report.");
-      return;
-    }
-
-    const sDate = date.from;
-    const eDate = date.to;
-
-    if (sDate > eDate) {
-      alert("Start date cannot be after the end date.");
-      return;
-    }
-    // Set time to ensure the full day is included in the range
-    sDate.setHours(0, 0, 0, 0);
-    eDate.setHours(23, 59, 59, 999);
-
-    const filterByDate = (item) => {
-      const itemDate = new Date(item.created_at || item.appointment_date || item.note_date || item.event_date);
-      return itemDate >= sDate && itemDate <= eDate;
-    };
-
-    let generatedData;
+  const generateReport = () => {
     if (reportType === "caseload") {
-      // Caseload summary should not be filtered by date, it's a snapshot of all clients.
-      generatedData = {
+      setReportData({
         totalClients: clients.length,
         activeClients: clients.filter(c => c.status === "Active").length,
-        onHoldClients: clients.filter(c => c.status !== "Active" && c.status !== "Inactive").length,
-      };
-    } else if (reportType === "sessions") {
-      const filtered = schedule.filter(filterByDate);
-      generatedData = {
-        sessions: filtered,
-        total: filtered.length,
-      };
-    } else if (reportType === "outcomes") {
-      const filtered = clients.filter(filterByDate);
-      generatedData = {
-        highRisk: filtered.filter(c => c.risk_level === "High").length,
-        mediumRisk: filtered.filter(c => c.risk_level === "Medium").length,
-        lowRisk: filtered.filter(c => c.risk_level === "Low").length,
-      };
-    } else if (reportType === "crisis") {
-      const filtered = crisisEvents.filter(filterByDate);
-      generatedData = {
-        crisisEvents: filtered,
-        total: filtered.length,
-      };
-    }
-
-    const newReportPayload = {
-      name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
-      type: reportFormat,
-      data: generatedData,
-      startDate: sDate.toISOString(), // Save consistent date format
-      endDate: eDate.toISOString(),
-    };
-
-    // 1. Save the report to the database first
-    try {
-      const saveResponse = await fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newReportPayload),
+        onHoldClients: clients.filter(c => c.status !== "Active").length,
       });
+    } else if (reportType === "sessions") {
+      setReportData({
+        sessions: schedule
 
-      if (saveResponse.ok) {
-        const savedReport = await saveResponse.json();
-        // 2. Add the new report to the top of the recent reports list
-        setRecentReports(prev => [savedReport, ...prev]);
-      } else {
-        console.error("Failed to save the report record.");
-      }
-    } catch (error) {
-      console.error("Error saving report record:", error);
-    }
-
-    // Use the on-the-fly download endpoint
-    const response = await fetch('/api/reports/download', {
-      method: 'POST', // Use POST to send data
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newReportPayload),
-    });
-
-    if (!response.ok) {
-      alert("Failed to generate and download report.");
-      console.error("Failed to download report:", await response.text());
-      return;
-    }
-
-    // Handle the file download
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-
-    // Extract filename from headers, with a fallback
-    const disposition = response.headers.get('Content-Disposition');
-    let filename = `${newReportPayload.name}.${newReportPayload.type.toLowerCase()}`; // Fallback filename
-    if (disposition && disposition.includes('attachment')) {
-      const filenameMatch = /filename="([^"]+)"/.exec(disposition);
-      if (filenameMatch && filenameMatch[1]) {
-        filename = filenameMatch[1];
-      }
+      });
+    } else if (reportType === "outcomes") {
+      setReportData({
+        highRisk: clients.filter(c => c.riskLevel === "High").length,
+        mediumRisk: clients.filter(c => c.riskLevel === "Medium").length,
+        lowRisk: clients.filter(c => c.riskLevel === "Low").length,
+      });
+    } else if (reportType === "crisis") {
+      setReportData({
+        crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
+      });
     }
 
     a.download = filename;
@@ -462,29 +316,80 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     setReferrals(prev => prev.map(r => r.id === id ? { ...r, status: "pending" } : r));
   };
 
-  const handleCallEnd = () => {
-    console.log("Call ended");
+  const handleCallEnd = () => {};
+
+  const handleUpdateCrisisEvent = async (updatedEvent) => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/crisis-events/${updatedEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updatedEvent),
+      });
+      if (res.ok) {
+        const newEvent = await res.json();
+        setCrisisEvents(prev => prev.map(event => event.id === newEvent.id ? newEvent : event));
+        setIsUpdateRiskModalOpen(false);
+        setSelectedCrisisEvent(null);
+      } else {
+        console.error("Failed to update crisis event");
+      }
+    } catch (error) {
+      console.error("Error updating crisis event:", error);
+    }
   };
 
   const openChat = async (otherUser, channelName) => {
-    let otherUserId = otherUser;
+    setChattingWith(otherUser);
+    let otherUserId = null;
     let dynamicChannelName = channelName;
 
     if (typeof otherUser === 'object' && otherUser !== null) {
-      otherUserId = otherUser.user_id;
       dynamicChannelName = `${otherUser.client_first_name} ${otherUser.client_last_name}`;
-    } else if (String(otherUser).includes('@')) {
-      const response = await fetch(`/api/users/${otherUser}`);
-      const data = await response.json();
-      if (data.userId) {
-        otherUserId = data.userId;
-      } else {
-        console.error('User not found for email:', otherUser);
+      
+      if (otherUser.user && otherUser.user.clerk_user_id) {
+        otherUserId = otherUser.user.clerk_user_id;
+      } else if (otherUser.id) {
+        otherUserId = otherUser.id;
+      } else if (otherUser.email) {
+        try {
+          const response = await fetch(`/api/users/${otherUser.email}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.userId) {
+              otherUserId = data.userId;
+            }
+                  }
+                } catch (error) {
+                  }
+                }
+      if (!otherUserId) {
+        alert('This client does not have a user account and cannot be messaged.');
         return;
       }
+    } else if (String(otherUser).includes('@')) {
+      try {
+        const response = await fetch(`/api/users/${otherUser}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.userId) {
+            otherUserId = data.userId;
+          }
+        }
+      } catch (error) {
+      }
+      if (!otherUserId) {
+        return;
+      }
+    } else {
+      otherUserId = otherUser;
     }
 
+    setOtherUserId(otherUserId);
     setChatChannelName(dynamicChannelName || "Chat");
+
+    // Create a deterministic channel URL by sorting user IDs
+    const channelUrl = `client_chat_${[user.id, otherUserId].sort().join('_')}`;
 
     const response = await fetch('/api/sendbird', {
       method: 'POST',
@@ -493,13 +398,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       },
       body: JSON.stringify({
         userIds: [user.id, otherUserId],
-        name: dynamicChannelName
+        name: dynamicChannelName,
+        channel_url: channelUrl
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Error creating chat channel:', errorData.error);
       alert('Failed to create chat channel. Please try again later.');
       return;
     }
@@ -514,9 +419,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
       {/* Floating chat window (bottom-right */}
       {showChat && (
-        <div className="fixed bottom-5 right-5 w-[380px] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden z-[9999]">
+        <div
+          className="draggable fixed bottom-5 right-5 w-[380px] h-[520px] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden z-[9999]"
+          style={{ top: position.y, left: position.x }}
+        >
           {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between">
+          <div
+            ref={dragHandleRef}
+            className="drag-handle bg-white border-b border-gray-200 px-3 py-2 flex items-center justify-between cursor-move"
+          >
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative flex-shrink-0">
                 <img
@@ -541,7 +452,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     <MoreVertical size={16} className="text-gray-600" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-48 z-[10000]">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      setIsVideoCallModalOpen(true);
+                    }}
+                  >
+                    Start Video Call
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={async () => {
                       if (!channelUrl) return alert("No channel selected.");
@@ -554,7 +473,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         if (!res.ok) throw new Error("mute failed");
                         alert("Notifications muted for this chat.");
                       } catch (err) {
-                        console.error(err);
                         alert("Failed to mute notifications.");
                       }
                     }}
@@ -576,7 +494,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         alert("Chat history cleared.");
                         setShowChat(false);
                       } catch (err) {
-                        console.error(err);
                         alert("Failed to clear chat history.");
                       }
                     }}
@@ -634,7 +551,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         alert("User blocked.");
                         setShowChat(false);
                       } catch (err) {
-                        console.error(err);
                         alert("Failed to block user.");
                       }
                     }}
@@ -656,7 +572,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           </div>
 
           {/* Chat Body */}
-          <div className="flex-1 overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-300 bg-white">
+          <div className="flex-1 bg-white overflow-hidden">
             {channelUrl ? (
               <SendbirdChat channelUrl={channelUrl} />
             ) : (
@@ -666,6 +582,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             )}
           </div>
         </div>
+      )}
+
+      {otherUserId && (
+        <VideoCallModal
+          open={isVideoCallModalOpen}
+          onOpenChange={setIsVideoCallModalOpen}
+          currentUserId={user.id}
+          recipientUserId={otherUserId}
+          appointment={chattingWith ? { client_name: `${chattingWith.client_first_name} ${chattingWith.client_last_name}` } : {}}
+        />
       )}
 
 
@@ -690,92 +616,98 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
         {/* Overview Tab */}
         <TabsContent value="Overview" className="space-y-6">
-          <DashboardOverview
-            userRole={userRole}
-            clients={clients}
-            schedule={schedule}
-            addAppointmentModalOpen={addAppointmentModalOpen}
-            setAddAppointmentModalOpen={setAddAppointmentModalOpen}
-            onAdd={handleAddAppointment}
-          />
+          <DashboardOverview userRole={userRole} clients={clients} onAdd={handleAddAppointment} schedule={schedule} />
         </TabsContent>
 
         {/* Referrals Tab - Team Leaders Only */}
         {userRole === "team-leader" && (
           <TabsContent value="Referrals" className="space-y-6">
-            <Tabs defaultValue="pending" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">Referral Management</h2>
+              <Badge variant="outline">{referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
+            </div>
+
+            <Tabs defaultValue="pending" className="space-y-4">
+              <TabsList>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
                 <TabsTrigger value="processed">Processed</TabsTrigger>
               </TabsList>
-              <TabsContent value="pending" className="space-y-4">
+
+              <TabsContent value="pending">
                 <Card>
                   <CardHeader>
                     <CardTitle>Pending Referrals</CardTitle>
-                    <CardDescription>Review and process new client referrals.</CardDescription>
-                    <div className="relative w-full md:w-1/3 mt-4">
-                      <Input
-                        type="text"
-                        placeholder="Search by client name or referral source..."
-                        value={referralSearchQuery}
-                        onChange={(e) => setReferralSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      />
-                    </div>
+                    <CardDescription>Review and process new client referrals</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    {filteredReferrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length > 0 ? (
-                      filteredReferrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
-                        <div key={referral.id} className="border-b last:border-b-0 p-4 space-y-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                              <p className="text-sm text-gray-500">Referred on: {new Date(referral.created_at).toLocaleDateString()}</p>
-                            </div>
-                            <Badge>{referral.status}</Badge>
-                          </div>
-
+                  <CardContent className="space-y-4">
+                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
+                      <div key={referral.id} className="border rounded-lg p-4 space-y-4">
+                        <div className="flex items-start justify-between">
                           <div className="space-y-2">
-                            <h4 className="font-medium">Reason for Referral:</h4>
-                            <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
-                          </div>
-
-                          <div className="space-y-2">
-                            <h4 className="font-medium">Contact Information:</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                              <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-gray-500" /> {referral.phone}</div>
-                              <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-gray-500" /> {referral.email}</div>
-                              <div className="flex items-center gap-2 col-span-2"><MapPin className="h-4 w-4 text-gray-500" /> {referral.address}</div>
-                              <div className="flex items-center gap-2 col-span-2"><User className="h-4 w-4 text-gray-500" /> Emergency Contact: {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}</div>
+                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                              <div>Age: {referral.age}</div>
+                              <div>Source: {referral.referral_source}</div>
+                              <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
                             </div>
                           </div>
-
-                          {referral.additional_notes && (
-                            <div className="space-y-2">
-                              <h4 className="font-medium">Additional Notes:</h4>
-                              <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-md">{referral.additional_notes}</p>
-                            </div>
-                          )}
-
-                          <ReferralActions
-                            referral={referral}
-                            onStatusUpdate={handleReferralStatusUpdate}
-                            userRole={userRole}
-                            assignableUsers={assignableUsers}
-                            onStartChat={openChat}
-                          />
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-12 text-gray-500">
-                        <CheckCircle className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium">No pending referrals</h3>
-                        <p className="text-sm">All new referrals have been processed.</p>
+
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Reason for Referral:</h4>
+                          <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          <h4 className="font-medium">Contact Information:</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-4 w-4" />
+                              {referral.phone}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4" />
+                              {referral.email}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              {referral.address}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <User className="h-4 w-4" />
+                              {referral.emergency_first_name} {referral.emergency_last_name} - {referral.emergency_phone}
+                            </div>
+                          </div>
+                        </div>
+
+                        {referral.additional_notes && (
+                          <div className="space-y-2">
+                            <h4 className="font-medium">Additional Notes:</h4>
+                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
+                          </div>
+                        )}
+
+                        <ReferralActions
+                          referral={referral}
+                          onStatusUpdate={handleReferralStatusUpdate}
+                          userRole={userRole}
+                          assignableUsers={assignableUsers}
+                          onStartChat={openChat}
+                        />
+                      </div>
+                    ))}
+
+                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                        <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
+                        <p className="text-sm">All referrals have been processed.</p>
                       </div>
                     )}
                   </CardContent>
                 </Card>
               </TabsContent>
+
               <TabsContent value="processed">
                 <Card>
                   <CardHeader>
@@ -783,31 +715,31 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length > 0 ? (
-                      referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
-                        <div key={referral.id} className="border rounded-lg p-4 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                            <Badge className={
-                              referral.status.toLowerCase() === "accepted"
-                                ? "bg-teal-600 text-white"
-                                : referral.status.toLowerCase() === "declined"
-                                  ? "bg-red-500 text-white"
-                                  : "bg-blue-500 text-white"
-                            }>
-                              {referral.status}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
-                          </div>
+                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
+                      <div key={referral.id} className="border rounded-lg p-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                          <Badge className={
+                            referral.status.toLowerCase() === "accepted"
+                              ? "bg-teal-600 text-white"
+                              : referral.status.toLowerCase() === "declined"
+                                ? "bg-red-500 text-white"
+                                : "bg-blue-500 text-white"
+                          }>
+                            {referral.status}
+                          </Badge>
+
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-12 text-gray-500">
-                        <FileText className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium">No processed referrals</h3>
-                        <p className="text-sm">Process a referral from the 'Pending' tab to see it here.</p>
+                        <div className="text-sm text-gray-600">
+                          Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
+                        <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
+                        <p className="text-sm">Process a referral from the 'Pending' tab.</p>
                       </div>
                     )}
                   </CardContent>
@@ -889,7 +821,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         </div>
                       </div>
                       <div className="mt-4">
-                        <ClientActionButtons client={client} onMessage={() => openChat(client)} />
+                        <ClientActionButtons client={client} onMessage={() => openChat(client)} schedule={schedule} />
                       </div>
                     </div>
                   ))}
@@ -901,53 +833,71 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         <TabsContent value="Schedule" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Today's Schedule</CardTitle>
-              <CardDescription>Your appointments and sessions for today</CardDescription>
+              <CardTitle>All Appointments</CardTitle>
+              <CardDescription>A list of all your scheduled appointments.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
-                <AddAppointmentModal
-                  onAdd={handleAddAppointment}
-                  clients={clients}
-                  prefilledSlot={prefilledSlot}
-                  onClose={() => setPrefilledSlot(null)}
-                />
-                <ViewAvailabilityModal
-                  isOpen={availabilityModalOpen}
-                  onOpenChange={setAvailabilityModalOpen}
-                  onSelect={handleSlotSelect}
-                  availability={availability}
-                  onSaveSuccess={fetchData}
-                />
-                <ViewCalendarModal isOpen={false} onOpenChange={() => {}} />
+                <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} />
+                <ViewAvailabilityModal />
+                <ViewCalendarModal schedule={schedule} />
               </div>
 
               <div className="space-y-4">
-                {schedule.length > 0 ? (
-                  schedule.map((appt) => (
-                    <div key={appt.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">{appt.client?.client_first_name} {appt.client?.client_last_name || 'Unknown Client'}</h3>
-                          <p className="text-sm text-gray-600">
-                            {new Date(appt.appointment_date).toLocaleDateString()} at {new Date(appt.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
-                          </p>
-                          {appt.details && (
-                            <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
-                          )}
+                {
+                  (() => {
+                    const futureAppointments = [...schedule]
+                      .map(appt => {
+                        if (!appt.appointment_date || !appt.appointment_time) {
+                          return { ...appt, combinedDateTime: null };
+                        }
+                        const dateStr = `${appt.appointment_date.substring(0, 10)}T${appt.appointment_time.substring(11, 23)}`;
+                        const combinedDateTime = new Date(dateStr);
+                        return { ...appt, combinedDateTime };
+                      })
+                      .filter(appt => {
+                        if (!appt.combinedDateTime) {
+                          return false;
+                        }
+                        const startOfToday = new Date();
+                        startOfToday.setHours(0, 0, 0, 0);
+                        return appt.combinedDateTime >= startOfToday;
+                      })
+                      .sort((a, b) => {
+                        if (!a.combinedDateTime) return 1;
+                        if (!b.combinedDateTime) return -1;
+                        return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
+                      });
+
+                    if (futureAppointments.length > 0) {
+                      return futureAppointments.map((appt) => (
+                        <div key={appt.id} className="border rounded-lg p-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
+                              <p className="text-sm text-gray-600">
+                                {new Date(appt.appointment_date).toLocaleDateString(undefined, { timeZone: 'UTC' })} at {new Date(appt.combinedDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {appt.type} • {appt.duration}
+                              </p>
+                              {appt.details && (
+                                <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <ViewDetailsModal appointment={appt} />
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <ViewDetailsModal appointment={appt} />
+                      ));
+                    } else {
+                      return (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No upcoming appointments scheduled.</p>
+                          <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
                         </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No appointments scheduled</p>
-                    <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
-                  </div>
-                )}
+                      );
+                    }
+                  })()
+                }
               </div>
             </CardContent>
           </Card>
@@ -1035,14 +985,22 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button className="bg-red-600 hover:bg-red-700 h-16">
+                  <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => {
+                    if (window.confirm("Are you sure you want to call Emergency Services (911)?")) {
+                      window.open('tel:911');
+                    }
+                  }}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Emergency Services</div>
                       <div className="text-xs">911</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => {
+                    if (window.confirm("Are you sure you want to call the Crisis Hotline (988)?")) {
+                      window.open('tel:988');
+                    }
+                  }}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Crisis Hotline</div>
@@ -1075,8 +1033,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <p className="text-sm text-gray-600 mb-1">Date: {new Date(event.event_date).toLocaleDateString()}</p>
                         <p className="text-sm mb-2">{event.description}</p>
                         <div className="flex gap-2 mt-3">
-                          <Button size="sm">Contact Now</Button>
-                          <Button variant="outline" size="sm">Update Status</Button>
+                          <Button size="sm" onClick={() => openChat(client)}>Contact Now</Button>
+                          <Button variant="outline" size="sm" onClick={() => {
+                            setSelectedCrisisEvent(event);
+                            setIsUpdateRiskModalOpen(true);
+                          }}>Update Status</Button>
                         </div>
                       </div>
                     );
@@ -1085,6 +1046,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardContent>
             </Card>
           </div>
+          {selectedCrisisEvent && (
+            <UpdateRiskStatusModal
+              isOpen={isUpdateRiskModalOpen}
+              onClose={() => setIsUpdateRiskModalOpen(false)}
+              crisisEvent={selectedCrisisEvent}
+              onSave={handleUpdateCrisisEvent}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="Reports" className="space-y-6">
@@ -1222,7 +1191,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {recentReports.map((report, index) => (
+                  {[
+                    { name: "Monthly Caseload Summary", date: "2024-01-15", type: "PDF", size: "2.3 MB" },
+                    { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
+                    { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
+                  ].map((report, index) => (
                     <div key={index} className="flex items-center justify-between p-3 border rounded">
                       <div>
                         <p className="font-medium">{report.name}</p>
@@ -1299,7 +1272,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         <TabsContent value="Audit Log" className="space-y-6">
           <AuditLogTab
             auditLogs={auditLogs}
-            currentUser={user}
+            currentUser={dbUser}
           />
         </TabsContent>
       </Tabs>
@@ -1337,10 +1310,6 @@ function InteractiveDashboard() {
 
   const rawRole = user?.publicMetadata?.role;
 
-  // Debug: Log the actual role from Clerk
-  console.log("Raw role from Clerk:", rawRole);
-  console.log("Full publicMetadata:", user?.publicMetadata);
-
   const normalizeRole = (r) => {
     if (!r) return null;
     // Convert any format to underscore: team-leader -> team_leader, teamLeader -> team_leader
@@ -1351,9 +1320,6 @@ function InteractiveDashboard() {
   const normalized = normalizeRole(rawRole);
   const userRole = normalized ? normalized.replace(/_/g, "-") : "support-worker";
   const userName = user?.fullName ?? "User";
-
-  console.log("Normalized role:", normalized);
-  console.log("Final userRole for UI:", userRole);
 
   return <InteractiveDashboardContent user={user} userRole={userRole} userName={userName} getToken={getToken} defaultTab={tab || 'Overview'} />;
 }
