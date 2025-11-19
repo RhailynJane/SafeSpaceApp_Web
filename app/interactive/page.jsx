@@ -14,8 +14,10 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 
 
 import DashboardOverview from "../dashboard/page";
@@ -34,6 +36,7 @@ import SendbirdChat from "@/components/SendbirdChat";
 import jsPDF from "jspdf";
 import AuditLogTab from "../auditlogtab/page";
 
+import { format } from "date-fns";
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
 import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal"; // Import the new modal
 import VideoCallModal from "@/components/schedule/VideoCallModal";
@@ -46,12 +49,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [crisisEvents, setCrisisEvents] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [assignableUsers, setAssignableUsers] = useState([]);
+  const [availability, setAvailability] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
   const [supervisor, setSupervisor] = useState(null);
   const [dbUser, setDbUser] = useState(null);
 
   const [reportType, setReportType] = useState("caseload");
-  const [dateRange, setDateRange] = useState("month");
+  const [reportFormat, setReportFormat] = useState("PDF");
+  const [date, setDate] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -63,6 +68,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [showChat, setShowChat] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
   const [chatChannelName, setChatChannelName] = useState("Chat");
+  const [selectedClientId, setSelectedClientId] = useState("");
 
   const [isUpdateRiskModalOpen, setIsUpdateRiskModalOpen] = useState(false);
   const [selectedCrisisEvent, setSelectedCrisisEvent] = useState(null);
@@ -162,8 +168,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       // Conditionally fetch referrals and assignable users
       if (userRole === "team-leader") {
         const [refRes, usersRes] = await Promise.all([
-          fetch("/api/referrals"),
-          fetch("/api/assignable-users"),
+          fetch("/api/referrals", { headers: { Authorization: `Bearer ${token}` } }),
+          fetch("/api/assignable-users", { headers: { Authorization: `Bearer ${token}` } }),
         ]);
 
         if (refRes.ok) {
@@ -295,6 +301,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
       });
     }
+
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+
+    
+    setReportData(generatedData); // Show the generated data 
   };
 
   const reopenReferral = async (id) => {
@@ -790,7 +805,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <div className="flex items-center justify-between">
                         <div>
                           <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
-                          <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
+                          <p className="text-sm text-gray-600">Last session: {client.last_session_date ? new Date(client.last_session_date).toLocaleDateString() : 'N/A'}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge
@@ -929,7 +944,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 {notes.map((note) => (
                   <div key={note.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{note.client.client_first_name} {note.client.client_last_name}</h4>
+                      <h4 className="font-medium">{note.client?.client_first_name} {note.client?.client_last_name || 'Unknown Client'}</h4>
                       <span className="text-sm text-gray-500">{new Date(note.note_date).toLocaleDateString()}</span>
                     </div>
                     <p className="text-sm text-gray-600 mb-2">{note.session_type}</p>
@@ -1048,8 +1063,50 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 <CardTitle>Generate Reports</CardTitle>
                 <CardDescription>Create custom reports for your caseload</CardDescription>
               </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-2 mb-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Progress Metrics</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Sessions Completed</span>
+                          <span className="font-semibold">{trackingData?.progressMetrics?.sessionsCompleted ?? '...'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Goals Achieved</span>
+                          <span className="font-semibold">{trackingData?.progressMetrics?.goalsAchieved ?? '...'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Improvement Rate</span>
+                          <span className="font-semibold">{trackingData?.progressMetrics?.improvementRate ?? '...'}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Team Performance</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Active Staff</span>
+                          <span className="font-semibold">{trackingData?.teamPerformance?.activeStaff ?? '...'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Avg. Caseload</span>
+                          <span className="font-semibold">{trackingData?.teamPerformance?.avgCaseload ?? '...'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Satisfaction Score</span>
+                          <span className="font-semibold">{trackingData?.teamPerformance?.satisfactionScore ?? '...'}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+              </CardContent>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Report Type</Label>
                     <Select value={reportType} onValueChange={setReportType}>
@@ -1065,18 +1122,50 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Date Range</Label>
-                    <Select value={dateRange} onValueChange={setDateRange}>
+                    <Label>Format</Label>
+                    <Select value={reportFormat} onValueChange={setReportFormat}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="week">Last Week</SelectItem>
-                        <SelectItem value="month">Last Month</SelectItem>
-                        <SelectItem value="quarter">Last Quarter</SelectItem>
-                        <SelectItem value="year">Last Year</SelectItem>
+                        <SelectItem value="PDF">PDF</SelectItem>
+                        <SelectItem value="Excel">Excel</SelectItem>
+                        <SelectItem value="Word">Word</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Date Range</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={`w-full justify-start text-left font-normal ${!date && "text-muted-foreground"}`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {date?.from ? (
+                            date.to ? (
+                              <>
+                                {format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}
+                              </>
+                            ) : (
+                              format(date.from, "LLL dd, y")
+                            )
+                          ) : (
+                            <span>Pick a date range</span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          initialFocus
+                          mode="range"
+                          selected={date}
+                          onSelect={setDate}
+                          numberOfMonths={2}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
                 <Button className="w-full" onClick={generateReport}>
@@ -1111,7 +1200,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <div>
                         <p className="font-medium">{report.name}</p>
                         <p className="text-sm text-gray-600">
-                          {report.date} • {report.type} • {report.size}
+                          {report.created_at ? new Date(report.created_at).toLocaleDateString() : 'Just now'} • {report.type}
                         </p>
                       </div>
                       <div className="flex gap-2">
@@ -1128,17 +1217,30 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            if (report.type === "PDF") {
-                              const doc = new jsPDF()
-                              doc.text(`Report Name: ${report.name}`, 10, 10)
-                              doc.text(`Date: ${report.date}`, 10, 20)
-                              doc.text(`Type: ${report.type}`, 10, 30)
-                              doc.text(`Size: ${report.size}`, 10, 40)
-                              doc.save(`${report.name}.pdf`)
-                            } else {
-                              alert("Downloading non-PDF files is not yet supported")
+                          onClick={async () => {
+                         const response = await fetch("/api/reports/download", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name: report.name || "General_Report",
+    type: report.type || "PDF",   // can be "Excel", "Word", or "PDF"
+    data: report.data || {},      // include whatever data your report needs
+  }),
+});
+
+
+                            if (!response.ok) {
+                              alert("Failed to download report.");
+                              return;
                             }
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = response.headers.get('Content-Disposition')?.split('filename=')[1].replace(/"/g, '') || `${report.name}.${report.type.toLowerCase()}`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
                           }}
                         >
                           Download

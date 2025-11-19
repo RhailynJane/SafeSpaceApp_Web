@@ -34,66 +34,84 @@ model User {
 }
 
 model Role {
-  id          Int     @id @default(autoincrement())
-  role_name   String  @unique
+  id          Int    @id @default(autoincrement())
+  role_name   String @unique
   description String?
   users       User[]
 
   @@map("roles")
 }
 
-model PriorityLevel {
-  id         Int    @id @default(autoincrement())
-  level_name String @unique
-  order_rank Int?
+// Users
+model User {
+id                      Int      @id @default(autoincrement()) @map("client_id")
+  clerk_user_id            String?               @unique
+  first_name               String
+  last_name                String
+  email                    String                @unique
+  profile_image_url        String?
+  last_login               DateTime?
+  created_at               DateTime              @default(now())
+  updated_at               DateTime              @updatedAt
+  role_id                  Int
+  role                     Role                  @relation(fields: [role_id], references: [id])
 
-  @@map("priority_levels")
+  // Assigned clients as team leader
+  clients                  Client[]              @relation("TeamLeaderClients")
+
+  // Support worker assignments (many-to-many)
+  clientAssignments        ClientSupportWorker[]
+
+  // Relations
+  notes                    Note[]                @relation("AuthoredNotes")
+  processed_referrals      Referral[]            @relation("ProcessedByUser")
+  appointments             Appointment[]         @relation("ScheduledAppointments")
+  initiated_crisis_events  CrisisEvent[]         @relation("InitiatedCrisisEvents")
+  supervised_crisis_events CrisisEvent[]         @relation("SupervisedCrisisEvents")
+  notifications            Notification[]
+  auditLogs                AuditLog[]            @relation("UserAuditLogs")
+  availability             Availability[]
+
+  @@map("users")
 }
 
-model ReferralStatus {
-  id          Int     @id @default(autoincrement())
-  status_name String  @unique
-  description String?
+// Many-to-Many: Clients ↔ Support Workers
+model ClientSupportWorker {
+  client_id        Int
+  support_worker_id Int
+  assigned_at      DateTime @default(now())
 
-  @@map("referral_statuses")
+  client           Client @relation(fields: [client_id], references: [id])
+  support_worker   User   @relation(fields: [support_worker_id], references: [id])
+
+  @@id([client_id, support_worker_id])
+  @@map("client_support_worker")
 }
 
-model SessionType {
-  id        Int    @id @default(autoincrement())
-  type_name String @unique
-
-  @@map("session_types")
-}
-
-model RiskLevel {
-  id          Int     @id @default(autoincrement())
-  level_name  String  @unique
-  description String?
-
-  @@map("risk_levels")
-}
-
+// Clients
 model Client {
-  id                      Int           @id @default(autoincrement())
-  client_id               Int?          @unique
+  id                      Int                   @id @default(autoincrement()) @map("client_id")
   client_first_name       String
   client_last_name        String
   status                  String?
   last_session_date       DateTime?
   risk_level              String?
   phone                   String?
-  email                   String?       @unique
+  email                   String?               @unique
   address                 String?
   emergency_contact_name  String?
   emergency_contact_phone String?
-  created_at              DateTime      @default(now())
-  updated_at              DateTime      @updatedAt
+  created_at              DateTime              @default(now())
+  updated_at              DateTime              @updatedAt
+
   user_id                 Int?
+  user                    User?                 @relation("TeamLeaderClients", fields: [user_id], references: [id])
+
+  supportWorkers          ClientSupportWorker[]
   appointments            Appointment[]
-  user                    User?         @relation(fields: [user_id], references: [id])
-  crisis_events           CrisisEvent[] @relation("ClientCrisisEvents")
+  crisis_events           CrisisEvent[]         @relation("ClientCrisisEvents")
   notes                   Note[]
-  referrals               Referral[]    @relation("ClientReferrals")
+  referrals               Referral[]            @relation("ClientReferrals")
 
   @@map("clients")
 }
@@ -200,12 +218,14 @@ model Appointment {
   status               String?
   created_at           DateTime  @default(now())
   updated_at           DateTime? @updatedAt
+
   client               Client    @relation(fields: [client_id], references: [id])
   scheduled_by         User?     @relation("ScheduledAppointments", fields: [scheduled_by_user_id], references: [id])
 
   @@map("appointments")
 }
 
+// Crisis Events
 model CrisisEvent {
   id                           Int      @id @default(autoincrement())
   client_id                    Int?
@@ -221,6 +241,7 @@ model CrisisEvent {
   supervisor_contacted_user_id Int?
   created_at                   DateTime @default(now())
   updated_at                   DateTime @updatedAt
+
   client                       Client?  @relation("ClientCrisisEvents", fields: [client_id], references: [id])
   initiator                    User?    @relation("InitiatedCrisisEvents", fields: [initiator_user_id], references: [id])
   supervisor_contacted         User?    @relation("SupervisedCrisisEvents", fields: [supervisor_contacted_user_id], references: [id])
@@ -228,6 +249,69 @@ model CrisisEvent {
   @@map("crisis_events")
 }
 
+// Notes
+model Note {
+  id               Int      @id @default(autoincrement())
+  client_id        Int
+  author_user_id   Int
+  note_date        DateTime @db.Date
+  session_type     String?
+  duration_minutes Int?
+  summary          String?
+  detailed_notes   String?
+  risk_assessment  String?
+  next_steps       String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  author           User     @relation("AuthoredNotes", fields: [author_user_id], references: [id])
+  client           Client   @relation(fields: [client_id], references: [id])
+
+  @@map("notes")
+}
+
+// Referrals
+model Referral {
+  id                   Int        @id @default(autoincrement())
+  client_id            Int?
+  client_first_name    String
+  client_last_name     String
+  age                  Int?
+  phone                String?
+  address              String?
+  email                String?
+  emergency_first_name String?
+  emergency_last_name  String?
+  emergency_phone      String?
+  referral_source      String
+  reason_for_referral  String
+  additional_notes     String?
+  submitted_date       DateTime?
+  status               String     @default("Pending")
+  processed_date       DateTime?
+  processed_by_user_id Int?
+  created_at           DateTime   @default(now())
+  updated_at           DateTime   @updatedAt
+
+  client               Client?    @relation("ClientReferrals", fields: [client_id], references: [id])
+  processed_by         User?      @relation("ProcessedByUser", fields: [processed_by_user_id], references: [id])
+  referral_timeline    Timeline[]
+
+  @@map("referrals")
+}
+
+// Referral Timeline
+model Timeline {
+  id         Int      @id @default(autoincrement())
+  referralId Int
+  message    String
+  createdAt  DateTime @default(now())
+  referral   Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
+
+  @@map("referral_timeline")
+}
+
+// Notifications
 model Notification {
   id         Int      @id @default(autoincrement())
   user_id    Int
@@ -237,6 +321,7 @@ model Notification {
   related_id Int?
   created_at DateTime @default(now())
   is_read    Boolean  @default(false)
+
   user       User     @relation(fields: [user_id], references: [id])
 
   @@map("notifications")
@@ -251,4 +336,54 @@ model UserAvailability {
   user        User     @relation(fields: [user_id], references: [id])
 
   @@map("user_availabilities")
+}
+
+// Availability
+model Availability {
+  id        Int      @id @default(autoincrement())
+  day       String
+  startTime String
+  endTime   String
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("availability")
+}
+
+// Priority Levels
+model PriorityLevel {
+  id         Int    @id @default(autoincrement())
+  level_name String @unique
+  order_rank Int?
+
+  @@map("priority_levels")
+}
+
+// Session Types
+model SessionType {
+  id        Int    @id @default(autoincrement())
+  type_name String @unique
+
+  @@map("session_types")
+}
+
+// Risk Levels
+model RiskLevel {
+  id          Int     @id @default(autoincrement())
+  level_name  String  @unique
+  description String?
+
+  @@map("risk_levels")
+}
+model reports {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String     // PDF / Excel / Word
+  file_name   String?
+  data        Json?      // <-- Add this field to store the report data
+  file_type   String?
+  file_data   Bytes?     // <-- actual file stored
+  created_at  DateTime   @default(now())
+
+  @@map("reports")
 }

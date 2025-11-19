@@ -122,9 +122,7 @@ export async function POST(req) {
   try {
     // Authenticate user using Clerk (same as GET handler)
     const { userId } = getAuth(req);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     // Find user in database (same as GET handler)
     const dbUser = await prisma.user.findUnique({
@@ -157,15 +155,9 @@ export async function POST(req) {
       // If no client provided, create a fallback test client
       // This prevents the appointment creation from failing
       const newClient = await prisma.client.create({
-        data: {
-          client_first_name: "Test",
-          client_last_name: "Client",
-          user_id: dbUser.id,
-          status: "Active",
-          risk_level: "Low",
-        },
+        data: { client_first_name: "Test", client_last_name: "Client", user_id: dbUser.id, status: "Active", risk_level: "Low" }
       });
-      clientId = newClient.id;
+      client_id = newClient.id;
     } else {
       // If client_id was provided, ensure it's an integer
       // (JSON might send it as a string)

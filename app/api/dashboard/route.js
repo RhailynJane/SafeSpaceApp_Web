@@ -26,6 +26,13 @@ export async function GET() {
     const endRange = new Date(today);
     endRange.setDate(today.getDate() + 3);
 
+    const isTeamLeader = dbUser.role.role_name === "team_leader";
+
+    // Define the correct client filtering condition based on the user's role
+    const clientWhereCondition = isTeamLeader
+      ? {} // Team leaders see all clients
+      : { supportWorkers: { some: { support_worker_id: dbUser.id } } }; // Support workers see only clients assigned to them via the join table
+
     const [
       totalClients,
       totalNotes,
@@ -38,25 +45,28 @@ export async function GET() {
       todaysSessions,
       dbNotifications,
     ] = await Promise.all([
-      prisma.client.count({ where: dbUser.role.role_name === "team_leader" ? {} : { user_id: dbUser.id } }),
+      prisma.client.count({ where: clientWhereCondition }),
       prisma.note.count({ where: { author_user_id: dbUser.id } }),
       prisma.appointment.count({ where: { scheduled_by_user_id: dbUser.id } }),
       prisma.appointment.findMany({
         where: {
           scheduled_by_user_id: dbUser.id,
-          // include appointments from today through the next 2 days
           appointment_date: { gte: today, lt: endRange },
         },
         include: { client: { select: { client_first_name: true, client_last_name: true } } },
         orderBy: { appointment_date: "asc" },
         take: 5,
       }),
-      prisma.client.count({ where: { risk_level: "High", ...(dbUser.role.role_name === "team_leader" ? {} : { user_id: dbUser.id }) } }),
+      prisma.client.count({ where: { risk_level: "High", ...clientWhereCondition } }),
       prisma.crisisEvent.count({ where: { initiator_user_id: dbUser.id } }),
-      dbUser.role.role_name === "team_leader" ? prisma.referral.count({ where: { status: "Pending" } }) : Promise.resolve(0),
-      prisma.client.count({ where: { status: "Active", ...(dbUser.role.role_name === "team_leader" ? {} : { user_id: dbUser.id }) } }),
-      // Count only today's sessions (24-hour range)
-      prisma.appointment.count({ where: { appointment_date: { gte: today, lt: nextDay }, ...(dbUser.role.role_name === "team_leader" ? {} : { scheduled_by_user_id: dbUser.id }) } }),
+      isTeamLeader ? prisma.referral.count({ where: { status: "Pending" } }) : Promise.resolve(0),
+      prisma.client.count({ where: { status: "Active", ...clientWhereCondition } }),
+      prisma.appointment.count({
+        where: {
+          appointment_date: { gte: today, lt: nextDay },
+          ...(isTeamLeader ? {} : { scheduled_by_user_id: dbUser.id }),
+        },
+      }),
       prisma.notification.findMany({
         where: { user_id: dbUser.id },
         orderBy: { created_at: "desc" },

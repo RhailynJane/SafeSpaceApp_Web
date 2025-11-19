@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -71,33 +71,57 @@ export default function ViewAvailabilityModal({ availability: initialAvailabilit
       }
     }
     return slots;
-  }, [availability]);
+  }, [editableAvailability]);
 
-  const handleSelectSlot = (slot) => {
-    setSelectedSlot(slot);
-  };
+  const handleSelectSlot = (slot) => setSelectedSlot(slot);
 
   const handleConfirm = () => {
     if (selectedSlot && onSelect) {
+      const startTime = selectedSlot.toTimeString().substring(0, 5);
+      const endTime = new Date(selectedSlot.getTime() + 60 * 60 * 1000).toTimeString().substring(0, 5);
       onSelect({
-        date: selectedSlot.toISOString().split('T')[0],
-        time: selectedSlot.toTimeString().substring(0, 5)
+        date: selectedSlot.toISOString().split("T")[0],
+        time: startTime,
+        displayTime: `${selectedSlot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${new Date(selectedSlot.getTime() + 60 * 60 * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
       });
       setSelectedSlot(null);
       onOpenChange(false);
     }
   };
 
+  const handleSaveAvailability = async () => {
+    setIsSaving(true);
+    const res = await fetch('/api/availability', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editableAvailability.filter(a => a.time)),
+    });
+
+    if (res.ok) {
+      alert('Availability saved!');
+      // Instead of waiting for the parent to refetch, we can just tell it to.
+      // The UI will update instantly because `editableAvailability` is already correct.
+      if (onSaveSuccess) onSaveSuccess(); 
+      setIsEditing(false);
+    } else {
+      alert('Failed to save availability.');
+    }
+    setIsSaving(false);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button variant="outline">
-          <Clock className="h-4 w-4 mr-2" />View Availability
+          <Clock className="h-4 w-4 mr-2" /> View Availability
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>My Availability</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit My Availability" : "Select a Time Slot"}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? "Set your weekly working hours." : "Choose an available slot below to book an appointment."}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           {loading ? (
@@ -134,5 +158,5 @@ export default function ViewAvailabilityModal({ availability: initialAvailabilit
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

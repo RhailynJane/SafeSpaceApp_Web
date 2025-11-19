@@ -24,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -296,7 +295,7 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
         </DialogHeader>
 
         <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Client Selection Field */}
+          {/* --- Client --- */}
           <div className="space-y-2">
             <Label htmlFor="client" className="flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
@@ -307,11 +306,15 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
               <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client.id} value={client.id.toString()}>
-                    {client.client_first_name} {client.client_last_name}
-                  </SelectItem>
-                ))}
+                {Array.isArray(clients) && clients.length > 0 ? (
+                  clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id.toString()}>
+                      {client.client_first_name} {client.client_last_name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <p className="p-2 text-gray-500 text-sm">No clients found</p>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -426,7 +429,7 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             </div>
           </div>
 
-          {/* Session Type and Duration Fields */}
+          {/* --- Type & Duration --- */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="type">Session Type</Label>
@@ -438,12 +441,13 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
                   <SelectItem value="Individual Session">
                     Individual Session
                   </SelectItem>
-                  <SelectItem value="Group Therapy">Group Therapy</SelectItem>
+                  <SelectItem value="Group Therapy">
+                    Group Therapy
+                  </SelectItem>
                   <SelectItem value="Assessment">Assessment</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="duration">Duration</Label>
               <Select value={duration} onValueChange={setDuration}>
@@ -460,7 +464,7 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             </div>
           </div>
 
-          {/* Details Textarea Field */}
+          {/* --- Details --- */}
           <div className="space-y-2">
             <Label htmlFor="details" className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
@@ -476,7 +480,7 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             />
           </div>
 
-          {/* Error message display */}
+          {/* Error Message */}
           {error && (
             <div className="rounded-lg bg-red-50 border border-red-200 p-3">
               <p className="text-red-600 text-sm font-medium">{error}</p>

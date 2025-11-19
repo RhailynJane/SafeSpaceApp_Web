@@ -151,4 +151,3 @@ const VoiceCallModal = ({ user, supervisor, onCallEnd }) => {
 };
 
 export default VoiceCallModal;
-

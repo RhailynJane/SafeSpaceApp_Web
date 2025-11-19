@@ -5,38 +5,27 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit, Plus } from "lucide-react";
+import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit } from "lucide-react";
+import AddAppointmentModal from "./schedule/AddAppointmentModal";
 
 
 export function DashboardOverview({ userRole, schedule = [] }) {
   const metrics = getMetricsForRole(userRole);
 
-  const [notifications] = useState([
-    {
-      id: "1",
-      type: "referral",
-      title: "New client referral available",
-      time: "2 hours ago",
-      priority: "normal",
-    },
-    {
-      id: "2",
-      type: "appointment",
-      title: "Appointment reminder: John Doe at 10:30 AM",
-      time: "30 minutes ago",
-      priority: "normal",
-    },
-    {
-      id: "3",
-      type: "crisis",
-      title: "High-risk client flagged: Sarah Johnson",
-      time: "1 hour ago",
-      priority: "high",
-    },
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
   const todayStr = new Date().toLocaleDateString('en-CA');
   const todaySchedule = schedule.filter(appointment => appointment.date === todayStr);
+
+  const todaySchedule = schedule.filter(appt => {
+    const apptDate = new Date(appt.appointment_date);
+    const today = new Date();
+    return (
+      apptDate.getFullYear() === today.getFullYear() &&
+      apptDate.getMonth() === today.getMonth() &&
+      apptDate.getDate() === today.getDate()
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -94,8 +83,8 @@ export function DashboardOverview({ userRole, schedule = [] }) {
                     {getNotificationIcon(notification.type)}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+                    <p className="text-sm font-medium text-gray-900">{notification.message}</p>
+                    <p className="text-xs text-gray-500 mt-1">{new Date(notification.created_at).toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -125,21 +114,14 @@ export function DashboardOverview({ userRole, schedule = [] }) {
                 className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-teal-700">
-                      {appointment.clientName
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
-                    </span>
-                  </div>
+                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">...</div>
                   <div>
-                    <p className="font-medium text-gray-900">{appointment.clientName}</p>
+                    <p className="font-medium text-gray-900">{appointment.client?.client_first_name} {appointment.client?.client_last_name}</p>
                     <p className="text-sm text-gray-600">{appointment.type}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">{appointment.time}</span>
+                  <span className="text-sm font-medium text-gray-900">{new Date(appointment.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   <Badge className={getStatusColor(appointment.status)}>
                     {appointment.status}
                   </Badge>
@@ -179,17 +161,15 @@ export function DashboardOverview({ userRole, schedule = [] }) {
               <span className="text-sm font-medium">View Clients</span>
             </Button>
 
-            <Link href="/dashboard/schedule" passHref>
-              <Button
-                variant="outline"
-                className="h-24 w-full flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              >
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Calendar className="h-6 w-6 text-blue-600" />
-                </div>
-                <span className="text-sm font-medium">Manage Schedule</span>
-              </Button>
-            </Link>
+            <AddAppointmentModal
+              isOpen={addAppointmentModalOpen}
+              onOpenChange={setAddAppointmentModalOpen}
+              onAdd={onAdd}
+              clients={clients}
+            >
+              {/* This is a custom trigger since the default one is inside the modal */}
+              <Button variant="outline" className="h-24 w-full flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"><div className="p-2 bg-blue-100 rounded-lg"><Calendar className="h-6 w-6 text-blue-600" /></div><span className="text-sm font-medium">Manage Schedule</span></Button>
+            </AddAppointmentModal>
 
             <Button
               variant="outline"

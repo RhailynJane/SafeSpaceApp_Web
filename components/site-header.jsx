@@ -8,8 +8,9 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User } from "lucide-react";
-import Sendbird from 'sendbird';
+import Sendbird from "sendbird";
 
+/** Utility to get initials for avatar fallback */
 function getInitials(name) {
   if (!name) return "SS";
   const parts = name.trim().split(" ");
@@ -18,115 +19,149 @@ function getInitials(name) {
   return (first + last || first || "SS").toUpperCase();
 }
 
+/** Time formatter for notification timestamps */
+function timeAgo(date) {
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes ago";
+  return Math.floor(seconds) + " seconds ago";
+}
+
+/** Get icon per notification type */
+function getNotificationIcon(type) {
+  switch (type) {
+    case "urgent":
+      return <AlertTriangle className="h-4 w-4 text-red-500" />;
+    case "referral":
+      return <User className="h-4 w-4 text-blue-500" />;
+    case "appointment":
+      return <Clock className="h-4 w-4 text-orange-500" />;
+    default:
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+  }
+}
+
 export default function SiteHeader() {
+  const router = useRouter();
+  const clerk = useClerk();
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const isAuthenticated = !!isSignedIn;
   const userName = user?.fullName ?? null;
+
+  // ---- State ----
+  const [mounted, setMounted] = useState(false);
   const [notificationModal, setNotificationModal] = useState(false);
-  const router = useRouter();
   const [signOutLoading, setSignOutLoading] = useState(false);
-  const clerk = useClerk();
   const [notifications, setNotifications] = useState([]);
   const [profileData, setProfileData] = useState(null);
 
+  // ---- Mount check (prevents hydration mismatch) ----
+  useEffect(() => setMounted(true), []);
+
+  // ---- Fetch profile ----
   useEffect(() => {
+    if (!isAuthenticated) return;
     const fetchProfile = async () => {
-      const res = await fetch("/api/profile");
-      if (res.ok) {
-        const data = await res.json();
-        setProfileData(data);
+      try {
+        const res = await fetch("/api/profile");
+        if (res.ok) {
+          const data = await res.json();
+          setProfileData(data);
+        }
+      } catch (err) {
+        console.error("Profile fetch error:", err);
       }
     };
-
-    if (isAuthenticated) {
-      fetchProfile();
-    }
+    fetchProfile();
   }, [isAuthenticated]);
 
+  // ---- Sendbird connection ----
   useEffect(() => {
-    const sb = new Sendbird({ appId: '201BD956-A3BA-448A-B8A2-8E1A23404303' });
-    if (user) {
-      sb.connect(user.id, (user, error) => {
-        if (error) {
-          console.error("Sendbird connection error:", error);
-        } else {
-          console.log("Sendbird connected for user:", user);
-        }
-      });
-    }
-  }, [user]);
+    if (!mounted || !user) return;
 
+    const sb = new Sendbird({ appId: process.env.NEXT_PUBLIC_SENDBIRD_APP_ID });
+    sb.connect(user.id, (sbUser, error) => {
+      if (error) {
+        console.error("Sendbird connection error:", error);
+        return;
+      }
+      console.log("Sendbird connected:", sbUser.nickname);
+
+      const ChannelHandler = new sb.ChannelHandler();
+
+      ChannelHandler.onMessageReceived = (channel, message) => {
+        setNotifications((prev) => [
+          {
+            id: message.messageId,
+            message: message.message,
+            type: "referral",
+            created_at: message.createdAt,
+            is_read: false,
+          },
+          ...prev,
+        ]);
+      };
+
+      sb.addChannelHandler("siteHeaderHandler", ChannelHandler);
+    });
+
+    return () => {
+      try {
+        sb.removeChannelHandler("siteHeaderHandler");
+        sb.disconnect();
+      } catch {
+        // ignore cleanup
+      }
+    };
+  }, [mounted, user]);
+
+  // ---- Fetch notifications ----
   useEffect(() => {
+    if (!isAuthenticated) return;
     const fetchNotifications = async () => {
       try {
-        const response = await fetch('/api/notifications/mine');
+        const response = await fetch("/api/notifications/mine");
         if (response.ok) {
           const data = await response.json();
-          setNotifications(data.notifications);
+          setNotifications(data.notifications || []);
         }
       } catch (error) {
-        console.error("Error fetching notifications:", error);
+        console.error("Notification fetch error:", error);
       }
     };
-
-    if (isAuthenticated) {
-      fetchNotifications();
-    }
+    fetchNotifications();
   }, [isAuthenticated]);
 
+  // ---- Handle Sign Out ----
   const handleSignOutClick = async () => {
     setSignOutLoading(true);
-    console.debug("Sign out clicked: attempting clerk.signOut");
     try {
       if (clerk && typeof clerk.signOut === "function") {
-        // try to sign out via Clerk client which will also handle redirect
         await clerk.signOut({ redirectUrl: "/" });
-        console.debug("clerk.signOut completed");
         return;
-      } else {
-        console.debug("clerk.signOut not available on clerk client", clerk);
       }
     } catch (err) {
       console.error("clerk.signOut failed:", err);
     }
-
-    // Fallback: navigate to login page
-    console.debug("Falling back to router.push('/') for sign-out");
-    try {
-      router.push("/");
-    } catch (err) {
-      console.error("router.push failed during sign-out fallback:", err);
-    } finally {
-      setSignOutLoading(false);
-    }
+    router.push("/");
+    setSignOutLoading(false);
   };
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case "urgent":
-        return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case "referral":
-        return <User className="h-4 w-4 text-blue-500" />;
-      case "appointment":
-        return <Clock className="h-4 w-4 text-orange-500" />;
-      default:
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-    }
-  };
-
-  const handleProfileClick = () => {
-    router.push('/profile');
-  };
-
+  // ---- Handle notification actions ----
   const handleClearAll = async () => {
-    if (confirm('Are you sure you want to clear all notifications?')) {
+    if (confirm("Are you sure you want to clear all notifications?")) {
       try {
-        await fetch('/api/notifications', { method: 'DELETE' });
+        await fetch("/api/notifications", { method: "DELETE" });
         setNotifications([]);
-        setNotificationModal(false);
       } catch (error) {
         console.error("Error clearing notifications:", error);
       }
@@ -135,9 +170,8 @@ export default function SiteHeader() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/mark-as-read', { method: 'PATCH' });
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-      setNotificationModal(false);
+      await fetch("/api/notifications/mark-as-read", { method: "PATCH" });
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     } catch (error) {
       console.error("Error marking notifications as read:", error);
     }
@@ -145,6 +179,7 @@ export default function SiteHeader() {
 
 
 
+  // ---- Render full header ----
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -156,14 +191,11 @@ export default function SiteHeader() {
               <span className="text-teal-600">Safe</span>
               <span className="text-gray-900">Space</span>
             </span>
-            <span className="sr-only">
-              SafeSpace - Mental Health Support Platform
-            </span>
           </div>
 
-          {/* Actions */}
+          {/* Right side buttons */}
           <div className="flex items-center gap-2">
-            {isAuthenticated ? (
+            {isAuthenticated && (
               <>
                 {/* Notification Bell */}
                 <div className="relative">
@@ -176,8 +208,8 @@ export default function SiteHeader() {
                   >
                     <Bell className="h-5 w-5 text-orange-500" />
                     {unreadCount > 0 && (
-                      <Badge 
-                        variant="destructive" 
+                      <Badge
+                        variant="destructive"
                         className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
                       >
                         {unreadCount}
@@ -186,12 +218,12 @@ export default function SiteHeader() {
                   </Button>
                 </div>
 
-                {/* Avatar - clickable for profile */}
+                {/* Avatar */}
                 <Button
                   variant="ghost"
                   size="sm"
                   className="rounded-full p-0"
-                  onClick={handleProfileClick}
+                  onClick={() => router.push("/profile")}
                   aria-label="Open profile"
                 >
                   <Avatar className="h-8 w-8">
@@ -202,6 +234,7 @@ export default function SiteHeader() {
                   </Avatar>
                 </Button>
 
+                {/* Sign Out */}
                 <Button
                   variant="ghost"
                   className="gap-2"
@@ -213,15 +246,13 @@ export default function SiteHeader() {
                     {signOutLoading ? "Signing out..." : "Sign out"}
                   </span>
                 </Button>
-
-
               </>
-            ) : null}
+            )}
           </div>
         </div>
       </header>
 
-      {/* Notification Modal */}
+      {/* Notifications Dialog */}
       <Dialog open={notificationModal} onOpenChange={setNotificationModal}>
         <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
@@ -235,29 +266,29 @@ export default function SiteHeader() {
               )}
             </DialogTitle>
           </DialogHeader>
+
+          {/* Notification list */}
           <div className="flex-1 overflow-y-auto pr-2">
             <div className="space-y-3">
-              {notifications.map((notification) => (
+              {notifications.map((n) => (
                 <div
-                  key={notification.id}
+                  key={n.id}
                   className={`p-3 rounded-lg border ${
-                    !notification.is_read 
-                      ? 'bg-blue-50 border-blue-200' 
-                      : 'bg-gray-50 border-gray-200'
+                    !n.is_read
+                      ? "bg-blue-50 border-blue-200"
+                      : "bg-gray-50 border-gray-200"
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">
-                      {getNotificationIcon('referral')}
+                      {getNotificationIcon(n.type)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-sm font-medium text-gray-900">
-                          New Referral
+                          {n.title || "New Notification"}
                         </p>
-                        {!notification.is_read && (
-                          <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                        )}
+                        {!n.is_read && <div className="h-2 w-2 bg-blue-500 rounded-full" />}
                       </div>
                       <p className="text-sm text-gray-600 mb-1">
                         {notification.message}
@@ -269,32 +300,27 @@ export default function SiteHeader() {
                   </div>
                 </div>
               ))}
+
+              {notifications.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <Bell className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-sm">No notifications</p>
+                </div>
+              )}
             </div>
-            
-            {notifications.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Bell className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p className="text-sm">No notifications</p>
-              </div>
-            )}
           </div>
+
+          {/* Actions */}
           <div className="flex-shrink-0 mt-4 grid grid-cols-2 gap-2">
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={handleMarkAllAsRead}
-            >
+            <Button variant="outline" className="w-full" onClick={handleMarkAllAsRead}>
               Mark all as read
             </Button>
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={handleClearAll}
-            >
+            <Button variant="destructive" className="w-full" onClick={handleClearAll}>
               Clear All
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </>
-);}
+  );
+}

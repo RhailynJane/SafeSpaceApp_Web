@@ -37,11 +37,16 @@ export default function ViewDetailsModal({ appointment }) {
           <div className="mt-4 space-y-4 text-gray-700">
             <div>
               <h3 className="font-semibold">Client</h3>
-              <p>{appointment.clientName}</p>
+              <p>{appointment.client?.client_first_name} {appointment.client?.client_last_name || 'Unknown Client'}</p>
             </div>
             <div>
               <h3 className="font-semibold">Time</h3>
-              <p>{appointment.time}</p>
+              <p>
+                {appointment.appointment_time
+                  ? new Date(appointment.appointment_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : 'No time set'
+                }
+              </p>
             </div>
             <div>
               <h3 className="font-semibold">Duration</h3>

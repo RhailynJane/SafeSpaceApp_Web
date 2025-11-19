@@ -5,6 +5,7 @@ CREATE TABLE "users" (
     "first_name" TEXT NOT NULL,
     "last_name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
+    "profile_image_url" TEXT,
     "last_login" TIMESTAMP(3),
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -79,6 +80,14 @@ CREATE TABLE "clients" (
 );
 
 -- CreateTable
+CREATE TABLE "ClientSupportWorker" (
+    "client_id" INTEGER NOT NULL,
+    "support_worker_id" INTEGER NOT NULL,
+
+    CONSTRAINT "ClientSupportWorker_pkey" PRIMARY KEY ("client_id","support_worker_id")
+);
+
+-- CreateTable
 CREATE TABLE "referrals" (
     "id" SERIAL NOT NULL,
     "client_id" INTEGER,
@@ -149,7 +158,7 @@ CREATE TABLE "appointments" (
     "client_id" INTEGER NOT NULL,
     "scheduled_by_user_id" INTEGER,
     "appointment_date" DATE NOT NULL,
-    "appointment_time" TIME NOT NULL,
+    "appointment_time" TIME(6) NOT NULL,
     "type" TEXT,
     "duration" TEXT,
     "details" TEXT,
@@ -194,6 +203,28 @@ CREATE TABLE "notifications" (
     CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "audit_logs" (
+    "id" SERIAL NOT NULL,
+    "action" TEXT NOT NULL,
+    "user_id" INTEGER,
+    "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "details" TEXT,
+
+    CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "availability" (
+    "id" SERIAL NOT NULL,
+    "day" TEXT NOT NULL,
+    "startTime" TEXT NOT NULL,
+    "endTime" TEXT NOT NULL,
+    "userId" INTEGER NOT NULL,
+
+    CONSTRAINT "availability_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_clerk_user_id_key" ON "users"("clerk_user_id");
 
@@ -228,6 +259,12 @@ ALTER TABLE "users" ADD CONSTRAINT "users_role_id_fkey" FOREIGN KEY ("role_id") 
 ALTER TABLE "clients" ADD CONSTRAINT "clients_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ClientSupportWorker" ADD CONSTRAINT "ClientSupportWorker_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ClientSupportWorker" ADD CONSTRAINT "ClientSupportWorker_support_worker_id_fkey" FOREIGN KEY ("support_worker_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "referrals" ADD CONSTRAINT "referrals_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "clients"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -259,3 +296,9 @@ ALTER TABLE "crisis_events" ADD CONSTRAINT "crisis_events_supervisor_contacted_u
 
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "availability" ADD CONSTRAINT "availability_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

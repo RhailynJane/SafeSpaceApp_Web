@@ -26,13 +26,13 @@ export async function GET(req) {
         user_id: dbUser.id, // Use the internal user ID
       },
       orderBy: {
-        timestamp: 'desc',
+        timestamp: "desc",
       },
     });
 
     return NextResponse.json(auditLogs);
   } catch (error) {
-    console.error('Error fetching audit logs:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Error fetching audit logs:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
