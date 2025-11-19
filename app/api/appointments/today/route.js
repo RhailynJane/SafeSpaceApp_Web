@@ -75,12 +75,11 @@ export async function GET() {
     // Get the current date and time
     const today = new Date();
     
-    // Create start of day: today at 00:00:00.000 (midnight)
-    // setHours modifies the date object and returns the timestamp
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    // Create start of day: today at 00:00:00.000 UTC (midnight)
+    const startOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 0, 0, 0, 0));
     
-    // Create end of day: today at 23:59:59.999 (one millisecond before midnight)
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    // Create end of day: today at 23:59:59.999 UTC
+    const endOfDay = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999));
 
     // Step 5: Query database for today's appointments
     // Fetch appointments scheduled today

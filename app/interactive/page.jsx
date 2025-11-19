@@ -35,6 +35,8 @@ import jsPDF from "jspdf";
 import AuditLogTab from "../auditlogtab/page";
 
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
+import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal"; // Import the new modal
+import VideoCallModal from "@/components/schedule/VideoCallModal";
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
@@ -62,24 +64,45 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [channelUrl, setChannelUrl] = useState("");
   const [chatChannelName, setChatChannelName] = useState("Chat");
 
+  const [isUpdateRiskModalOpen, setIsUpdateRiskModalOpen] = useState(false);
+  const [selectedCrisisEvent, setSelectedCrisisEvent] = useState(null);
+  const [isVideoCallModalOpen, setIsVideoCallModalOpen] = useState(false);
+  const [otherUserId, setOtherUserId] = useState(null);
+  const [chattingWith, setChattingWith] = useState(null);
+
   const dragHandleRef = useRef(null);
   const position = useDraggable(dragHandleRef);
 
   useEffect(() => {
-    const fetchSupervisor = async () => {
+    const fetchSupervisorAndDbUser = async () => {
       try {
-        const response = await fetch('/api/supervisor');
-        if (response.ok) {
-          const data = await response.json();
+        // Fetch supervisor
+        const supervisorResponse = await fetch('/api/supervisor');
+        if (supervisorResponse.ok) {
+          const data = await supervisorResponse.json();
           setSupervisor(data);
         } else {
+          console.error("Failed to fetch supervisor data.");
+        }
+
+        // Fetch dbUser based on Clerk user ID
+        if (user?.id) {
+          const dbUserResponse = await fetch(`/api/user?clerkUserId=${user.id}`);
+          if (dbUserResponse.ok) {
+            const data = await dbUserResponse.json();
+            setDbUser(data);
+          } else {
+            const errorData = await dbUserResponse.json();
+            console.error("Failed to fetch database user data.", dbUserResponse.status, errorData);
+          }
         }
       } catch (error) {
+        console.error("Error fetching initial data:", error);
       }
     };
 
-    fetchSupervisor();
-  }, []);
+    fetchSupervisorAndDbUser();
+  }, [user?.id]); // Re-run if Clerk user ID changes
 
 
   const fetchData = useCallback(async () => {
@@ -280,7 +303,29 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   const handleCallEnd = () => {};
 
+  const handleUpdateCrisisEvent = async (updatedEvent) => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/crisis-events/${updatedEvent.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updatedEvent),
+      });
+      if (res.ok) {
+        const newEvent = await res.json();
+        setCrisisEvents(prev => prev.map(event => event.id === newEvent.id ? newEvent : event));
+        setIsUpdateRiskModalOpen(false);
+        setSelectedCrisisEvent(null);
+      } else {
+        console.error("Failed to update crisis event");
+      }
+    } catch (error) {
+      console.error("Error updating crisis event:", error);
+    }
+  };
+
   const openChat = async (otherUser, channelName) => {
+    setChattingWith(otherUser);
     let otherUserId = null;
     let dynamicChannelName = channelName;
 
@@ -325,6 +370,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       otherUserId = otherUser;
     }
 
+    setOtherUserId(otherUserId);
     setChatChannelName(dynamicChannelName || "Chat");
 
     // Create a deterministic channel URL by sorting user IDs
@@ -392,6 +438,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 z-[10000]">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      setIsVideoCallModalOpen(true);
+                    }}
+                  >
+                    Start Video Call
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={async () => {
                       if (!channelUrl) return alert("No channel selected.");
@@ -513,6 +567,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             )}
           </div>
         </div>
+      )}
+
+      {otherUserId && (
+        <VideoCallModal
+          open={isVideoCallModalOpen}
+          onOpenChange={setIsVideoCallModalOpen}
+          currentUserId={user.id}
+          recipientUserId={otherUserId}
+          appointment={chattingWith ? { client_name: `${chattingWith.client_first_name} ${chattingWith.client_last_name}` } : {}}
+        />
       )}
 
 
@@ -754,32 +818,24 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         <TabsContent value="Schedule" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Today's Schedule</CardTitle>
-              <CardDescription>Your appointments and sessions for today</CardDescription>
+              <CardTitle>All Appointments</CardTitle>
+              <CardDescription>A list of all your scheduled appointments.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
                 <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} />
-                <ViewAvailabilityModal
-                  availability={[
-                    { day: "Monday", time: "10:00 AM - 12:00 PM" },
-                    { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
-                    { day: "Friday", time: "9:00 AM - 11:00 AM" },
-                  ]}
-                />
+                <ViewAvailabilityModal />
                 <ViewCalendarModal schedule={schedule} />
               </div>
 
               <div className="space-y-4">
                 {
                   (() => {
-                    const now = new Date();
-                    const upcomingAppointments = schedule
+                    const futureAppointments = [...schedule]
                       .map(appt => {
                         if (!appt.appointment_date || !appt.appointment_time) {
                           return { ...appt, combinedDateTime: null };
                         }
-                        // Construct a date string in 'YYYY-MM-DDTHH:mm:ss.sss' format, which is parsed as local time
                         const dateStr = `${appt.appointment_date.substring(0, 10)}T${appt.appointment_time.substring(11, 23)}`;
                         const combinedDateTime = new Date(dateStr);
                         return { ...appt, combinedDateTime };
@@ -788,21 +844,18 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         if (!appt.combinedDateTime) {
                           return false;
                         }
-                        const now = new Date();
-                        const tomorrow = new Date();
-                        tomorrow.setDate(now.getDate() + 1);
-                        tomorrow.setHours(0, 0, 0, 0);
-
-                        return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
+                        const startOfToday = new Date();
+                        startOfToday.setHours(0, 0, 0, 0);
+                        return appt.combinedDateTime >= startOfToday;
                       })
-                          .sort((a, b) => {
-      if (!a.combinedDateTime) return 1;
-      if (!b.combinedDateTime) return -1;
-      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
-    });
+                      .sort((a, b) => {
+                        if (!a.combinedDateTime) return 1;
+                        if (!b.combinedDateTime) return -1;
+                        return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
+                      });
 
-                    if (upcomingAppointments.length > 0) {
-                      return upcomingAppointments.map((appt) => (
+                    if (futureAppointments.length > 0) {
+                      return futureAppointments.map((appt) => (
                         <div key={appt.id} className="border rounded-lg p-4">
                           <div className="flex justify-between items-start">
                             <div>
@@ -823,7 +876,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     } else {
                       return (
                         <div className="text-center py-8 text-gray-500">
-                          <p>No upcoming appointments scheduled for today.</p>
+                          <p>No upcoming appointments scheduled.</p>
                           <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
                         </div>
                       );
@@ -917,14 +970,22 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button className="bg-red-600 hover:bg-red-700 h-16">
+                  <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => {
+                    if (window.confirm("Are you sure you want to call Emergency Services (911)?")) {
+                      window.open('tel:911');
+                    }
+                  }}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Emergency Services</div>
                       <div className="text-xs">911</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => {
+                    if (window.confirm("Are you sure you want to call the Crisis Hotline (988)?")) {
+                      window.open('tel:988');
+                    }
+                  }}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Crisis Hotline</div>
@@ -957,8 +1018,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <p className="text-sm text-gray-600 mb-1">Date: {new Date(event.event_date).toLocaleDateString()}</p>
                         <p className="text-sm mb-2">{event.description}</p>
                         <div className="flex gap-2 mt-3">
-                          <Button size="sm">Contact Now</Button>
-                          <Button variant="outline" size="sm">Update Status</Button>
+                          <Button size="sm" onClick={() => openChat(client)}>Contact Now</Button>
+                          <Button variant="outline" size="sm" onClick={() => {
+                            setSelectedCrisisEvent(event);
+                            setIsUpdateRiskModalOpen(true);
+                          }}>Update Status</Button>
                         </div>
                       </div>
                     );
@@ -967,6 +1031,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardContent>
             </Card>
           </div>
+          {selectedCrisisEvent && (
+            <UpdateRiskStatusModal
+              isOpen={isUpdateRiskModalOpen}
+              onClose={() => setIsUpdateRiskModalOpen(false)}
+              crisisEvent={selectedCrisisEvent}
+              onSave={handleUpdateCrisisEvent}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="Reports" className="space-y-6">
@@ -1098,7 +1170,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         <TabsContent value="Audit Log" className="space-y-6">
           <AuditLogTab
             auditLogs={auditLogs}
-            currentUser={user}
+            currentUser={dbUser}
           />
         </TabsContent>
       </Tabs>

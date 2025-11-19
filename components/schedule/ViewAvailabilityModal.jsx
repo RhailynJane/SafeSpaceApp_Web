@@ -1,45 +1,71 @@
 "use client"
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button"
-import { Clock } from "lucide-react"
+import { Clock, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils";
 
-export default function ViewAvailabilityModal({ availability = [], onSelect, isOpen, onOpenChange }) {
+export default function ViewAvailabilityModal({ availability: initialAvailability, onSelect, isOpen, onOpenChange }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
+  const [availability, setAvailability] = useState(initialAvailability || []);
+  const [loading, setLoading] = useState(!initialAvailability);
+  const [error, setError] = useState(null);
+  const [fetched, setFetched] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && !initialAvailability) {
+      const fetchAvailability = async () => {
+        setLoading(true);
+        setFetched(false);
+        setError(null);
+        try {
+          const response = await fetch('/api/user/availability');
+          if (!response.ok) {
+            throw new Error('Failed to fetch availability');
+          }
+          const data = await response.json();
+          setAvailability(data);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+          setFetched(true);
+        }
+      };
+      fetchAvailability();
+    } else if (initialAvailability) {
+      setAvailability(initialAvailability);
+      setFetched(true);
+    }
+  }, [isOpen, initialAvailability]);
 
   const upcomingSlots = useMemo(() => {
     const slots = [];
     const today = new Date();
     const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const now = new Date();
 
     for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dayName = daysOfWeek[date.getDay()];
-      const dayAvailability = availability.find(a => a.day === dayName);
+      const date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + i));
+      
+      const dayName = daysOfWeek[date.getUTCDay()];
+      const dayAvailability = availability.find(a => a.day_of_week === dayName);
 
       if (dayAvailability) {
-        const [startTimeStr, endTimeStr] = dayAvailability.time.split(' - ');
-        const [startHour, startMinute] = startTimeStr.match(/\d+/g).map(Number);
-        const startMeridiem = startTimeStr.match(/AM|PM/)[0];
-        let startHour24 = startHour;
-        if (startMeridiem === 'PM' && startHour !== 12) startHour24 += 12;
-        if (startMeridiem === 'AM' && startHour === 12) startHour24 = 0;
+        const startTime = new Date(dayAvailability.start_time);
+        const endTime = new Date(dayAvailability.end_time);
+        const startHour = startTime.getUTCHours();
+        const endHour = endTime.getUTCHours();
 
-        const [endHour, endMinute] = endTimeStr.match(/\d+/g).map(Number);
-        const endMeridiem = endTimeStr.match(/AM|PM/)[0];
-        let endHour24 = endHour;
-        if (endMeridiem === 'PM' && endHour !== 12) endHour24 += 12;
-        if (endMeridiem === 'AM' && endHour === 12) endHour24 = 0;
+        for (let h = startHour; h < endHour; h++) {
+          for (let m = 0; m < 60; m += 30) {
+            const slotDate = new Date(date);
+            slotDate.setUTCHours(h, m, 0, 0);
 
-        for (let h = startHour24; h < endHour24; h++) {
-          const slotDate = new Date(date);
-          slotDate.setHours(h, 0, 0, 0);
-          // Only show slots in the future
-          if (slotDate > new Date()) {
-            slots.push(slotDate);
+            if (slotDate.getTime() > now.getTime()) {
+              slots.push(slotDate);
+            }
           }
         }
       }
@@ -57,7 +83,8 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
         date: selectedSlot.toISOString().split('T')[0],
         time: selectedSlot.toTimeString().substring(0, 5)
       });
-      setSelectedSlot(null); // Reset selection
+      setSelectedSlot(null);
+      onOpenChange(false);
     }
   };
 
@@ -73,24 +100,32 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
           <DialogTitle>My Availability</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="max-h-[60vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {upcomingSlots.map((slot, index) => (
-                <Button
-                  key={index}
-                  variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
-                  className={cn("h-auto flex-col py-2", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
-                  onClick={() => handleSelectSlot(slot)}
-                >
-                  <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                  <div className="text-sm">{slot.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                </Button>
-              ))}
+          {loading ? (
+            <div className="flex justify-center items-center h-40">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-            {upcomingSlots.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">No available slots in the next 7 days.</p>
-            )}
-          </div>
+          ) : error ? (
+            <p className="text-center text-red-500 py-8">{error}</p>
+          ) : (
+            <div className="max-h-[60vh] overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {upcomingSlots.map((slot, index) => (
+                  <Button
+                    key={index}
+                    variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
+                    className={cn("h-auto flex-col py-2", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
+                    onClick={() => handleSelectSlot(slot)}
+                  >
+                    <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                    <div className="text-sm">{slot.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                  </Button>
+                ))}
+              </div>
+              {fetched && upcomingSlots.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No available slots in the next 7 days.</p>
+              )}
+            </div>
+          )}
           <div className="flex justify-end pt-4">
             <Button onClick={handleConfirm} disabled={!selectedSlot} className="bg-teal-600 hover:bg-teal-700">
               Confirm Slot

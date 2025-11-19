@@ -12,21 +12,22 @@ import { Button } from "@/components/ui/button"
 import { Calendar } from "lucide-react"
 
 export default function ViewCalendarModal({ schedule = [] }) {
-  const [month, setMonth] = useState(new Date().getMonth())
-  const [year, setYear] = useState(new Date().getFullYear())
+  const today = new Date();
+  const [month, setMonth] = useState(today.getMonth())
+  const [year, setYear] = useState(today.getFullYear())
 
   const appointmentDatesForMonth = schedule.map(appt => {
     if (!appt?.appointment_date) return null;
     const d = new Date(appt.appointment_date);
     return {
-        year: d.getUTCFullYear(),
-        month: d.getUTCMonth(), // 0-indexed
-        day: d.getUTCDate()
+        year: d.getFullYear(),
+        month: d.getMonth(), // 0-indexed
+        day: d.getDate()
     };
   }).filter(Boolean);
 
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const firstDayOfMonth = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
   
   const days = []
   for (let i = 0; i < firstDayOfMonth; i++) {

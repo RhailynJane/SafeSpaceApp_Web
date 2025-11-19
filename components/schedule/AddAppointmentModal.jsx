@@ -1,24 +1,22 @@
- /* Comments added with claude.ai
- * Prompts : add proper comments and dcoumentation
+/* Comments added with claude.ai
+ * Prompts : add proper comments and documentation
+ * Enhanced with visual date and time pickers
  */
 
- /* Add Appointment Modal Component
+/* Add Appointment Modal Component
  * 
  * This is a React component that displays a modal (popup) for creating new appointments.
  * It's a form with multiple fields that allows users to:
  * - Select a client
- * - Choose date and time
+ * - Choose date and time (with enhanced visual pickers)
  * - Set session type and duration
  * - Add optional notes 
  */
 
-// 'use client' directive marks this component for client-side rendering in Next.js
 'use client';
 
-// Import necessary React hook for managing state
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
-// Import Dialog components from a UI library (likely Shadcn UI based on component names)
 import {
   Dialog,
   DialogTrigger,
@@ -28,7 +26,6 @@ import {
   DialogDescription,
   DialogClose,
 } from '@/components/ui/dialog';
-// Import Button, Input, Label, Select, and Textarea components
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,62 +38,166 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
-// Import icons from lucide-react library
-import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
+import { Loader2, Calendar, Clock, User, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
  * AddAppointmentModal Component
  *
- * A modal component for scheduling a new appointment. It handles form state,
- * submission, API call, loading, and error states.
- *
- * @param {Object} props - The component props.
- * @param {function(Object): void} props.onAdd - Callback function to be executed after
- * a successful appointment creation, receiving the new appointment data.
- * @param {Array<Object>} props.clients - An array of client objects to populate
- * the client selection dropdown. Each client object should have 'id', 'client_first_name', and 'client_last_name'.
- * @returns {JSX.Element} The Add Appointment Modal component.
+ * A modal component for scheduling a new appointment with enhanced date and time pickers.
  */
 export default function AddAppointmentModal({ onAdd, clients = [], existingAppointments = [] }) {
-  // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
 
-  // State for appointment date, initialized to today's date in "YYYY-MM-DD" format
-  const [appointment_date, setAppointmentDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  // State for appointment time
+  const todayDateString = new Date().toLocaleDateString('en-CA');
+
+  const [appointment_date, setAppointmentDate] = useState(todayDateString);
   const [appointment_time, setAppointmentTime] = useState("");
-  // State for the selected client's ID
   const [client_id, setClientId] = useState("");
-  // State for the type of session, with a default value
   const [type, setType] = useState("Individual Session");
-  // State for the duration of the appointment, with a default value
   const [duration, setDuration] = useState("50 min");
-  // State for optional appointment details/notes
   const [details, setDetails] = useState("");
 
-  // State to manage the loading status during form submission
   const [loading, setLoading] = useState(false);
-  // State to store and display any error messages
   const [error, setError] = useState("");
 
-  /**
-   * Handles the form submission logic.
-   * Prevents default form submission, validates required fields,
-   * sends data to the API, and manages success/error states.
-   * @param {Event} e - The form submission event.
-   */
+  // Enhanced picker states
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  // Availability state
+  const [availability, setAvailability] = useState([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState(null);
+
+  useEffect(() => {
+    if (open) {
+      const fetchAvailability = async () => {
+        setAvailabilityLoading(true);
+        setAvailabilityError(null);
+        try {
+          const response = await fetch('/api/user/availability');
+          if (!response.ok) {
+            throw new Error('Failed to fetch availability');
+          }
+          const data = await response.json();
+          setAvailability(data);
+        } catch (err) {
+          setAvailabilityError(err.message);
+        } finally {
+          setAvailabilityLoading(false);
+        }
+      };
+      fetchAvailability();
+    }
+  }, [open]);
+
+  const availableTimeSlots = useMemo(() => {
+    if (!appointment_date || availability.length === 0) return [];
+
+    // Treat the date as UTC to avoid timezone issues
+    const selectedDate = new Date(appointment_date + 'T00:00:00Z');
+    const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][selectedDate.getUTCDay()];
+    const dayAvailability = availability.find(a => a.day_of_week === dayOfWeek);
+
+    if (!dayAvailability) return [];
+
+    const startTime = new Date(dayAvailability.start_time);
+    const endTime = new Date(dayAvailability.end_time);
+    const startHour = startTime.getUTCHours();
+    const endHour = endTime.getUTCHours();
+
+    const slots = [];
+    const now = new Date();
+
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const slotTime = new Date(selectedDate);
+        slotTime.setUTCHours(hour, minute, 0, 0);
+
+        // Compare UTC time of slot with current time
+        if (slotTime.getTime() > now.getTime()) {
+          const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+          const period = hour >= 12 ? 'PM' : 'AM';
+          const minuteStr = minute.toString().padStart(2, '0');
+          
+          const displayTime = `${hour12}:${minuteStr} ${period}`;
+          const valueTime = `${hour.toString().padStart(2, '0')}:${minuteStr}`;
+          
+          slots.push({ display: displayTime, value: valueTime });
+        }
+      }
+    }
+    return slots;
+  }, [appointment_date, availability]);
+
+  // Calendar helper functions
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    return { daysInMonth, startingDayOfWeek };
+  };
+
+  const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth);
+  
+  const days = [];
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    days.push(null);
+  }
+  for (let i = 1; i <= daysInMonth; i++) {
+    days.push(i);
+  }
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
+  };
+
+  const handleDateSelect = (day) => {
+    const selectedDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const dateString = selectedDate.toLocaleDateString('en-CA');
+    setAppointmentDate(dateString);
+    setAppointmentTime(""); // Reset time when date changes
+    setShowDatePicker(false);
+  };
+
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const isDateDisabled = (day) => {
+    if (!day) return true;
+    const checkDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (checkDate < today) return true;
+
+    if (availability.length > 0) {
+      const dayOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][checkDate.getUTCDay()];
+      return !availability.some(a => a.day_of_week === dayOfWeek);
+    }
+    return false;
+  };
+
   const handleSubmit = async (e) => {
-    // 1. Prevent the default browser form submission (which causes a page reload)
     e.preventDefault();
-    // Clear any previous error messages
     setError("");
 
-    // 2. Client-side validation: Check if required fields are filled
     if (!client_id || !appointment_time || !appointment_date) {
       setError("Please fill all required fields.");
-      return; // Stop the function if validation fails
+      return;
     }
 
     const selectedDateTime = new Date(`${appointment_date}T${appointment_time}`);
@@ -119,20 +220,8 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             return false;
         }
 
-        // Create a Date object for the existing appointment's time of day
-        const timeObj = new Date(existingAppt.appointment_time);
-        const hours = timeObj.getUTCHours();
-        const minutes = timeObj.getUTCMinutes();
-        const seconds = timeObj.getUTCSeconds();
-
-        // Create a Date object for the existing appointment's date part
-        const dateObj = new Date(existingAppt.appointment_date);
-        const year = dateObj.getUTCFullYear();
-        const month = dateObj.getUTCMonth();
-        const day = dateObj.getUTCDate();
-
-        // Combine them to create a new Date object in the local timezone
-        const existingStart = new Date(year, month, day, hours, minutes, seconds);
+        const dateStr = `${existingAppt.appointment_date.substring(0, 10)}T${existingAppt.appointment_time.substring(11, 23)}`;
+        const existingStart = new Date(dateStr);
 
         const existingDuration = parseInt(existingAppt.duration.split(" ")[0], 10);
         if (isNaN(existingDuration)) {
@@ -140,7 +229,6 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
         }
         const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000);
 
-        // Check for overlap: (StartA < EndB) and (EndA > StartB)
         return selectedDateTime < existingEnd && newAppointmentEnd > existingStart;
     });
 
@@ -150,10 +238,8 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
     }
 
     try {
-      // 3. Start loading state
       setLoading(true);
 
-      // 4. Prepare the data payload for the API
       const formData = {
         client_id,
         appointment_date,
@@ -163,60 +249,45 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
         details,
       };
 
-      // 5. API Call: Send a POST request to the appointments API endpoint
       const res = await fetch("/api/appointments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData), // Convert JavaScript object to JSON string
+        body: JSON.stringify(formData),
       });
 
-      // 6. Handle HTTP errors (e.g., 400, 500 status codes)
       if (!res.ok) {
-        // Try to parse an error message from the response body
         const err = await res.json().catch(() => ({}));
-        // Throw an error with a specific message or a generic one
         throw new Error(err.error || "Failed to add appointment");
       }
 
-      // 7. Successful API call: Parse the created appointment data
       const created = await res.json();
 
-      // 8. Execute the 'onAdd' callback with the new data
       if (onAdd) onAdd(created);
 
-      // 9. Reset form states for the next use
       setClientId("");
       setAppointmentTime("");
-      setAppointmentDate(new Date().toISOString().split("T")[0]); // Reset date to today
+      setAppointmentDate(new Date().toISOString().split("T")[0]);
       setType("Individual Session");
       setDuration("50 min");
       setDetails("");
-      setOpen(false); // Close the modal
+      setOpen(false);
     } catch (err) {
-      // 10. Handle network/API errors
       console.error("Add appointment error:", err);
-      // Display the error message to the user
       setError(err.message || "Something went wrong");
     } finally {
-      // 11. End loading state, regardless of success or failure
       setLoading(false);
     }
   };
 
-  // 12. Component Render
   return (
-    // Dialog component controls the modal's display
     <Dialog open={open} onOpenChange={setOpen}>
-      {/* DialogTrigger wraps the button that opens the modal */}
       <DialogTrigger asChild>
         <Button variant="default" size="default" className="font-medium">
           Add Appointment
         </Button>
       </DialogTrigger>
 
-      {/* DialogContent contains the modal's structure and form */}
-      <DialogContent>
-        {/* Modal Header/Title section */}
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-teal-800">New Appointment</DialogTitle>
           <DialogDescription>
@@ -224,7 +295,6 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
           </DialogDescription>
         </DialogHeader>
 
-        {/* The main form, attached to the handleSubmit function */}
         <form className="space-y-6" onSubmit={handleSubmit}>
           {/* Client Selection Field */}
           <div className="space-y-2">
@@ -232,7 +302,6 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
               <User className="h-4 w-4 text-muted-foreground" />
               Client
             </Label>
-            {/* Select component for client ID, maps over the 'clients' prop */}
             <Select onValueChange={setClientId} value={client_id}>
               <SelectTrigger id="client" className="h-11">
                 <SelectValue placeholder="Select a client" />
@@ -247,38 +316,112 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             </Select>
           </div>
 
-          {/* Date and Time Fields */}
+          {/* Enhanced Date and Time Pickers */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Date Picker */}
             <div className="space-y-2">
-              <Label htmlFor="date" className="flex items-center gap-2">
+              <Label className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 Date
               </Label>
-              <Input
-                id="date"
-                type="date"
-                value={appointment_date}
-                min={new Date().toISOString().split("T")[0]}
-                // Update state when the input changes
-                onChange={(e) => setAppointmentDate(e.target.value)}
-                required // HTML validation attribute
-                className="h-11"
-              />
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowDatePicker(!showDatePicker)}
+                  className="w-full h-11 px-3 py-2 text-left border rounded-md bg-white hover:bg-gray-50 flex items-center justify-between"
+                >
+                  <span className={appointment_date ? "text-gray-900" : "text-gray-500"}>
+                    {appointment_date ? formatDisplayDate(appointment_date) : "Select date"}
+                  </span>
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                </button>
+
+                {showDatePicker && (
+                  <div className="absolute z-50 mt-2 bg-white border rounded-lg shadow-lg p-4 w-80">
+                    {availabilityLoading ? (
+                      <div className="flex justify-center items-center h-40">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : availabilityError ? (
+                      <p className="text-red-500 text-sm">{availabilityError}</p>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between mb-4">
+                          <button
+                            type="button"
+                            onClick={handlePrevMonth}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <ChevronLeft className="h-5 w-5" />
+                          </button>
+                          <span className="font-semibold text-sm">
+                            {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleNextMonth}
+                            className="p-1 hover:bg-gray-100 rounded"
+                          >
+                            <ChevronRight className="h-5 w-5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1 mb-2">
+                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                            <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+                              {day}
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-7 gap-1">
+                          {days.map((day, index) => {
+                            const isSelected = day && appointment_date === 
+                              `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                            const disabled = isDateDisabled(day);
+                            
+                            return (
+                              <button
+                                key={index}
+                                type="button"
+                                onClick={() => !disabled && handleDateSelect(day)}
+                                disabled={disabled}
+                                className={`
+                                  aspect-square rounded text-sm transition
+                                  ${!day ? 'invisible' : ''}
+                                  ${disabled ? 'text-gray-300 cursor-not-allowed' : ''}
+                                  ${isSelected
+                                    ? 'bg-teal-600 text-white font-semibold'
+                                    : !disabled ? 'hover:bg-teal-50 text-gray-700' : ''
+                                  }
+                                `}
+                              >
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
+            {/* Time Picker */}
             <div className="space-y-2">
               <Label htmlFor="time" className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                Time
+                Time (UTC)
               </Label>
               <Input
                 id="time"
                 type="time"
                 value={appointment_time}
-                // Update state when the input changes
                 onChange={(e) => setAppointmentTime(e.target.value)}
-                required // HTML validation attribute
-                className="h-11"
+                disabled={!appointment_date}
+                className="w-full h-11 px-3 py-2 border rounded-md bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                step="1800"
               />
             </div>
           </div>
@@ -287,7 +430,6 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label htmlFor="type">Session Type</Label>
-              {/* Select component for appointment type */}
               <Select value={type} onValueChange={setType}>
                 <SelectTrigger id="type" className="h-11">
                   <SelectValue placeholder="Select session type" />
@@ -304,15 +446,17 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
 
             <div className="space-y-2">
               <Label htmlFor="duration">Duration</Label>
-              {/* Simple Input for duration */}
-              <Input
-                id="duration"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                placeholder="e.g., 50 min"
-                required
-                className="h-11"
-              />
+              <Select value={duration} onValueChange={setDuration}>
+                <SelectTrigger id="duration" className="h-11">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30 min">30 minutes</SelectItem>
+                  <SelectItem value="50 min">50 minutes</SelectItem>
+                  <SelectItem value="90 min">1 hour 30 minutes</SelectItem>
+                  <SelectItem value="120 min">2 hours</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -339,25 +483,21 @@ export default function AddAppointmentModal({ onAdd, clients = [], existingAppoi
             </div>
           )}
 
-          {/* Footer buttons (Cancel and Submit) */}
+          {/* Footer buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            {/* DialogClose closes the modal when clicked */}
             <DialogClose asChild>
               <Button type="button" variant="outline" size="default">
                 Cancel
               </Button>
             </DialogClose>
             
-            {/* Submit button with loading state */}
             <Button type="submit" disabled={loading} size="default" className="bg-teal-800 hover:bg-teal-900">
               {loading ? (
-                // Show spinner and "Saving..." text when loading
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
-                // Show "Add Appointment" text when not loading
                 "Add Appointment"
               )}
             </Button>

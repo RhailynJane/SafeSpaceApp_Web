@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarChart3, Edit, Plus } from "lucide-react";
 
 
-export function DashboardOverview({ userRole }) {
+export function DashboardOverview({ userRole, schedule = [] }) {
   const metrics = getMetricsForRole(userRole);
 
   const [notifications] = useState([
@@ -35,22 +35,8 @@ export function DashboardOverview({ userRole }) {
     },
   ]);
 
-  const [todaySchedule, setTodaySchedule] = useState([]);
-
-  // This useEffect hook would fetch today's schedule from your API.
-  // For now, it just filters a static list to demonstrate.
-  useEffect(() => {
-    const fetchTodaySchedule = async () => {
-      try {
-        const response = await fetch('/api/appointments?date=today');
-        const data = await response.json();
-        setTodaySchedule(data);
-      } catch (error) {
-        console.error("Failed to fetch today's schedule:", error);
-      }
-    };
-    fetchTodaySchedule();
-  }, []);
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const todaySchedule = schedule.filter(appointment => appointment.date === todayStr);
 
   return (
     <div className="space-y-6">
