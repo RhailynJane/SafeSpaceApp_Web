@@ -29,9 +29,15 @@ export async function GET(request) {
     // Optional status filter (used to request deleted users)
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || undefined;
+    const includeDeleted = searchParams.get('includeDeleted') === 'true';
 
     // Fetch users via Convex; authorization is enforced in the query
-    const convexUsers = await fetchQuery(api.users.list, { clerkId: userId, status });
+    // Pass includeDeleted flag to get all users (including deleted) when needed
+    const convexUsers = await fetchQuery(api.users.list, { 
+      clerkId: userId, 
+      status: status,
+      includeDeleted: includeDeleted 
+    });
 
     // Map Convex users to legacy shape expected by the admin users table
     const users = (convexUsers || []).map((u) => ({

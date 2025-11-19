@@ -357,9 +357,9 @@ export default function ReferralIntakePage() {
     };
 
     return (
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-lg w-full">
+        <div className="bg-white dark:bg-gray-900 p-6 md:p-8 rounded-2xl shadow-lg w-full">
             <div className="flex flex-col md:flex-row items-center mb-6 gap-4">
-                <h1 className="text-xl font-bold text-gray-800 mr-4">New Referrals</h1>
+                <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 mr-4">New Referrals</h1>
                 <div className="relative w-full md:w-1/3">
                     <Input
                         type="text"
@@ -387,16 +387,16 @@ export default function ReferralIntakePage() {
                             ))}
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {filteredReferrals.length > 0 ? (
                             filteredReferrals.map(referral => (
-                                <tr key={referral.id} className="hover:bg-teal-50/40">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{displayReferralId(referral.id)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 capitalize">{referral.client_first_name} {referral.client_last_name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{referral.referral_source}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(referral.submitted_date).toLocaleDateString()}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-700 align-top w-96 md:w-[28rem]">
-                                        <div className="bg-teal-50/50 border border-teal-100 rounded-md px-3 py-2">
+                                <tr key={referral.id} className="hover:bg-teal-50/40 dark:hover:bg-gray-700/40">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{displayReferralId(referral.id)}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200 capitalize">{referral.client_first_name} {referral.client_last_name}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{referral.referral_source}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{new Date(referral.submitted_date).toLocaleDateString()}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 align-top w-96 md:w-[28rem]">
+                                        <div className="bg-teal-50/50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800 rounded-md px-3 py-2">
                                             <span
                                                 className="block"
                                                 style={{
@@ -422,7 +422,7 @@ export default function ReferralIntakePage() {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No referrals found.</td>
+                                <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 text-center">No referrals found.</td>
                             </tr>
                         )}
                     </tbody>

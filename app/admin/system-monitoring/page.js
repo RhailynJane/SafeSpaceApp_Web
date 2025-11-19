@@ -345,9 +345,9 @@ export default function SystemMonitoringPage() {
             </div>
 
             {/* Database & Services Health */}
-            <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <h2 className="text-lg font-bold text-gray-800 mb-1">Services Health</h2>
-                <p className="text-sm text-gray-500 mb-6">Status of critical system services</p>
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg">
+                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">Services Health</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Status of critical system services</p>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-xl border-2 border-green-200">
@@ -377,9 +377,9 @@ export default function SystemMonitoringPage() {
             </div>
 
             {/* System Alerts Section */}
-            <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <h2 className="text-lg font-bold text-gray-800 mb-1">System Alerts</h2>
-                <p className="text-sm text-gray-500 mb-6">Recent system notifications and alerts</p>
+            <div className="bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-lg">
+                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">System Alerts</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Recent system notifications and alerts</p>
                 
                 {systemAlerts.length === 0 ? (
                     <div className="text-center py-12 bg-gray-50 rounded-xl">

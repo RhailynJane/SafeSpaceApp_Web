@@ -205,7 +205,7 @@ export default function AuditCompliancePage() {
     };
 
     return (
-        <div className="space-y-8 bg-white min-h-screen p-6">
+        <div className="space-y-8 bg-white dark:bg-gray-900 min-h-screen p-6">
             {/* Header */}
             <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 rounded-2xl shadow-lg text-white">
                 <div className="flex justify-between items-center">
@@ -226,13 +226,13 @@ export default function AuditCompliancePage() {
             
             {/* Key Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border-2 border-blue-200 shadow-lg hover:shadow-xl transition-shadow">
-                    <CardHeader className="bg-gradient-to-br from-blue-50 to-blue-100 pb-3">
+                <Card className="border-2 border-blue-200 dark:border-blue-800 shadow-lg hover:shadow-xl transition-shadow">
+                    <CardHeader className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/40 pb-3">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 bg-blue-600 rounded-xl">
+                            <div className="p-3 bg-blue-600 dark:bg-blue-700 rounded-xl">
                                 <Shield className="h-6 w-6 text-white" />
                             </div>
-                            <CardTitle className="text-gray-800">Security Score</CardTitle>
+                            <CardTitle className="text-gray-800 dark:text-gray-100">Security Score</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6">
@@ -250,42 +250,42 @@ export default function AuditCompliancePage() {
                 </Card>
 
                 <Card 
-                    className="border-2 border-yellow-200 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
+                    className="border-2 border-yellow-200 dark:border-yellow-800 shadow-lg hover:shadow-xl transition-shadow cursor-pointer"
                     onClick={() => setShowAlertDetails(true)}
                 >
-                    <CardHeader className="bg-gradient-to-br from-yellow-50 to-yellow-100 pb-3">
+                    <CardHeader className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/40 dark:to-yellow-800/40 pb-3">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 bg-yellow-600 rounded-xl">
+                            <div className="p-3 bg-yellow-600 dark:bg-yellow-700 rounded-xl">
                                 <AlertTriangle className="h-6 w-6 text-white" />
                             </div>
-                            <CardTitle className="text-gray-800">Active Alerts</CardTitle>
+                            <CardTitle className="text-gray-800 dark:text-gray-100">Active Alerts</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <p className="text-5xl font-bold text-yellow-600">{activeAlerts}</p>
-                        <p className="text-sm text-gray-500 mt-2">Last 24 hours</p>
-                        <Badge className="mt-4 bg-yellow-100 text-yellow-800 border border-yellow-300">
+                        <p className="text-5xl font-bold text-yellow-600 dark:text-yellow-400">{activeAlerts}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Last 24 hours</p>
+                        <Badge className="mt-4 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700">
                             {activeAlerts > 0 ? 'Action Required' : 'All Clear'}
                         </Badge>
                         {activeAlerts > 0 && (
-                            <p className="text-xs text-gray-500 mt-2">Click to view details</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Click to view details</p>
                         )}
                     </CardContent>
                 </Card>
 
-                <Card className="border-2 border-green-200 shadow-lg hover:shadow-xl transition-shadow">
-                    <CardHeader className="bg-gradient-to-br from-green-50 to-green-100 pb-3">
+                <Card className="border-2 border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow">
+                    <CardHeader className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/40 dark:to-green-800/40 pb-3">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 bg-green-600 rounded-xl">
+                            <div className="p-3 bg-green-600 dark:bg-green-700 rounded-xl">
                                 <CheckCircle className="h-6 w-6 text-white" />
                             </div>
-                            <CardTitle className="text-gray-800">Compliance</CardTitle>
+                            <CardTitle className="text-gray-800 dark:text-gray-100">Compliance</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <p className="text-5xl font-bold text-green-600">{complianceStatus}</p>
-                        <p className="text-sm text-gray-500 mt-2">All requirements met</p>
-                        <Badge className="mt-4 bg-green-100 text-green-800 border border-green-300">
+                        <p className="text-5xl font-bold text-green-600 dark:text-green-400">{complianceStatus}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">All requirements met</p>
+                        <Badge className="mt-4 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-700">
                             Fully Compliant
                         </Badge>
                     </CardContent>
@@ -293,13 +293,13 @@ export default function AuditCompliancePage() {
             </div>
             
             {/* Audit Events Section */}
-            <div className="bg-white p-6 rounded-2xl shadow-lg border-2 border-gray-100">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border-2 border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h2 className="text-xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                             Recent Audit Events
                         </h2>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'} found
                         </p>
                     </div>
@@ -314,12 +314,12 @@ export default function AuditCompliancePage() {
                 {/* Filters */}
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                         <Input
                             placeholder="Search events..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10"
+                            className="pl-10 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
                         />
                     </div>
                     <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
@@ -364,9 +364,9 @@ export default function AuditCompliancePage() {
                 <div className="space-y-3">
                     {filteredEvents.length === 0 ? (
                         <div className="text-center py-12">
-                            <Activity className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                            <p className="text-gray-500">No audit events found</p>
-                            <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
+                            <Activity className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                            <p className="text-gray-500 dark:text-gray-400">No audit events found</p>
+                            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Try adjusting your filters</p>
                         </div>
                     ) : (
                         filteredEvents.map(event => {
@@ -405,7 +405,7 @@ export default function AuditCompliancePage() {
                             return (
                             <div 
                                 key={event.id} 
-                                className="bg-gradient-to-r from-gray-50 to-white p-5 rounded-xl border-2 border-gray-200 hover:border-teal-300 transition-all hover:shadow-md group"
+                                className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-750 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-teal-300 dark:hover:border-teal-600 transition-all hover:shadow-md group"
                             >
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex items-start gap-4 flex-1">
@@ -414,17 +414,17 @@ export default function AuditCompliancePage() {
                                         </div>
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-2">
-                                                <Badge className={`${getEventBadge(event.type)} border`}>
+                                                <Badge className={`${getEventBadge(event.type)} border dark:border-gray-600`}>
                                                     {event.type?.toUpperCase() || 'AUDIT'}
                                                 </Badge>
-                                                <p className="font-semibold text-gray-800 group-hover:text-teal-600 transition-colors">
+                                                <p className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                                                     {event.action}
                                                 </p>
                                             </div>
                                             {displayDetails && (
-                                                <p className="text-sm text-gray-600 leading-relaxed">{displayDetails}</p>
+                                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{displayDetails}</p>
                                             )}
-                                            <div className="flex gap-3 mt-2 text-xs text-gray-500">
+                                            <div className="flex gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
                                                 <span className="font-medium">By: {event.userName || 'System'}</span>
                                                 {userRole && (
                                                     <>
@@ -442,10 +442,10 @@ export default function AuditCompliancePage() {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-medium text-gray-700">
+                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                             {new Date(event.timestamp).toLocaleDateString()}
                                         </p>
-                                        <p className="text-xs text-gray-500">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
                                             {new Date(event.timestamp).toLocaleTimeString()}
                                         </p>
                                     </div>

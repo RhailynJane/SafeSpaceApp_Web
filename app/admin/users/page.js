@@ -114,7 +114,12 @@ export default function UsersPage() {
 
     useEffect(() => {
         const getUsers = async () => {
-            const url = filterStatus === 'deleted' ? '/api/admin/users?status=deleted' : '/api/admin/users';
+            // Include deleted users when "all" is selected
+            const url = filterStatus === 'all' 
+                ? '/api/admin/users?includeDeleted=true' 
+                : filterStatus === 'deleted' 
+                    ? '/api/admin/users?status=deleted' 
+                    : '/api/admin/users';
             const res = await fetch(url);
             const data = await res.json();
             setUsers(data);
@@ -237,7 +242,7 @@ export default function UsersPage() {
 
     return (
         <>
-            <div className="bg-white p-8 rounded-2xl shadow-lg">
+            <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-lg">
                 {/* Header with search bar and 'Create New User' button */}
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <div className="relative w-full md:w-1/3">
@@ -362,7 +367,7 @@ export default function UsersPage() {
                                 <th className="text-right py-3 px-6">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             {filteredUsers.length === 0 ? (
                                 <tr>
                                     <td colSpan="6" className="text-center py-8 text-gray-500">No results found</td>
@@ -379,11 +384,11 @@ export default function UsersPage() {
                                                     </span>
                                                 </div>
                                                 <div className="min-w-0">
-                                                    <h3 className="font-semibold text-gray-900 truncate">
+                                                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                                                         {user.first_name} {user.last_name}
                                                     </h3>
-                                                    <p className="text-sm text-gray-600 truncate">{user.email}</p>
-                                                    <p className="text-xs text-gray-500 mt-0.5">ID: {user.id.slice(-12)}</p>
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{user.email}</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">ID: {user.id.slice(-12)}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -395,11 +400,11 @@ export default function UsersPage() {
                                         </td>
                                         {/* Last Login */}
                                         <td className="py-4 px-6">
-                                            <p className="text-sm text-gray-700">{user.last_login || 'N/A'}</p>
+                                            <p className="text-sm text-gray-700 dark:text-gray-300">{user.last_login || 'N/A'}</p>
                                         </td>
                                         {/* Created */}
                                         <td className="py-4 px-6">
-                                            <p className="text-sm text-gray-700">{user.created_at}</p>
+                                            <p className="text-sm text-gray-700 dark:text-gray-300">{user.created_at}</p>
                                         </td>
                                         {/* Status */}
                                         <td className="py-4 px-6">

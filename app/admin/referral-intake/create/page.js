@@ -430,7 +430,7 @@ export default function CreateReferralPage() {
   return (
     <>
       {/* Outer container */}
-      <div className="bg-white rounded-2xl shadow-lg max-w-5xl mx-auto flex flex-col h-[90vh]">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg max-w-5xl mx-auto flex flex-col h-[90vh]">
         
         {/* Sticky Header */}
         <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-cyan-600 p-4 md:p-3 border-b border-teal-700/20 z-10 text-center text-white">

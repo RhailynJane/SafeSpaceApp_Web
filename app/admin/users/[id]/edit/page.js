@@ -139,9 +139,9 @@ export default function EditUserPage() {
     // Display an error message if the fetch failed.
     if (error) {
         return (
-            <div className="bg-white p-8 rounded-2xl shadow-lg">
+            <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-lg">
                 <h1 className="text-2xl font-bold text-red-600 mb-4">Error</h1>
-                <p className="text-gray-700 mb-4">{error}</p>
+                <p className="text-gray-700 dark:text-gray-300 mb-4">{error}</p>
                 <Button onClick={() => router.push('/admin/users')} variant="outline">
                     Back to Users
                 </Button>
@@ -152,8 +152,8 @@ export default function EditUserPage() {
     // Display a message if no user was found.
     if (!user) {
         return (
-            <div className="bg-white p-8 rounded-2xl shadow-lg">
-                <h1 className="text-2xl font-bold text-gray-800 mb-4">User Not Found</h1>
+            <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-lg">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">User Not Found</h1>
                 <Button onClick={() => router.push('/admin/users')} variant="outline">
                     Back to Users
                 </Button>
@@ -163,8 +163,8 @@ export default function EditUserPage() {
 
     return (
         <>
-            <div className="bg-white p-8 rounded-2xl shadow-lg">
-                <h1 className="text-2xl font-bold text-gray-800 mb-8">Edit User</h1>
+            <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-lg">
+                <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-8">Edit User</h1>
                 <form onSubmit={handleSubmit}>
                     {/* Grid for form fields */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">

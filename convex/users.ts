@@ -67,8 +67,9 @@ export const list = query({
     orgId: v.optional(v.string()),
     roleId: v.optional(v.string()),
     status: v.optional(v.string()),
+    includeDeleted: v.optional(v.boolean()),
   },
-  handler: async (ctx, { clerkId, orgId, roleId, status }) => {
+  handler: async (ctx, { clerkId, orgId, roleId, status, includeDeleted }) => {
     await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_USERS);
 
     const currentUser = await ctx.db
@@ -106,7 +107,7 @@ export const list = query({
     }
     if (status) {
       users = users.filter((u) => u.status === status);
-    } else {
+    } else if (!includeDeleted) {
       // By default, exclude deleted users unless explicitly requested
       users = users.filter((u) => u.status !== "deleted");
     }

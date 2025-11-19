@@ -80,23 +80,23 @@ function TimelineModal({ data, onClose }) {
                                         {event.iconComponent}
                                     </div>
                                 </div>
-                                <div className="pl-6 bg-white p-5 rounded-xl border-2 border-gray-200 hover:border-teal-300 transition-colors">
+                                <div className="pl-6 bg-white dark:bg-gray-800 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-teal-300 transition-colors">
                                     <div className="flex items-center justify-between mb-3">
                                         <span className={`px-3 py-1 text-xs font-bold rounded-full border-2 ${getStatusColor(event.status)}`}>
                                             {(event.status || 'UNKNOWN').toUpperCase()}
                                         </span>
-                                        <span className="text-sm text-gray-500 font-medium">
+                                        <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                                             {event.timestamp ? new Date(event.timestamp).toLocaleString() : 'Unknown date'}
                                         </span>
                                     </div>
-                                    <p className="text-base font-semibold text-gray-800 mb-2">{event.message || event.actor || 'Event'}</p>
+                                    <p className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-2">{event.message || event.actor || 'Event'}</p>
                                     {event.note && (
-                                        <div className="mt-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-                                            <p className="text-sm text-gray-700">{event.note}</p>
+                                        <div className="mt-3 p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-lg border border-gray-200 dark:border-gray-600">
+                                            <p className="text-sm text-gray-700 dark:text-gray-200">{event.note}</p>
                                         </div>
                                     )}
                                     {event.actor && event.message !== event.actor && (
-                                        <p className="text-xs text-gray-500 mt-2">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                                             <span className="font-semibold">By:</span> {event.actor}
                                         </p>
                                     )}
@@ -208,8 +208,8 @@ export default function ReferralTrackingPage() {
                 return (
                     <React.Fragment key={step}>
                         <div className="flex items-center gap-1.5">
-                            {isActive ? <CheckCircleIcon className="text-green-500" /> : <ClockIcon className="text-gray-400" />}
-                            <span className={`text-sm ${isActive ? "text-gray-700 font-medium" : "text-gray-400"}`}>{step}</span>
+                            {isActive ? <CheckCircleIcon className="text-green-500" /> : <ClockIcon className="text-gray-400 dark:text-gray-500" />}
+                            <span className={`text-sm ${isActive ? "text-gray-700 dark:text-gray-300 font-medium" : "text-gray-400 dark:text-gray-500"}`}>{step}</span>
                         </div>
                         {index < steps.length - 1 && <span className="mx-1">→</span>}
                     </React.Fragment>
@@ -220,12 +220,12 @@ export default function ReferralTrackingPage() {
 
     return (
         <div>
-            <div className="bg-white p-8 rounded-2xl shadow-lg">
-                <h1 className="text-xl font-bold text-gray-800">Referral Status Tracking</h1>
-                <p className="text-gray-500 mb-6">Monitor the progress of all referrals from submission to completion</p>
+            <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-lg">
+                <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">Referral Status Tracking</h1>
+                <p className="text-gray-500 dark:text-gray-400 mb-6">Monitor the progress of all referrals from submission to completion</p>
                 <div className="flex flex-col md:flex-row gap-4 mb-6">
                     <div className="relative flex-grow">
-                        <input type="text" placeholder="Search by client name or referral source" className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                        <input type="text" placeholder="Search by client name or referral source" className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
                     </div>
                     <div className="relative">
@@ -246,7 +246,7 @@ export default function ReferralTrackingPage() {
                 <div className="space-y-4">
                     {filteredReferrals.length === 0 ? (
                         <div className="text-center py-12">
-                            <p className="text-gray-500 text-lg">No referrals found matching your criteria</p>
+                            <p className="text-gray-500 dark:text-gray-400 text-lg">No referrals found matching your criteria</p>
                         </div>
                     ) : (
                         filteredReferrals.map(ref => {
@@ -259,36 +259,36 @@ export default function ReferralTrackingPage() {
                                 return 'bg-gray-100 text-gray-800 border-gray-300';
                             };
                             return (
-                                <div key={ref._id || ref.id} className="bg-gradient-to-r from-white to-gray-50 p-6 rounded-xl border-2 border-gray-200 hover:border-teal-400 hover:shadow-lg transition-all duration-200">
+                                <div key={ref._id || ref.id} className="bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-750 p-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-teal-400 hover:shadow-lg transition-all duration-200">
                                     <div className="flex flex-col md:flex-row justify-between gap-4">
                                         <div className="flex-1">
                                             <div className="flex items-start justify-between mb-3">
                                                 <div>
-                                                    <h3 className="font-bold text-xl text-gray-800 capitalize">{ref.clientFirstName} {ref.clientLastName}</h3>
-                                                    <p className="text-sm text-gray-500 mt-1">Age: {ref.age || 'N/A'} • Source: {ref.referralSource || 'Unknown'}</p>
+                                                    <h3 className="font-bold text-xl text-gray-800 dark:text-gray-100 capitalize">{ref.clientFirstName} {ref.clientLastName}</h3>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Age: {ref.age || 'N/A'} • Source: {ref.referralSource || 'Unknown'}</p>
                                                 </div>
                                                 <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 ${getStatusBadgeColor(ref.status)}`}>
                                                     {(ref.status || 'pending').toUpperCase()}
                                                 </span>
                                             </div>
-                                            <div className="bg-white p-4 rounded-lg border border-gray-200 mb-3">
-                                                <p className="text-sm text-gray-600 font-medium mb-2">Reason for Referral:</p>
-                                                <p className="text-sm text-gray-700">{ref.reasonForReferral || 'No reason provided'}</p>
+                                            <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 mb-3">
+                                                <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Reason for Referral:</p>
+                                                <p className="text-sm text-gray-700 dark:text-gray-300">{ref.reasonForReferral || 'No reason provided'}</p>
                                             </div>
                                             <ProgressTracker steps={["pending", "in-review", "accepted"]} currentProgress={[ref.status]} />
                                         </div>
                                         <div className="flex flex-col justify-between items-end gap-3">
-                                            <div className="flex items-center gap-2 text-sm text-gray-500 bg-white px-3 py-2 rounded-lg border border-gray-200">
+                                            <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                                                 <CalendarIcon />
                                                 <span>Submitted: {new Date(ref.submittedDate).toLocaleDateString()}</span>
                                             </div>
                                             {ref.phone && (
-                                                <div className="text-sm text-gray-600 bg-white px-3 py-2 rounded-lg border border-gray-200">
+                                                <div className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                                                     <span className="font-semibold">Phone:</span> {ref.phone}
                                                 </div>
                                             )}
                                             {ref.email && (
-                                                <div className="text-sm text-gray-600 bg-white px-3 py-2 rounded-lg border border-gray-200">
+                                                <div className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                                                     <span className="font-semibold">Email:</span> {ref.email}
                                                 </div>
                                             )}

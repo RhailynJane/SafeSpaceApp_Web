@@ -298,11 +298,11 @@ export default function ReportsAnalyticsPage() {
             <div className="space-y-2">
                 {items.map((i, idx) => (
                     <div key={idx} className="flex items-center gap-3">
-                        <div className="w-48 truncate text-sm text-gray-600">{String(i[labelKey])}</div>
-                        <div className="flex-1 h-3 bg-gray-100 rounded">
-                            <div className="h-3 bg-teal-500 rounded" style={{ width: `${((i[valueKey] || 0) / max) * 100}%` }} />
+                        <div className="w-48 truncate text-sm text-gray-600 dark:text-gray-300">{String(i[labelKey])}</div>
+                        <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded">
+                            <div className="h-3 bg-teal-500 dark:bg-teal-600 rounded" style={{ width: `${((i[valueKey] || 0) / max) * 100}%` }} />
                         </div>
-                        <div className="w-12 text-right text-sm text-gray-700">{i[valueKey] || 0}</div>
+                        <div className="w-12 text-right text-sm text-gray-700 dark:text-gray-300">{i[valueKey] || 0}</div>
                     </div>
                 ))}
             </div>
@@ -310,11 +310,11 @@ export default function ReportsAnalyticsPage() {
     }
 
     return (
-        <div className="bg-white p-8 rounded-2xl shadow-lg space-y-6">
+        <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-lg space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-bold text-gray-800">Reports & Analytics</h2>
-                    <p className="text-sm text-gray-500">Generate dynamic, exportable reports with charts</p>
+                    <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Reports & Analytics</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Generate dynamic, exportable reports with charts</p>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={exportExcel} disabled={!data}><Download className="h-4 w-4 mr-2"/>Excel</Button>
@@ -358,7 +358,7 @@ export default function ReportsAnalyticsPage() {
 
             {/* Content */}
             {!data ? (
-                <div className="text-sm text-gray-500">Loading data...</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Loading data...</div>
             ) : (
                 <div className="space-y-6">
                     {reportType === 'userManagement' && (
@@ -375,10 +375,10 @@ export default function ReportsAnalyticsPage() {
                             <Card>
                                 <CardHeader><CardTitle>Users (sample)</CardTitle></CardHeader>
                                 <CardContent>
-                                    <div className="text-xs text-gray-600">{(data.data?.users || []).slice(0,8).map(u => (
-                                        <div key={u._id} className="py-1 flex justify-between border-b border-gray-100">
+                                    <div className="text-xs text-gray-600 dark:text-gray-300">{(data.data?.users || []).slice(0,8).map(u => (
+                                        <div key={u._id} className="py-1 flex justify-between border-b border-gray-100 dark:border-gray-700">
                                             <span className="truncate mr-2">{u.firstName} {u.lastName}</span>
-                                            <span className="text-gray-500">{u.roleId}</span>
+                                            <span className="text-gray-500 dark:text-gray-400">{u.roleId}</span>
                                         </div>
                                     ))}</div>
                                 </CardContent>
@@ -416,11 +416,11 @@ export default function ReportsAnalyticsPage() {
                             <Card>
                                 <CardHeader><CardTitle>Top Users (by actions)</CardTitle></CardHeader>
                                 <CardContent>
-                                    <div className="text-xs text-gray-700 space-y-1">
+                                    <div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
                                         {(data.data?.users || []).sort((a,b)=> (b.totalActions||0)-(a.totalActions||0)).slice(0,8).map(u => (
-                                            <div key={(u.userId||u.userEmail||u.userName)} className="flex justify-between border-b border-gray-100 py-1">
+                                            <div key={(u.userId||u.userEmail||u.userName)} className="flex justify-between border-b border-gray-100 dark:border-gray-700 py-1">
                                                 <span className="truncate mr-2">{u.userName || u.userEmail || 'Unknown'}</span>
-                                                <span className="text-gray-500">{u.totalActions}</span>
+                                                <span className="text-gray-500 dark:text-gray-400">{u.totalActions}</span>
                                             </div>
                                         ))}
                                     </div>
