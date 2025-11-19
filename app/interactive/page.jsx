@@ -36,6 +36,7 @@ import AuditLogTab from "../auditlogtab/page";
 
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
 import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal"; // Import the new modal
+import VideoCallModal from "@/components/schedule/VideoCallModal";
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
@@ -65,6 +66,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   const [isUpdateRiskModalOpen, setIsUpdateRiskModalOpen] = useState(false);
   const [selectedCrisisEvent, setSelectedCrisisEvent] = useState(null);
+  const [isVideoCallModalOpen, setIsVideoCallModalOpen] = useState(false);
+  const [otherUserId, setOtherUserId] = useState(null);
+  const [chattingWith, setChattingWith] = useState(null);
 
   const dragHandleRef = useRef(null);
   const position = useDraggable(dragHandleRef);
@@ -321,6 +325,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   };
 
   const openChat = async (otherUser, channelName) => {
+    setChattingWith(otherUser);
     let otherUserId = null;
     let dynamicChannelName = channelName;
 
@@ -365,6 +370,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       otherUserId = otherUser;
     }
 
+    setOtherUserId(otherUserId);
     setChatChannelName(dynamicChannelName || "Chat");
 
     // Create a deterministic channel URL by sorting user IDs
@@ -432,6 +438,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 z-[10000]">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      if (!channelUrl) return alert("No channel selected.");
+                      setIsVideoCallModalOpen(true);
+                    }}
+                  >
+                    Start Video Call
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={async () => {
                       if (!channelUrl) return alert("No channel selected.");
@@ -553,6 +567,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             )}
           </div>
         </div>
+      )}
+
+      {otherUserId && (
+        <VideoCallModal
+          open={isVideoCallModalOpen}
+          onOpenChange={setIsVideoCallModalOpen}
+          currentUserId={user.id}
+          recipientUserId={otherUserId}
+          appointment={chattingWith ? { client_name: `${chattingWith.client_first_name} ${chattingWith.client_last_name}` } : {}}
+        />
       )}
 
 

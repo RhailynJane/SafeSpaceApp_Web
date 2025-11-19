@@ -151,8 +151,20 @@ model Note {
   updated_at       DateTime @updatedAt
   author           User     @relation("AuthoredNotes", fields: [author_user_id], references: [id])
   client           Client   @relation(fields: [client_id], references: [id])
+  activities       Activity[]
 
   @@map("notes")
+}
+
+model Activity {
+  id        Int      @id @default(autoincrement())
+  type      String
+  minutes   Int
+  note_id   Int
+  note      Note     @relation(fields: [note_id], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("activities")
 }
 
 model SystemAlert {
