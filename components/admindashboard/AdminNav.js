@@ -17,6 +17,7 @@ export default function AdminNav() {
         { name: 'Users', href: '/admin/users' },
         { name: 'Referral Intake', href: '/admin/referral-intake' },
         { name: 'Referral Tracking', href: '/admin/referral-tracking' },
+        { name: 'Announcements', href: '/admin/announcements' },
         { name: 'System Monitoring', href: '/admin/system-monitoring' },
         { name: 'Audit & Compliance', href: '/admin/audit-compliance' },
         { name: 'Reports & Analytics', href: '/admin/reports-analytics' },

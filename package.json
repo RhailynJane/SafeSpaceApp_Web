@@ -46,6 +46,7 @@
     "react-dom": "19.1.0",
     "sendbird": "^3.1.33",
     "sendbird-calls": "^1.10.20",
+    "sharp": "^0.33.5",
     "svix": "^1.76.1",
     "tailwind-merge": "^3.3.1",
     "xlsx": "^0.18.5"
