@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useClerk, useAuth, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -199,26 +199,116 @@ export default function SiteHeader() {
             </Button>
             {isAuthenticated ? (
               <>
-                {/* Notification Bell */}
-                <div className="relative">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full"
-                    aria-label="Notifications"
-                    onClick={() => setNotificationModal(true)}
+                {/* Notification Bell with Popover */}
+                <Popover open={notificationModal} onOpenChange={setNotificationModal}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full relative"
+                      aria-label="Notifications"
+                    >
+                      <Bell className="h-5 w-5 text-orange-500" />
+                      {unreadCount > 0 && (
+                        <Badge 
+                          variant="destructive" 
+                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+                        >
+                          {unreadCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    className="w-[500px] p-0 mr-4" 
+                    align="end"
+                    sideOffset={8}
                   >
-                    <Bell className="h-5 w-5 text-orange-500" />
-                    {unreadCount > 0 && (
-                      <Badge 
-                        variant="destructive" 
-                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
-                      >
-                        {unreadCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </div>
+                    <div className="flex flex-col max-h-[600px]">
+                      <div className="flex-shrink-0 p-4 border-b bg-slate-50 dark:bg-slate-900">
+                        <div className="flex items-center gap-3">
+                          <Bell className="h-5 w-5" />
+                          <h3 className="font-semibold text-lg">Notifications</h3>
+                          {unreadCount > 0 && (
+                            <Badge variant="secondary" className="ml-auto px-2 py-0.5 text-xs">
+                              {unreadCount} new
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 overflow-y-auto p-4">
+                        <div className="space-y-3">
+                          {notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={`p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
+                                !notification.is_read 
+                                  ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-300 dark:border-teal-700' 
+                                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 mt-1 p-2 rounded-lg bg-teal-100 dark:bg-teal-900/40">
+                                  {getNotificationIcon('referral')}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                      New Referral
+                                    </p>
+                                    {!notification.is_read && (
+                                      <div className="h-2.5 w-2.5 bg-teal-600 dark:bg-teal-500 rounded-full animate-pulse"></div>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-2 leading-relaxed">
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    {new Date(notification.created_at).toLocaleDateString('en-US', { 
+                                      weekday: 'short', 
+                                      month: 'short', 
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {notifications.length === 0 && (
+                          <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                            <Bell className="mx-auto h-12 w-12 mb-3 opacity-30" />
+                            <p className="text-sm font-medium">No notifications</p>
+                            <p className="text-xs mt-1">You're all caught up!</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-shrink-0 p-3 border-t bg-slate-50 dark:bg-slate-900 grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="w-full"
+                          onClick={handleMarkAllAsRead}
+                        >
+                          Mark all as read
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full"
+                          onClick={handleClearAll}
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Avatar - clickable for profile */}
                 <Button
@@ -254,81 +344,5 @@ export default function SiteHeader() {
           </div>
         </div>
       </header>
-
-      {/* Notification Modal */}
-      <Dialog open={notificationModal} onOpenChange={setNotificationModal}>
-        <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Notifications
-              {unreadCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {unreadCount} new
-                </Badge>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-2">
-            <div className="space-y-3">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-3 rounded-lg border ${
-                    !notification.is_read 
-                      ? 'bg-accent/30 border-border' 
-                      : 'bg-card border-border'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getNotificationIcon('referral')}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-medium">
-                          New Referral
-                        </p>
-                        {!notification.is_read && (
-                          <div className="h-2 w-2 bg-primary rounded-full"></div>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-1">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(notification.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            {notifications.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Bell className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                <p className="text-sm">No notifications</p>
-              </div>
-            )}
-          </div>
-          <div className="flex-shrink-0 mt-4 grid grid-cols-2 gap-2">
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={handleMarkAllAsRead}
-            >
-              Mark all as read
-            </Button>
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={handleClearAll}
-            >
-              Clear All
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
 );}
