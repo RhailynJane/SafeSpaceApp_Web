@@ -1,9 +1,6 @@
 /**
  * API Route: Assignable Users
  * 
- *  * // AI-generated documentation (Claude)
- * Prompt: Add proper comments and  line-by-line beginner explanations
- * 
  * Purpose:
  * This API endpoint retrieves all users who can be assigned tasks or responsibilities.
  * It specifically fetches users with roles of "team_leader" or "support_worker".
@@ -17,15 +14,15 @@
  * 
  * Use Case:
  * This endpoint is typically called when you need to populate a dropdown or list
- * of users who can be assigned - clients.
+ * of users who can be assigned clients.
  */
 
-// Import NextResponse - a helper from Next.js to create API responses
 import { getAuth } from "@clerk/nextjs/server";
 import { NextResponse } from 'next/server';
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
 
-// Import Prisma client - the database connection/query tool
-import { prisma } from '@/lib/prisma';
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
 
 /**
  * GET Handler Function
@@ -40,39 +37,38 @@ export async function GET(req) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const dbUser = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-      include: { role: true },
+    // Get current user from Convex
+    const dbUser = await convex.query(api.users.getByClerkId, {
+      clerkId: userId,
     });
 
     if (!dbUser) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const allowedRoles = ["admin", "team-leader"];
-    if (!allowedRoles.includes(dbUser.role.role_name.replace(/_/g, "-"))) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Check permissions
+    const allowedRoles = ["admin", "team_leader", "superadmin"];
+    if (!allowedRoles.includes(dbUser.roleId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Query the database to find users with specific roles
-    const users = await prisma.user.findMany({
-      // Filter criteria: only get users with certain roles
-      // written with Gemini Assistance
-      where: {
-        // Navigate into the user's role relationship
-        role: {
-          // Check the role_name field
-          role_name: {
-            // 'in' means "match any of these values"
-            in: ['team_leader', 'support_worker'],
-          },
-        },
-      },
-      // Include related data: also fetch the full role information for each user
-      include: {
-        role: true, // This adds the complete role object to each user
-      },
+    // Get all users from Convex (will be filtered by org access)
+    const allUsers = await convex.query(api.users.list, {
+      clerkId: userId,
     });
+
+    // Filter for team_leader and support_worker roles
+    const assignableUsers = allUsers.filter(user => 
+      ['team_leader', 'support_worker'].includes(user.roleId)
+    );
+
+    // Transform to match expected format with role information
+    const users = assignableUsers.map(user => ({
+      ...user,
+      role: {
+        role_name: user.roleId,
+      },
+    }));
 
     // Return the users as JSON with a 200 (success) status code
     return NextResponse.json(users);

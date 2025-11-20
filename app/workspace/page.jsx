@@ -19,8 +19,7 @@ import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText,
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-
-import DashboardOverview from "../dashboard/page";
+import { DashboardOverview } from "@/components/dashboard-overview";
 import ClientActionButtons from "@/components/ClientActionButtons";
 import ReferralActions from "@/components/ReferralActions";
 import NewNoteModal from "@/components/Notes/NewNoteModal";
@@ -169,8 +168,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   // Map Convex data into the legacy UI shapes used in this view
   useEffect(() => {
+    if (!convexClients) return;
+    
     // Map clients into legacy shape used in this view and modals
-    const mappedClients = (convexClients || []).map((c) => ({
+    const mappedClients = convexClients.map((c) => ({
       id: String(c._id),
       client_first_name: c.firstName || "",
       client_last_name: c.lastName || "",
@@ -181,10 +182,19 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       risk_level: (c.riskLevel || "low").replace(/^[a-z]/, (m) => m.toUpperCase()),
       last_session_date: c.lastSessionDate ? new Date(c.lastSessionDate).toISOString() : new Date(c.createdAt).toISOString(),
     }));
-    setClients(mappedClients);
+    
+    // Only update if data actually changed
+    setClients(prev => {
+      if (JSON.stringify(prev) === JSON.stringify(mappedClients)) return prev;
+      return mappedClients;
+    });
+  }, [convexClients]);
 
+  useEffect(() => {
+    if (!convexTodaysAppts || !convexClients) return;
+    
     // Map appointments
-    const appts = (convexTodaysAppts || []).map((a) => {
+    const appts = convexTodaysAppts.map((a) => {
       const found = convexClients.find(c => c._id === a.clientId);
       let first = "";
       let last = "";
@@ -206,10 +216,19 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         client: { client_first_name: first, client_last_name: last },
       };
     });
-    setSchedule(appts);
+    
+    // Only update if data actually changed
+    setSchedule(prev => {
+      if (JSON.stringify(prev) === JSON.stringify(appts)) return prev;
+      return appts;
+    });
+  }, [convexTodaysAppts, convexClients]);
 
+  useEffect(() => {
+    if (!convexMyNotes || !convexClients) return;
+    
     // Map notes
-    const mappedNotes = (convexMyNotes || []).map((n) => {
+    const mappedNotes = convexMyNotes.map((n) => {
       const found = convexClients.find(c => c._id === n.clientId);
       return {
         id: n._id,
@@ -226,8 +245,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         next_steps: n.nextSteps || "",
       };
     });
-    setNotes(mappedNotes);
-  }, [convexTodaysAppts, convexMyNotes, convexClients]);
+    
+    // Only update if data actually changed
+    setNotes(prev => {
+      if (JSON.stringify(prev) === JSON.stringify(mappedNotes)) return prev;
+      return mappedNotes;
+    });
+  }, [convexMyNotes, convexClients]);
 
   const handleAddAppointment = (newAppointment) => {
     // Optimistically add in legacy shape; Convex query will refresh shortly
@@ -582,50 +606,43 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           </div>
         </div>
       )}
+      
 
-
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back, {userName}</h1>
-          <p className="text-gray-600 mt-1">{userRole === "team-leader" ? "Team Leader Dashboard" : "Support Worker Dashboard"}</p>
-        </div>
-      </div>
+      {/* Header - Removed since it's now in WorkspaceGreeting */}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 px-4 py-3 rounded-lg">
           {error}
         </div>
       )}
 
-      <Tabs defaultValue={defaultTab} key={defaultTab} className="space-y-6">
-        <TabsList className={`grid w-full ${userRole === "team-leader" ? "grid-cols-4 lg:grid-cols-8" : "grid-cols-3 lg:grid-cols-6"}`}>
-          {tabs.map(tab => <TabsTrigger key={tab} value={tab} className="text-xs">{tab}</TabsTrigger>)}
-        </TabsList>
-
+      {/* Tab Content based on URL param - No TabsList needed */}
+      <div className="space-y-6">
         {/* Overview Tab */}
-        <TabsContent value="Overview" className="space-y-6">
-          <DashboardOverview userRole={userRole} clients={clients} onAdd={handleAddAppointment} schedule={schedule} />
-        </TabsContent>
+        {defaultTab === "Overview" && (
+          <div className="space-y-6">
+            <DashboardOverview userRole={userRole} />
+          </div>
+        )}
 
         {/* Referrals Tab - Team Leaders Only */}
-        {userRole === "team-leader" && (
-          <TabsContent value="Referrals" className="space-y-6">
+        {defaultTab === "Referrals" && userRole === "team-leader" && (
+          <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Referral Management</h2>
+              <h2 className="text-2xl font-bold text-foreground">Referral Management</h2>
               <Badge variant="outline">{referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
             </div>
 
             <Tabs defaultValue="pending" className="space-y-4">
-              <TabsList>
+              <TabsList className="bg-muted">
                 <TabsTrigger value="pending">Pending</TabsTrigger>
                 <TabsTrigger value="processed">Processed</TabsTrigger>
               </TabsList>
 
               <TabsContent value="pending">
-                <Card>
+                <Card className="border-border bg-card">
                   <CardHeader>
-                    <CardTitle>Pending Referrals</CardTitle>
+                    <CardTitle className="text-card-foreground">Pending Referrals</CardTitle>
                     <CardDescription>Review and process new client referrals</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -698,28 +715,28 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </TabsContent>
 
               <TabsContent value="processed">
-                <Card>
+                <Card className="border-border bg-card">
                   <CardHeader>
-                    <CardTitle>Processed Referrals</CardTitle>
+                    <CardTitle className="text-card-foreground">Processed Referrals</CardTitle>
                     <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
-                      <div key={referral.id} className="border rounded-lg p-4 space-y-2">
+                      <div key={referral.id} className="border border-border rounded-lg p-4 space-y-2 bg-card">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
+                          <h3 className="font-semibold text-lg text-foreground">{referral.client_first_name} {referral.client_last_name}</h3>
                           <Badge className={
                             referral.status.toLowerCase() === "accepted"
-                              ? "bg-teal-600 text-white"
+                              ? "bg-teal-600 dark:bg-teal-700 text-white"
                               : referral.status.toLowerCase() === "declined"
-                                ? "bg-red-500 text-white"
-                                : "bg-blue-500 text-white"
+                                ? "bg-red-500 dark:bg-red-600 text-white"
+                                : "bg-blue-500 dark:bg-blue-600 text-white"
                           }>
                             {referral.status}
                           </Badge>
 
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-muted-foreground">
                           Processed on: {new Date(referral.processed_date || referral.updated_at).toLocaleDateString()}
                         </div>
                       </div>
@@ -735,13 +752,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 </Card>
               </TabsContent>
             </Tabs>
-          </TabsContent>
+          </div>
         )}
 
-        <TabsContent value="Clients" className="space-y-6">
-          <Card>
+        {/* Clients Tab */}
+        {defaultTab === "Clients" && (
+          <div className="space-y-6">
+          <Card className="border-border bg-card">
             <CardHeader>
-              <CardTitle>Client Management</CardTitle>
+              <CardTitle className="text-card-foreground">Client Management</CardTitle>
               <CardDescription>Manage your active clients and their information</CardDescription>
             </CardHeader>
             <CardContent>
@@ -752,11 +771,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     placeholder="Search clients by name..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8"
+                    className="pl-8 bg-background border-input"
                   />
                 </div>
                 <Select value={riskLevelFilter} onValueChange={setRiskLevelFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[180px] bg-background border-input">
                     <SelectValue placeholder="Filter by risk level" />
                   </SelectTrigger>
                   <SelectContent>
@@ -817,20 +836,23 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+          </div>
+        )}
 
-        <TabsContent value="Schedule" className="space-y-6">
-          <Card>
+        {/* Schedule Tab */}
+        {defaultTab === "Schedule" && (
+          <div className="space-y-6">
+          <Card className="border-border bg-card">
             <CardHeader>
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <CardTitle>Schedule</CardTitle>
+                  <CardTitle className="text-card-foreground">Schedule</CardTitle>
                   <CardDescription>Your appointments for the selected date</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="date"
-                    className="border rounded px-2 py-2 text-sm"
+                    className="border border-input rounded px-2 py-2 text-sm bg-background text-foreground"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
                   />
@@ -897,15 +919,18 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+        )}
 
-        <TabsContent value="Notes" className="space-y-6">
-          <NewNoteModal
-            isOpen={modals.newNote}
-            onClose={() => closeModal('newNote')}
-            clients={clients}
-            onSave={handleCreateNote}
-          />
+        {/* Notes Tab */}
+        {defaultTab === "Notes" && (
+          <div className="space-y-6">
+            <NewNoteModal
+              isOpen={modals.newNote}
+              onClose={() => closeModal('newNote')}
+              clients={clients}
+              onSave={handleCreateNote}
+            />
 
           <ViewNoteModal
             isOpen={modals.viewNote}
@@ -921,9 +946,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             onSave={handleUpdateNote}
           />
 
-          <Card>
+          <Card className="border-border bg-card">
             <CardHeader>
-              <CardTitle>Session Notes</CardTitle>
+              <CardTitle className="text-card-foreground">Session Notes</CardTitle>
               <CardDescription>Document and review client session notes</CardDescription>
             </CardHeader>
 
@@ -938,12 +963,12 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
               <div className="space-y-3">
                 {notes.map((note) => (
-                  <div key={note.id} className="border rounded-lg p-4">
+                  <div key={note.id} className="border border-border rounded-lg p-4 bg-card">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{note.client.client_first_name} {note.client.client_last_name}</h4>
-                      <span className="text-sm text-gray-500">{new Date(note.note_date).toLocaleDateString()}</span>
+                      <h4 className="font-medium text-card-foreground">{note.client.client_first_name} {note.client.client_last_name}</h4>
+                      <span className="text-sm text-muted-foreground">{new Date(note.note_date).toLocaleDateString()}</span>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{note.session_type}</p>
+                    <p className="text-sm text-muted-foreground mb-2">{note.session_type}</p>
                     <p className="text-sm">{note.summary}</p>
                     <div className="flex gap-2 mt-3">
                       <Button variant="outline" size="sm" onClick={() => openModal('viewNote', note)}>
@@ -959,18 +984,21 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   </div>
                 ))}
                 {notes.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                    <h3 className="text-lg font-medium mb-2">No notes found</h3>
+                    <h3 className="text-lg font-medium mb-2 text-foreground">No notes found</h3>
                     <p className="text-sm">Click "New Note" to create one.</p>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
+          </div>
+        )}
 
-        <TabsContent value="Crisis" className="space-y-6">
+        {/* Crisis Events Tab */}
+        {defaultTab === "Crisis" && (
+          <div className="space-y-6">
           <div className="grid gap-6">
             <Card className="border-red-200 bg-red-50">
               <CardHeader>
@@ -1030,14 +1058,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 </div>
               </CardContent>
             </Card>
+            </div>
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="Reports" className="space-y-6">
-          <div className="grid gap-6">
-            <Card>
+        {/* Reports Tab */}
+        {defaultTab === "Reports" && (
+          <div className="space-y-6">
+            <Card className="border-border bg-card">
               <CardHeader>
-                <CardTitle>Generate Reports</CardTitle>
+                <CardTitle className="text-card-foreground">Generate Reports</CardTitle>
                 <CardDescription>Create custom reports for your caseload</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1077,9 +1107,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 </Button>
 
                 {reportData && (
-                  <div className="mt-4 p-4 border rounded-lg bg-gray-50">
-                    <h4 className="font-medium mb-2">Report Generated</h4>
-                    <pre className="text-sm text-gray-600">
+                  <div className="mt-4 p-4 border border-border rounded-lg bg-muted">
+                    <h4 className="font-medium mb-2 text-foreground">Report Generated</h4>
+                    <pre className="text-sm text-muted-foreground">
                       {JSON.stringify(reportData, null, 2)}
                     </pre>
                   </div>
@@ -1087,9 +1117,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-border bg-card">
               <CardHeader>
-                <CardTitle>Recent Reports</CardTitle>
+                <CardTitle className="text-card-foreground">Recent Reports</CardTitle>
                 <CardDescription>Previously generated reports</CardDescription>
               </CardHeader>
               <CardContent>
@@ -1099,10 +1129,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     { name: "Session Outcomes Report", date: "2024-01-10", type: "Excel", size: "1.8 MB" },
                     { name: "Crisis Intervention Log", date: "2024-01-08", type: "PDF", size: "856 KB" },
                   ].map((report, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded">
+                    <div key={index} className="flex items-center justify-between p-3 border border-border rounded bg-card">
                       <div>
-                        <p className="font-medium">{report.name}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="font-medium text-card-foreground">{report.name}</p>
+                        <p className="text-sm text-muted-foreground">
                           {report.date} • {report.type} • {report.size}
                         </p>
                       </div>
@@ -1157,15 +1187,33 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               />
             )}
           </div>
-        </TabsContent>
+        )}
 
-        <TabsContent value="Audit Log" className="space-y-6">
-          <AuditLogTab
-            auditLogs={auditLogs}
-            currentUser={user}
-          />
-        </TabsContent>
-      </Tabs>
+        {/* Audit Log Tab */}
+        {defaultTab === "Audit" && (
+          <div className="space-y-6">
+            <AuditLogTab
+              auditLogs={auditLogs}
+              currentUser={user}
+            />
+          </div>
+        )}
+
+        {/* Messages Tab (Chat) */}
+        {defaultTab === "Messages" && (
+          <div className="space-y-6">
+            <Card className="border-border bg-card">
+              <CardHeader>
+                <CardTitle className="text-card-foreground">Messages</CardTitle>
+                <CardDescription>Chat with clients and team members</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Select a conversation from the Messages section to start chatting.</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
@@ -1178,10 +1226,10 @@ function InteractiveDashboard() {
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -1189,10 +1237,10 @@ function InteractiveDashboard() {
 
   if (!isSignedIn) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Authentication Required</h2>
-          <p className="text-gray-600">Please sign in to access the dashboard.</p>
+          <h2 className="text-2xl font-bold mb-4 text-foreground">Authentication Required</h2>
+          <p className="text-muted-foreground">Please sign in to access the workspace.</p>
         </div>
       </div>
     );

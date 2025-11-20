@@ -284,7 +284,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => router.push('/interactive?tab=Notes')}
+              onClick={() => router.push('/workspace?tab=Notes')}
             >
               <div className="p-2 bg-orange-100 rounded-lg">
                 <Edit className="h-6 w-6 text-orange-600" />
@@ -295,7 +295,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => router.push('/interactive?tab=Clients')}
+              onClick={() => router.push('/workspace?tab=Clients')}
             >
               <div className="p-2 bg-teal-100 rounded-lg">
                 <Users className="h-6 w-6 text-teal-600" />
@@ -306,7 +306,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => router.push('/interactive?tab=Schedule')}
+              onClick={() => router.push('/workspace?tab=Schedule')}
             >
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Calendar className="h-6 w-6 text-blue-600" />
@@ -317,7 +317,7 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => router.push('/interactive?tab=Reports')}
+              onClick={() => router.push('/workspace?tab=Reports')}
             >
               <div className="p-2 bg-green-100 rounded-lg">
                 <BarChart3 className="h-6 w-6 text-green-600" />

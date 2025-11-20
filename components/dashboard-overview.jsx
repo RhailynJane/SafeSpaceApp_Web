@@ -12,32 +12,33 @@ import { api } from "@/convex/_generated/api";
 
 
 export function DashboardOverview({ userRole }) {
-  const metrics = getMetricsForRole(userRole);
   const { user, isLoaded } = useUser();
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const [notifications] = useState([
-    {
-      id: "1",
-      type: "referral",
-      title: "New client referral available",
-      time: "2 hours ago",
-      priority: "normal",
-    },
-    {
-      id: "2",
-      type: "appointment",
-      title: "Appointment reminder: John Doe at 10:30 AM",
-      time: "30 minutes ago",
-      priority: "normal",
-    },
-    {
-      id: "3",
-      type: "crisis",
-      title: "High-risk client flagged: Sarah Johnson",
-      time: "1 hour ago",
-      priority: "high",
-    },
-  ]);
+  // Fetch dashboard data from API
+  useEffect(() => {
+    if (!isLoaded || !user) return;
+    
+    const fetchDashboard = async () => {
+      try {
+        const res = await fetch('/api/dashboard');
+        if (res.ok) {
+          const data = await res.json();
+          setDashboardData(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboard();
+  }, [isLoaded, user]);
+
+  const metrics = dashboardData ? getMetricsForRole(userRole, dashboardData.metrics) : getMetricsForRole(userRole, {});
+  const notifications = dashboardData?.notifications || [];
 
   const [todaySchedule, setTodaySchedule] = useState([]);
 
@@ -66,12 +67,12 @@ export function DashboardOverview({ userRole }) {
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {metrics.map((metric, index) => (
-          <Card key={index} className="hover:shadow-md transition-shadow">
+          <Card key={index} className="hover:shadow-lg transition-shadow bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">{metric.title}</p>
-                  <p className="text-3xl font-bold text-gray-900">{metric.value}</p>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">{metric.title}</p>
+                  <p className="text-3xl font-bold text-slate-900 dark:text-white">{metric.value}</p>
                 </div>
                 <div className={`p-3 rounded-full ${metric.bgColor}`}>
                   <metric.icon className={`h-6 w-6 ${metric.color}`} />
@@ -85,56 +86,64 @@ export function DashboardOverview({ userRole }) {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Notifications */}
-        <Card className="bg-teal-50 border-teal-200">
+        <Card className="bg-teal-50 dark:bg-slate-800 border-teal-200 dark:border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Recent Notifications</CardTitle>
+            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">Recent Notifications</CardTitle>
             <Button
               size="sm"
               variant="outline"
-              className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
+              className="border-teal-300 dark:border-slate-600 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-slate-700 bg-transparent"
             >
               <Eye className="h-4 w-4" />
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-3 rounded-lg border ${
-                  notification.priority === "high"
-                    ? "bg-red-50 border-red-200"
-                    : "bg-white border-gray-200"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`p-1 rounded ${
-                      notification.priority === "high"
-                        ? "bg-red-100 text-red-600"
-                        : "bg-teal-100 text-teal-600"
-                    }`}
-                  >
-                    {getNotificationIcon(notification.type)}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{notification.title}</p>
-                    <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
+            {notifications.length > 0 ? (
+              notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 rounded-lg border ${
+                    notification.type === "crisis"
+                      ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                      : "bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`p-1 rounded ${
+                        notification.type === "crisis"
+                          ? "bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-200"
+                          : "bg-teal-100 dark:bg-teal-800 text-teal-600 dark:text-teal-200"
+                      }`}
+                    >
+                      {getNotificationIcon(notification.type)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">
+                        {notification.message || notification.title}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        {notification.time || (notification.created_at ? new Date(notification.created_at).toLocaleString() : "Just now")}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-center text-slate-500 dark:text-slate-400 py-4">No notifications available.</p>
+            )}
           </CardContent>
         </Card>
 
         {/* Today's Schedule */}
-        <Card className="bg-teal-50 border-teal-200">
+        <Card className="bg-teal-50 dark:bg-slate-800 border-teal-200 dark:border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Today's Schedule</CardTitle>
-            <Link href="/dashboard/schedule" passHref>
+            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">Today's Schedule</CardTitle>
+            <Link href="/workspace?tab=Schedule" passHref>
               <Button
                 size="sm"
                 variant="outline"
-                className="border-teal-300 text-teal-700 hover:bg-teal-100 bg-transparent"
+                className="border-teal-300 dark:border-slate-600 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-slate-700 bg-transparent"
               >
                 Manage
               </Button>
@@ -145,11 +154,11 @@ export function DashboardOverview({ userRole }) {
               todaySchedule.map((appointment) => (
               <div
                 key={appointment.id}
-                className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:shadow-sm transition-shadow"
+                className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 hover:shadow-sm transition-shadow"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-medium text-teal-700">
+                  <div className="w-10 h-10 bg-teal-100 dark:bg-teal-800 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-teal-700 dark:text-teal-200">
                       {appointment.clientName
                         .split(" ")
                         .map((n) => n[0])
@@ -157,12 +166,12 @@ export function DashboardOverview({ userRole }) {
                     </span>
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{appointment.clientName}</p>
-                    <p className="text-sm text-gray-600">{appointment.type}</p>
+                    <p className="font-medium text-slate-900 dark:text-white">{appointment.clientName}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{appointment.type}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">{appointment.time}</span>
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">{appointment.time}</span>
                   <Badge className={getStatusColor(appointment.status)}>
                     {appointment.status}
                   </Badge>
@@ -170,59 +179,65 @@ export function DashboardOverview({ userRole }) {
               </div>
             ))
             ) : (
-              <p className="text-center text-gray-500 pt-4">No appointments scheduled for today.</p>
+              <p className="text-center text-slate-500 dark:text-slate-400 pt-4">No appointments scheduled for today.</p>
             )}
           </CardContent>
         </Card>
       </div>
       {/* Quick Actions - interactive takes to another pages*/}
-      <Card>
+      <Card className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+          <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Edit className="h-6 w-6 text-orange-600" />
-              </div>
-              <span className="text-sm font-medium">Case Notes</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-teal-100 rounded-lg">
-                <Users className="h-6 w-6 text-teal-600" />
-              </div>
-              <span className="text-sm font-medium">View Clients</span>
-            </Button>
-
-            <Link href="/dashboard/schedule" passHref>
+            <Link href="/workspace?tab=Notes" passHref>
               <Button
                 variant="outline"
-                className="h-24 w-full flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
+                className="h-24 w-full flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 dark:hover:bg-slate-700 hover:border-teal-300 dark:hover:border-teal-600 bg-transparent border-slate-300 dark:border-slate-600"
               >
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Calendar className="h-6 w-6 text-blue-600" />
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <Edit className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                 </div>
-                <span className="text-sm font-medium">Manage Schedule</span>
+                <span className="text-sm font-medium text-slate-900 dark:text-white">Case Notes</span>
               </Button>
             </Link>
 
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-            >
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BarChart3 className="h-6 w-6 text-green-600" />
-              </div>
-              <span className="text-sm font-medium">Generate Reports</span>
-            </Button>
+            <Link href="/workspace?tab=Clients" passHref>
+              <Button
+                variant="outline"
+                className="h-24 w-full flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 dark:hover:bg-slate-700 hover:border-teal-300 dark:hover:border-teal-600 bg-transparent border-slate-300 dark:border-slate-600"
+              >
+                <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
+                  <Users className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                </div>
+                <span className="text-sm font-medium text-slate-900 dark:text-white">View Clients</span>
+              </Button>
+            </Link>
+
+            <Link href="/workspace?tab=Schedule" passHref>
+              <Button
+                variant="outline"
+                className="h-24 w-full flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 dark:hover:bg-slate-700 hover:border-teal-300 dark:hover:border-teal-600 bg-transparent border-slate-300 dark:border-slate-600"
+              >
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <span className="text-sm font-medium text-slate-900 dark:text-white">Manage Schedule</span>
+              </Button>
+            </Link>
+
+            <Link href="/workspace?tab=Reports" passHref>
+              <Button
+                variant="outline"
+                className="h-24 w-full flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 dark:hover:bg-slate-700 hover:border-teal-300 dark:hover:border-teal-600 bg-transparent border-slate-300 dark:border-slate-600"
+              >
+                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <BarChart3 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <span className="text-sm font-medium text-slate-900 dark:text-white">Generate Reports</span>
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>
@@ -230,31 +245,48 @@ export function DashboardOverview({ userRole }) {
   );
 }
 
-const getMetricsForRole = (userRole) => {
+const getMetricsForRole = (userRole, metrics = {}) => {
+  const {
+    totalClients = 0,
+    totalNotes = 0,
+    totalAppointments = 0,
+    highRiskClients = 0,
+    activeClients = 0,
+    todaysSessions = 0,
+    pendingReferrals = 0
+  } = metrics;
+
   switch (userRole) {
     case "admin":
+    case "superadmin":
       return [
-        { title: "Total Users", value: "1,234", icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
-        { title: "System Alerts", value: "3", icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
-        { title: "Pending Referrals", value: "23", icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
-        { title: "Active Workers", value: "89", icon: UserCheck, color: "text-green-600", bgColor: "bg-green-100" },
+        { title: "Total Clients", value: totalClients, icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
+        { title: "High-Risk Clients", value: highRiskClients, icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
+        { title: "Pending Referrals", value: pendingReferrals, icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
+        { title: "Active Clients", value: activeClients, icon: UserCheck, color: "text-green-600", bgColor: "bg-green-100" },
       ];
     case "team-leader":
       return [
-        { title: "Active Clients", value: "156", icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
-        { title: "Today's Sessions", value: "12", icon: Calendar, color: "text-blue-600", bgColor: "bg-blue-100" },
-        { title: "High-Risk Clients", value: "8", icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
-        { title: "Pending Notes", value: "5", icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
+        { title: "Active Clients", value: activeClients, icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
+        { title: "Today's Sessions", value: todaysSessions, icon: Calendar, color: "text-blue-600", bgColor: "bg-blue-100" },
+        { title: "High-Risk Clients", value: highRiskClients, icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
+        { title: "Case Notes", value: totalNotes, icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
       ];
     case "support-worker":
+    case "peer_support":
       return [
-        { title: "My Clients", value: "24", icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
-        { title: "Today's Sessions", value: "6", icon: Calendar, color: "text-blue-600", bgColor: "bg-blue-100" },
-        { title: "Urgent Cases", value: "3", icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
-        { title: "Pending Notes", value: "2", icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
+        { title: "My Clients", value: totalClients, icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
+        { title: "Today's Sessions", value: todaysSessions, icon: Calendar, color: "text-blue-600", bgColor: "bg-blue-100" },
+        { title: "High-Risk Cases", value: highRiskClients, icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
+        { title: "Case Notes", value: totalNotes, icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
       ];
     default:
-      return [];
+      return [
+        { title: "Total Clients", value: totalClients, icon: Users, color: "text-teal-600", bgColor: "bg-teal-100" },
+        { title: "Appointments", value: totalAppointments, icon: Calendar, color: "text-blue-600", bgColor: "bg-blue-100" },
+        { title: "High-Risk", value: highRiskClients, icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
+        { title: "Notes", value: totalNotes, icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
+      ];
   }
 };
 

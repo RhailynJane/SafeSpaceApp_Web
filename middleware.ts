@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 // Note: Prisma removed during Convex migration - role checks now use Clerk metadata
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)', '/superadmin(.*)']);
-const isDashboardRoute = createRouteMatcher(['/dashboard(.*)', '/interactive(.*)']);
+const isDashboardRoute = createRouteMatcher(['/dashboard(.*)', '/workspace(.*)']);
 const isApiRoute = createRouteMatcher(['/api(.*)']);
 const isAuthOrResetRoute = createRouteMatcher([
   '/sign-in(.*)',

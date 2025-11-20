@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useMemo } from 'react';
 import { FileText, Filter, Download, Search, ChevronDown, ChevronUp, User, Calendar, Activity, Shield } from 'lucide-react';
 

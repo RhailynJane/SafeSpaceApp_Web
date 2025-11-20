@@ -34,10 +34,6 @@
 // Import NextResponse - Next.js helper for creating API responses
 import { NextResponse } from 'next/server';
 
-// Import PrismaClient - the database ORM client class
-// Import NextResponse - Next.js helper for creating API responses
-import { NextResponse } from 'next/server';
-
 // Create a new instance of Prisma client for database operations
 // This establishes the connection to your database
 // Deprecated route: handled by Convex now

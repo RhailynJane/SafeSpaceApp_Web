@@ -75,7 +75,7 @@ export default function SafespacePlatform() {
       } else if (role === "super_admin" || role === "superadmin") {
         router.push("/superadmin");
       } else if (role === "team_leader" || role === "support_worker") {
-        router.push("/interactive");
+        router.push("/workspace");
       } else if (role) { // If a role exists but is not recognized (e.g., a new role type)
         console.log("Signed in with unrecognized role:", rawRole);
         // Optionally, redirect to a generic page or show an error

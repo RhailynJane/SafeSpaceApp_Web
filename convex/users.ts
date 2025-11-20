@@ -630,3 +630,56 @@ export const getOrgUserStats = query({
     return stats;
   },
 });
+
+/**
+ * Get team leaders (supervisors) for an organization
+ */
+export const getTeamLeaders = query({
+  args: {
+    clerkId: v.string(),
+    orgId: v.optional(v.string()),
+  },
+  handler: async (ctx, { clerkId, orgId }) => {
+    // Get requesting user
+    const requestingUser = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!requestingUser) {
+      throw new Error("User not found");
+    }
+
+    // Use requesting user's org if not specified
+    const targetOrgId = orgId || requestingUser.orgId;
+
+    if (!targetOrgId) {
+      throw new Error("Organization not specified");
+    }
+
+    // Check access
+    const isSA = await isSuperAdmin(ctx, clerkId);
+    const hasAccess = isSA || (await hasOrgAccess(ctx, clerkId, targetOrgId));
+
+    if (!hasAccess) {
+      throw new Error("Unauthorized: Cannot access organization team leaders");
+    }
+
+    // Get all team leaders for the organization
+    const teamLeaders = await ctx.db
+      .query("users")
+      .withIndex("by_orgId", (q) => q.eq("orgId", targetOrgId))
+      .filter((q) => q.eq(q.field("roleId"), "team_leader"))
+      .filter((q) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    return teamLeaders.map((tl) => ({
+      _id: tl._id,
+      firstName: tl.firstName,
+      lastName: tl.lastName,
+      email: tl.email,
+      profileImageUrl: tl.profileImageUrl,
+      phoneNumber: tl.phoneNumber,
+    }));
+  },
+});
