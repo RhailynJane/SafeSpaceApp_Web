@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { fetchMutation } from 'convex/nextjs';
-import { api } from '@/convex-mobile/_generated/api';
+import { api } from '@/convex/_generated/api';
 import sharp from 'sharp';
 
 // Compress and convert image to base64 data URL
@@ -33,7 +33,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     
     // Check if this is a simple JSON update (for toggle active) or multipart (for full edit)
     const contentType = request.headers.get('content-type');
@@ -112,7 +112,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const result = await fetchMutation(api.announcementActions.deleteAnnouncement, {
       announcementId: id

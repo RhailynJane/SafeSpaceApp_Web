@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { fetchQuery } from 'convex/nextjs';
-import { api } from '@/convex-mobile/_generated/api';
+import { api } from '@/convex/_generated/api';
 import { resolveUserRole } from '@/lib/security';
 
 export async function GET() {

@@ -68,13 +68,29 @@ export const create = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Unauthenticated");
 
+    const now = Date.now();
     const alertId = await ctx.db.insert("systemAlerts", {
       message: args.message,
       type: args.type,
       severity: args.severity,
       isRead: false,
       orgId: args.orgId,
-      createdAt: Date.now(),
+      createdAt: now,
+    });
+
+    // Log audit event
+    await ctx.db.insert("auditLogs", {
+      userId: identity.subject,
+      action: "system_alert_created",
+      entityType: "system_alert",
+      entityId: alertId,
+      orgId: args.orgId,
+      details: JSON.stringify({
+        type: args.type,
+        severity: args.severity,
+        orgId: args.orgId,
+      }),
+      timestamp: now,
     });
 
     return { _id: alertId };

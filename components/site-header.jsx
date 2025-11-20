@@ -48,15 +48,27 @@ export default function SiteHeader() {
   }, [convexSelf]);
 
   useEffect(() => {
-    const sb = new Sendbird({ appId: '201BD956-A3BA-448A-B8A2-8E1A23404303' });
-    if (user) {
-      sb.connect(user.id, (user, error) => {
-        if (error) {
-          console.error("Sendbird connection error:", error);
-        } else {
-          console.log("Sendbird connected for user:", user);
-        }
-      });
+    const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
+    if (!appId) {
+      console.warn("NEXT_PUBLIC_SENDBIRD_APP_ID not configured - SendBird chat disabled");
+      return;
+    }
+    
+    try {
+      const sb = new Sendbird({ appId });
+      if (user) {
+        sb.connect(user.id, (sbUser, error) => {
+          if (error) {
+            // Silently handle SendBird errors (domain not whitelisted, app disabled, etc.)
+            console.debug("SendBird connection skipped:", error.message);
+          } else {
+            console.log("SendBird connected for user:", sbUser);
+          }
+        });
+      }
+    } catch (error) {
+      // Catch any initialization errors
+      console.debug("SendBird initialization skipped:", error.message);
     }
   }, [user]);
 

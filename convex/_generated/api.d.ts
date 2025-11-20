@@ -8,10 +8,14 @@
  * @module
  */
 
+import type * as announcementActions from "../announcementActions.js";
+import type * as announcements from "../announcements.js";
 import type * as appointments from "../appointments.js";
 import type * as auditLogs from "../auditLogs.js";
 import type * as auth from "../auth.js";
+import type * as bootstrapSuperAdmin from "../bootstrapSuperAdmin.js";
 import type * as clients from "../clients.js";
+import type * as debugAuditLogs from "../debugAuditLogs.js";
 import type * as featurePermissions from "../featurePermissions.js";
 import type * as helpers from "../helpers.js";
 import type * as metrics from "../metrics.js";
@@ -34,10 +38,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  announcementActions: typeof announcementActions;
+  announcements: typeof announcements;
   appointments: typeof appointments;
   auditLogs: typeof auditLogs;
   auth: typeof auth;
+  bootstrapSuperAdmin: typeof bootstrapSuperAdmin;
   clients: typeof clients;
+  debugAuditLogs: typeof debugAuditLogs;
   featurePermissions: typeof featurePermissions;
   helpers: typeof helpers;
   metrics: typeof metrics;

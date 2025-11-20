@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
  * @returns {JSX.Element} The AuditCompliancePage component.
  */
 export default function AuditCompliancePage() {
+    const { user } = useUser();
     const [auditEvents, setAuditEvents] = useState([]);
     const [filteredEvents, setFilteredEvents] = useState([]);
     const [activeAlerts, setActiveAlerts] = useState(0);
@@ -36,14 +38,35 @@ export default function AuditCompliancePage() {
     const [customFrom, setCustomFrom] = useState('');
     const [customTo, setCustomTo] = useState('');
     const [showAlertDetails, setShowAlertDetails] = useState(false);
+    const [organizations, setOrganizations] = useState([]);
+    const [orgFilter, setOrgFilter] = useState('all');
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(50);
 
     useEffect(() => {
         fetchData();
+        fetchOrganizations();
     }, []);
+    const fetchOrganizations = async () => {
+        try {
+            const res = await fetch('/api/admin/organizations');
+            if (res.ok) {
+                const data = await res.json();
+                setOrganizations(data.organizations || []);
+            }
+        } catch (e) {
+            console.warn('Failed to load organizations', e);
+        }
+    };
 
     useEffect(() => {
         filterEvents();
-    }, [auditEvents, searchQuery, eventTypeFilter, dateRange, customFrom, customTo]);
+    }, [auditEvents, searchQuery, eventTypeFilter, dateRange, customFrom, customTo, orgFilter]);
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setPage(1);
+    }, [searchQuery, eventTypeFilter, dateRange, customFrom, customTo, orgFilter]);
 
     const fetchData = async () => {
         setIsRefreshing(true);
@@ -121,33 +144,35 @@ export default function AuditCompliancePage() {
             }
         }
 
-        // Only keep events performed by allowed roles (admin, team_leader, support_worker, client)
-        const allowedRoles = new Set(['admin','team_leader','support_worker','client']);
+        // Role filter (relaxed): include common roles plus superadmin; if role unknown, keep event
+        const allowedRoles = new Set(['admin','superadmin','team_leader','support_worker','client']);
         filtered = filtered.filter((event) => {
             const role = (event.userRole || '').toLowerCase();
-            if (allowedRoles.has(role)) return true;
-            // Fallback: parse details for roleId
+            // System / automated events (no user) always shown
+            if (!event.userId) return true;
+            // Known allowed role
+            if (role && allowedRoles.has(role)) return true;
+            // Fallback: parse details blob for roleId
             try {
                 const parsed = event.details ? JSON.parse(event.details) : {};
                 const detailRole = (parsed.roleId || '').toLowerCase();
-                if (allowedRoles.has(detailRole)) return true;
+                if (detailRole && allowedRoles.has(detailRole)) return true;
             } catch {}
-            return false;
+            // Keep unknown roles for visibility instead of hiding silently
+            return true;
         });
 
-        // Enforce CMHA organization (use org fields or parse details.orgId)
-        filtered = filtered.filter((event) => {
-            const orgName = (event.orgName || '').toLowerCase();
-            const orgSlug = (event.orgSlug || '').toLowerCase();
-            if (orgName.includes('cmha') || orgSlug.includes('cmha')) return true;
-            try {
-                const parsed = event.details ? JSON.parse(event.details) : {};
-                const orgId = (parsed.orgId || '').toLowerCase();
-                return orgId.includes('cmha');
-            } catch {
-                return false;
-            }
-        });
+        // Organization filter (dynamic) when a specific org selected
+        if (orgFilter !== 'all') {
+            filtered = filtered.filter(event => {
+                if ((event.orgId || '').toLowerCase() === orgFilter.toLowerCase()) return true;
+                // Try details blob
+                try {
+                    const parsed = event.details ? JSON.parse(event.details) : {};
+                    return (parsed.orgId || '').toLowerCase() === orgFilter.toLowerCase();
+                } catch { return false; }
+            });
+        }
 
         // Exclude internal developer/system seed events (e.g., "Safespace Developer")
         filtered = filtered.filter((event) => {
@@ -204,11 +229,17 @@ export default function AuditCompliancePage() {
         return variants[type] || variants.audit;
     };
 
+    const isSuperAdmin = (user?.publicMetadata?.role || '').toLowerCase() === 'superadmin';
+    const pageCount = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const displayedEvents = filteredEvents.slice(startIndex, endIndex);
+
     return (
-        <div className="space-y-8 bg-white dark:bg-gray-900 min-h-screen p-6">
+        <div className="space-y-6 w-full max-w-[1600px] mx-auto">
             {/* Header */}
             <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 rounded-2xl shadow-lg text-white">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 className="text-2xl font-bold mb-2">Audit & Compliance Dashboard</h2>
                         <p className="text-teal-100">Monitor system access, security events, and compliance metrics</p>
@@ -224,19 +255,19 @@ export default function AuditCompliancePage() {
                 </div>
             </div>
             
-            {/* Key Metrics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
                 <Card className="border-2 border-blue-200 dark:border-blue-800 shadow-lg hover:shadow-xl transition-shadow">
                     <CardHeader className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/40 pb-3">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 bg-blue-600 dark:bg-blue-700 rounded-xl">
+                            <div className="p-3 bg-blue-600 dark:bg-blue-700 rounded-xl shrink-0">
                                 <Shield className="h-6 w-6 text-white" />
                             </div>
                             <CardTitle className="text-gray-800 dark:text-gray-100">Security Score</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <p className="text-5xl font-bold text-blue-600">{securityScore}</p>
+                        <p className="text-4xl lg:text-5xl font-bold text-blue-600">{securityScore}</p>
                         <p className="text-sm text-gray-500 mt-2">
                             Last audit: {lastAuditDate ? new Date(lastAuditDate).toLocaleDateString() : 'N/A'}
                         </p>
@@ -255,14 +286,14 @@ export default function AuditCompliancePage() {
                 >
                     <CardHeader className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/40 dark:to-yellow-800/40 pb-3">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 bg-yellow-600 dark:bg-yellow-700 rounded-xl">
+                            <div className="p-3 bg-yellow-600 dark:bg-yellow-700 rounded-xl shrink-0">
                                 <AlertTriangle className="h-6 w-6 text-white" />
                             </div>
                             <CardTitle className="text-gray-800 dark:text-gray-100">Active Alerts</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <p className="text-5xl font-bold text-yellow-600 dark:text-yellow-400">{activeAlerts}</p>
+                        <p className="text-4xl lg:text-5xl font-bold text-yellow-600 dark:text-yellow-400">{activeAlerts}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Last 24 hours</p>
                         <Badge className="mt-4 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700">
                             {activeAlerts > 0 ? 'Action Required' : 'All Clear'}
@@ -273,17 +304,17 @@ export default function AuditCompliancePage() {
                     </CardContent>
                 </Card>
 
-                <Card className="border-2 border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow">
+                <Card className="border-2 border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-shadow md:col-span-2 lg:col-span-1">
                     <CardHeader className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/40 dark:to-green-800/40 pb-3">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 bg-green-600 dark:bg-green-700 rounded-xl">
+                            <div className="p-3 bg-green-600 dark:bg-green-700 rounded-xl shrink-0">
                                 <CheckCircle className="h-6 w-6 text-white" />
                             </div>
                             <CardTitle className="text-gray-800 dark:text-gray-100">Compliance</CardTitle>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <p className="text-5xl font-bold text-green-600 dark:text-green-400">{complianceStatus}</p>
+                        <p className="text-4xl lg:text-5xl font-bold text-green-600 dark:text-green-400">{complianceStatus}</p>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">All requirements met</p>
                         <Badge className="mt-4 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 border border-green-300 dark:border-green-700">
                             Fully Compliant
@@ -291,9 +322,11 @@ export default function AuditCompliancePage() {
                     </CardContent>
                 </Card>
             </div>
+
+
             
             {/* Audit Events Section */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border-2 border-gray-100 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border-2 border-gray-100 dark:border-gray-700 overflow-hidden">
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h2 className="text-xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
@@ -312,7 +345,7 @@ export default function AuditCompliancePage() {
                 </div>
 
                 {/* Filters */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
                         <Input
@@ -322,8 +355,9 @@ export default function AuditCompliancePage() {
                             className="pl-10 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600"
                         />
                     </div>
+                    
                     <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
-                        <SelectTrigger>
+                        <SelectTrigger className="dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600">
                             <SelectValue placeholder="Filter by type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -334,8 +368,9 @@ export default function AuditCompliancePage() {
                             <SelectItem value="audit">Audit</SelectItem>
                         </SelectContent>
                     </Select>
+                    
                     <Select value={dateRange} onValueChange={setDateRange}>
-                        <SelectTrigger>
+                        <SelectTrigger className="dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600">
                             <SelectValue placeholder="Date range" />
                         </SelectTrigger>
                         <SelectContent>
@@ -347,29 +382,65 @@ export default function AuditCompliancePage() {
                             <SelectItem value="custom">Custom Range</SelectItem>
                         </SelectContent>
                     </Select>
-                    {dateRange === 'custom' && (
-                        <div className="flex gap-2">
-                            <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-                            <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
-                        </div>
-                    )}
+                    
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => { setSearchQuery(''); setEventTypeFilter('all'); setDateRange('all'); setCustomFrom(''); setCustomTo(''); }}>
-                            Clear Filters
-                        </Button>
+                        {isSuperAdmin && (
+                            <Select value={orgFilter} onValueChange={setOrgFilter}>
+                                <SelectTrigger className="flex-1 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600">
+                                    <SelectValue placeholder="Organization" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Orgs</SelectItem>
+                                    {organizations.map(org => (
+                                        <SelectItem key={org.id} value={org.slug}>{org.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                            <SelectTrigger className="w-24 dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="25">25</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                                <SelectItem value="100">100</SelectItem>
+                                <SelectItem value="200">200</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
+                </div>
+                
+                {dateRange === 'custom' && (
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                            <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1 block">From</label>
+                            <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1 block">To</label>
+                            <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600" />
+                        </div>
+                    </div>
+                )}
+                
+                <div className="flex gap-2 mb-6">
+                    <Button variant="outline" size="sm" onClick={() => { setSearchQuery(''); setEventTypeFilter('all'); setDateRange('all'); setCustomFrom(''); setCustomTo(''); setOrgFilter('all'); }}>
+                        <Filter className="h-4 w-4 mr-2" />
+                        Clear Filters
+                    </Button>
                 </div>
 
                 {/* Events List */}
-                <div className="space-y-3">
-                    {filteredEvents.length === 0 ? (
+                <div className="space-y-3 min-h-[200px]">
+                            {displayedEvents.length === 0 ? (
                         <div className="text-center py-12">
                             <Activity className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                             <p className="text-gray-500 dark:text-gray-400">No audit events found</p>
                             <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Try adjusting your filters</p>
                         </div>
                     ) : (
-                        filteredEvents.map(event => {
+                        displayedEvents.map(event => {
                             // Sanitize event details to remove Clerk IDs and sensitive data
                             let displayDetails = event.details || '';
                             let userRole = (event.userRole || '').replace('_',' ');
@@ -405,39 +476,30 @@ export default function AuditCompliancePage() {
                             return (
                             <div 
                                 key={event.id} 
-                                className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-750 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-teal-300 dark:hover:border-teal-600 transition-all hover:shadow-md group"
+                                className="bg-gradient-to-r from-gray-50 to-white dark:from-gray-700 dark:to-gray-750 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-teal-300 dark:hover:border-teal-600 transition-all hover:shadow-md group w-full"
                             >
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex items-start gap-4 flex-1">
+                                <div className="flex items-start justify-between gap-4 w-full">
+                                    <div className="flex items-start gap-4 flex-1 min-w-0">
                                         <div className="mt-1">
                                             {getEventIcon(event.type)}
                                         </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <Badge className={`${getEventBadge(event.type)} border dark:border-gray-600`}>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                <Badge className={`${getEventBadge(event.type)} border dark:border-gray-600 shrink-0`}>
                                                     {event.type?.toUpperCase() || 'AUDIT'}
                                                 </Badge>
-                                                <p className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                                                <p className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors break-words">
                                                     {event.action}
                                                 </p>
                                             </div>
                                             {displayDetails && (
-                                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{displayDetails}</p>
+                                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed break-words">{displayDetails}</p>
                                             )}
-                                            <div className="flex gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                <span className="font-medium">By: {event.userName || 'System'}</span>
-                                                {userRole && (
-                                                    <>
-                                                        <span>•</span>
-                                                        <span className="italic">{userRole}</span>
-                                                    </>
-                                                )}
-                                                {event.orgName && (
-                                                    <>
-                                                        <span>•</span>
-                                                        <span>{event.orgName}</span>
-                                                    </>
-                                                )}
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mt-3 text-xs">
+                                                <div className="text-gray-500 dark:text-gray-400"><span className="font-semibold">User:</span> {event.userName || 'System'}</div>
+                                                <div className="text-gray-500 dark:text-gray-400"><span className="font-semibold">Role:</span> {userRole || '—'}</div>
+                                                <div className="text-gray-500 dark:text-gray-400"><span className="font-semibold">Org:</span> {event.orgName || event.orgId || '—'}</div>
+                                                <div className="text-gray-500 dark:text-gray-400"><span className="font-semibold">Type:</span> {event.type || 'audit'}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -454,6 +516,14 @@ export default function AuditCompliancePage() {
                             );
                         })
                     )}
+                </div>
+                {/* Pagination Controls */}
+                <div className="mt-6 flex items-center justify-between">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Page {page} of {pageCount} (showing {displayedEvents.length} of {filteredEvents.length})</p>
+                    <div className="flex gap-2">
+                        <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p-1))}>Prev</Button>
+                        <Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => setPage(p => Math.min(pageCount, p+1))}>Next</Button>
+                    </div>
                 </div>
             </div>
 

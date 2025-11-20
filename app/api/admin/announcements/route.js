@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { fetchQuery, fetchMutation } from 'convex/nextjs';
-import { api } from '@/convex-mobile/_generated/api';
+import { api } from '@/convex/_generated/api';
 import sharp from 'sharp';
 
-// Helper to get user's organization
-async function getUserOrg(userId) {
+// Resolve organization for the request: prefer explicit query param, else user's org
+async function resolveOrgId(userId, request) {
+  const { searchParams } = new URL(request.url);
+  const explicit = searchParams.get('orgId');
+  if (explicit) return explicit;
   const user = await fetchQuery(api.users.getByClerkId, { clerkId: userId });
-  return user?.orgId || 'cmha-calgary';
+  return user?.orgId || null;
 }
 
 // Compress and convert image to base64 data URL
@@ -39,8 +42,10 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Always fetch from CMHA Calgary
-    const orgId = 'cmha-calgary';
+    const orgId = await resolveOrgId(userId, request);
+    if (!orgId) {
+      return NextResponse.json({ error: 'No organization found for user' }, { status: 400 });
+    }
     
     const result = await fetchQuery(api.announcements.listByOrg, {
       orgId,
@@ -48,7 +53,14 @@ export async function GET(request) {
       limit: 100
     });
 
-    return NextResponse.json(result);
+    // Transform _id to id for frontend and ensure created_at exists
+    const transformedAnnouncements = result.announcements.map(announcement => ({
+      ...announcement,
+      id: announcement._id,
+      created_at: announcement.createdAt,
+    }));
+
+    return NextResponse.json({ announcements: transformedAnnouncements });
   } catch (error) {
     console.error('Error fetching announcements:', error);
     return NextResponse.json(
@@ -69,8 +81,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Always use CMHA Calgary
-    const orgId = 'cmha-calgary';
+    const orgId = await resolveOrgId(userId, request);
+    if (!orgId) {
+      return NextResponse.json({ error: 'No organization found for user' }, { status: 400 });
+    }
     const formData = await request.formData();
     
     const title = formData.get('title');
@@ -104,7 +118,8 @@ export async function POST(request) {
       title,
       body,
       active,
-      images
+      images,
+      authorId: userId
     });
 
     return NextResponse.json(result);

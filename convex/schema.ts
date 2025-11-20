@@ -751,6 +751,7 @@ export default defineSchema({
 		updatedAt: v.optional(v.number()),
 		authorId: v.optional(v.string()),
 		readBy: v.optional(v.array(v.string())),
+		images: v.optional(v.array(v.string())), // Base64 data URLs for images
 	})
 		.index("by_org_created", ["orgId", "createdAt"])
 		.index("by_org_active", ["orgId", "active"])

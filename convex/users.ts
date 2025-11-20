@@ -563,10 +563,31 @@ export const updateLastLogin = mutation({
 
     if (!user) return null;
 
+    const now = Date.now();
     await ctx.db.patch(user._id, {
-      lastLogin: Date.now(),
-        updatedAt: Date.now(),
+      lastLogin: now,
+      updatedAt: now,
     });
+
+    // Audit log for login events (only log once per day to avoid spam)
+    const lastLoginDate = user.lastLogin ? new Date(user.lastLogin).toISOString().slice(0, 10) : null;
+    const todayDate = new Date(now).toISOString().slice(0, 10);
+    
+    if (lastLoginDate !== todayDate) {
+      await ctx.db.insert("auditLogs", {
+        userId: clerkId,
+        action: "user_login",
+        entityType: "user",
+        entityId: user._id,
+        details: JSON.stringify({ 
+          email: user.email,
+          role: user.roleId,
+          orgId: user.orgId 
+        }),
+        orgId: user.orgId,
+        timestamp: now,
+      });
+    }
 
     return user._id;
   },

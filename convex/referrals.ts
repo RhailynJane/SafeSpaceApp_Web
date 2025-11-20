@@ -151,6 +151,21 @@ export const create = mutation({
       updatedAt: now,
     });
 
+    // Log audit event
+    await ctx.db.insert("auditLogs", {
+      userId: identity.subject,
+      action: "referral_created",
+      entityType: "referral",
+      entityId: referralId,
+      orgId: org?.slug,
+      details: JSON.stringify({
+        clientName: `${args.client_first_name} ${args.client_last_name}`,
+        referralSource: args.referral_source,
+        orgId: org?.slug,
+      }),
+      timestamp: now,
+    });
+
     return { _id: referralId };
   },
 });
@@ -181,6 +196,21 @@ export const updateStatus = mutation({
       processedByUserId: processed_by_user_id ?? existing.processedByUserId,
       processedDate: status === "in-review" || status === "accepted" || status === "declined" ? now : existing.processedDate,
       updatedAt: now,
+    });
+
+    // Log audit event
+    await ctx.db.insert("auditLogs", {
+      userId: identity.subject,
+      action: "referral_status_updated",
+      entityType: "referral",
+      entityId: referralId,
+      orgId: existing.orgId,
+      details: JSON.stringify({
+        newStatus: status,
+        previousStatus: existing.status,
+        clientName: `${existing.clientFirstName} ${existing.clientLastName}`,
+      }),
+      timestamp: now,
     });
 
     // Optional: insert timeline entry

@@ -32,7 +32,7 @@ function validateEntityType(entityType: string | undefined): void {
 export const list = query({
   args: {
     userId: v.optional(v.string()),
-    orgId: v.optional(v.id("organizations")),
+      orgId: v.optional(v.string()),
     action: v.optional(v.string()),
     entityType: v.optional(v.string()),
     limit: v.optional(v.number()),
@@ -89,11 +89,14 @@ export const list = query({
         }
 
         if (log.orgId) {
-          const org = await ctx.db.get(log.orgId as any);
-          if (org && "name" in org) {
+          // orgId is a slug string, not a document ID, so use query instead of get
+          const org = await ctx.db
+            .query("organizations")
+            .withIndex("by_slug", (q) => q.eq("slug", log.orgId))
+            .first();
+          if (org) {
             orgName = org.name;
-            // best-effort slug
-            if ((org as any).slug) orgSlug = (org as any).slug as string;
+            orgSlug = org.slug;
           }
         }
 
@@ -136,7 +139,7 @@ export const getByUser = query({
  */
 export const getByOrg = query({
   args: {
-    orgId: v.id("organizations"),
+    orgId: v.string(),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -251,7 +254,7 @@ export const log = mutation({
     details: v.optional(v.string()),
     ipAddress: v.optional(v.string()),
     userAgent: v.optional(v.string()),
-    orgId: v.optional(v.id("organizations")),
+      orgId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // Validate inputs
