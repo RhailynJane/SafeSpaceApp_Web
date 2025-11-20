@@ -139,6 +139,7 @@ export default function SiteHeader() {
 
   const markAllAsReadMut = useMutation(api.notifications.markAllAsRead);
   const clearAllMut = useMutation(api.notifications.clearAll);
+  const toggleReadMut = useMutation(api.notifications.toggleRead);
 
   const handleClearAll = async () => {
     if (confirm('Are you sure you want to clear all notifications?')) {
@@ -166,6 +167,20 @@ export default function SiteHeader() {
     }
   };
 
+  const handleToggleRead = async (notification) => {
+    try {
+      const newReadState = !notification.is_read;
+      await toggleReadMut({ 
+        notificationId: notification.id, 
+        isRead: newReadState 
+      });
+      setNotifications(notifications.map(n => 
+        n.id === notification.id ? { ...n, is_read: newReadState } : n
+      ));
+    } catch (error) {
+      console.error("Error toggling notification read state:", error);
+    }
+  };
 
 
   return (
@@ -242,7 +257,7 @@ export default function SiteHeader() {
                           {notifications.map((notification) => (
                             <div
                               key={notification.id}
-                              className={`p-4 rounded-lg border-2 transition-all hover:shadow-md cursor-pointer ${
+                              className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
                                 !notification.is_read 
                                   ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-300 dark:border-teal-700' 
                                   : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
@@ -260,6 +275,28 @@ export default function SiteHeader() {
                                     {!notification.is_read && (
                                       <div className="h-2.5 w-2.5 bg-teal-600 dark:bg-teal-500 rounded-full animate-pulse"></div>
                                     )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="ml-auto h-6 px-2 text-xs hover:bg-slate-200 dark:hover:bg-slate-700"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleRead(notification);
+                                      }}
+                                      title={notification.is_read ? "Mark as unread" : "Mark as read"}
+                                    >
+                                      {notification.is_read ? (
+                                        <span className="flex items-center gap-1">
+                                          <CheckCircle className="h-3 w-3" />
+                                          Read
+                                        </span>
+                                      ) : (
+                                        <span className="flex items-center gap-1">
+                                          <CheckCircle className="h-3 w-3" />
+                                          Unread
+                                        </span>
+                                      )}
+                                    </Button>
                                   </div>
                                   <p className="text-sm text-slate-700 dark:text-slate-300 mb-2 leading-relaxed">
                                     {notification.message}

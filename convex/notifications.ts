@@ -34,6 +34,17 @@ export const markAllAsRead = mutation({
   },
 });
 
+export const toggleRead = mutation({
+  args: { 
+    notificationId: v.id("notifications"),
+    isRead: v.boolean()
+  },
+  handler: async (ctx, { notificationId, isRead }) => {
+    await ctx.db.patch(notificationId, { isRead });
+    return { success: true };
+  },
+});
+
 export const listMine = query({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {

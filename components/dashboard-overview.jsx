@@ -38,7 +38,6 @@ export function DashboardOverview({ userRole }) {
   }, [isLoaded, user]);
 
   const metrics = dashboardData ? getMetricsForRole(userRole, dashboardData.metrics) : getMetricsForRole(userRole, {});
-  const notifications = dashboardData?.notifications || [];
 
   const [todaySchedule, setTodaySchedule] = useState([]);
 
@@ -84,57 +83,7 @@ export function DashboardOverview({ userRole }) {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Notifications */}
-        <Card className="bg-teal-50 dark:bg-slate-800 border-teal-200 dark:border-slate-700">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">Recent Notifications</CardTitle>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-teal-300 dark:border-slate-600 text-teal-700 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-slate-700 bg-transparent"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {notifications.length > 0 ? (
-              notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-3 rounded-lg border ${
-                    notification.type === "crisis"
-                      ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                      : "bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`p-1 rounded ${
-                        notification.type === "crisis"
-                          ? "bg-red-100 dark:bg-red-800 text-red-600 dark:text-red-200"
-                          : "bg-teal-100 dark:bg-teal-800 text-teal-600 dark:text-teal-200"
-                      }`}
-                    >
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">
-                        {notification.message || notification.title}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        {notification.time || (notification.created_at ? new Date(notification.created_at).toLocaleString() : "Just now")}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-slate-500 dark:text-slate-400 py-4">No notifications available.</p>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
         {/* Today's Schedule */}
         <Card className="bg-teal-50 dark:bg-slate-800 border-teal-200 dark:border-slate-700">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -287,19 +236,6 @@ const getMetricsForRole = (userRole, metrics = {}) => {
         { title: "High-Risk", value: highRiskClients, icon: AlertTriangle, color: "text-red-600", bgColor: "bg-red-100" },
         { title: "Notes", value: totalNotes, icon: FileText, color: "text-orange-600", bgColor: "bg-orange-100" },
       ];
-  }
-};
-
-const getNotificationIcon = (type) => {
-  switch (type) {
-    case "referral":
-      return <FileText className="h-4 w-4" />;
-    case "appointment":
-      return <Clock className="h-4 w-4" />;
-    case "crisis":
-      return <AlertTriangle className="h-4 w-4" />;
-    default:
-      return <FileText className="h-4 w-4" />;
   }
 };
 
