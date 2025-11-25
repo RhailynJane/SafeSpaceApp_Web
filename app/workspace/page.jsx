@@ -630,7 +630,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-foreground">Referral Management</h2>
-              <Badge variant="outline">{referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length} Pending</Badge>
+              <Badge variant="outline">{referrals.filter(r => r.status && ['pending', 'in-review', 'info-requested'].includes(r.status.toLowerCase())).length} Pending</Badge>
             </div>
 
             <Tabs defaultValue="pending" className="space-y-4">
@@ -646,11 +646,24 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     <CardDescription>Review and process new client referrals</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
+                    {referrals.filter(r => r.status && ['pending', 'in-review', 'info-requested'].includes(r.status.toLowerCase())).map(referral => (
                       <div key={referral._id} className="border border-border bg-card rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
-                          <div className="space-y-2">
-                            <h3 className="font-semibold text-lg text-foreground">{referral.client_first_name} {referral.client_last_name}</h3>
+                          <div className="space-y-2 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-lg text-foreground">{referral.client_first_name} {referral.client_last_name}</h3>
+                              {referral.status.toLowerCase() === 'info-requested' && (
+                                <Badge variant="outline" className="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700">
+                                  <Info className="h-3 w-3 mr-1" />
+                                  Info Requested
+                                </Badge>
+                              )}
+                              {referral.status.toLowerCase() === 'in-review' && (
+                                <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700">
+                                  In Review
+                                </Badge>
+                              )}
+                            </div>
                             <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                               <div>Age: {referral.age}</div>
                               <div>Source: {referral.referral_source}</div>
@@ -703,7 +716,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       </div>
                     ))}
 
-                    {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
+                    {referrals.filter(r => r.status && ['pending', 'in-review', 'info-requested'].includes(r.status.toLowerCase())).length === 0 && (
                       <div className="text-center py-8 text-muted-foreground">
                         <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
                         <h3 className="text-lg font-medium mb-2 text-foreground">No pending referrals</h3>

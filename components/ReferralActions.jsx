@@ -104,7 +104,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
   const [selectedAction, setSelectedAction] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!referral || !['pending', 'in-review'].includes(referral.status.toLowerCase())) {
+  if (!referral || !['pending', 'in-review', 'info-requested'].includes(referral.status.toLowerCase())) {
     return null;
   }
 
