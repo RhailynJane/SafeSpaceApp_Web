@@ -62,25 +62,36 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
 const RequestInfoDialog = ({ referral, onClose, onSendMessage, onSendEmail }) => {
     return (
         <Dialog open={true} onOpenChange={onClose}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="text-3xl text-teal-900">Request More Information</DialogTitle>
-                    <DialogDescription>
-                        How would you like to contact the source of the referral for {referral.client_first_name} {referral.client_last_name}?
+                    <DialogTitle className="text-2xl font-semibold text-foreground">Request More Information</DialogTitle>
+                    <DialogDescription className="text-muted-foreground">
+                        Send an email to request additional details about this referral.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-4">
-                    <p>Please select your preferred method to request more information.</p>
-                    <div className="grid grid-cols-2 gap-4">
-                        <Button onClick={onSendMessage} className="bg-teal-800 hover:bg-teal-900">
-                            <MessageCircle className="h-4 w-4 mr-2 bg-text" />
-                            Send In-App Message
-                        </Button>
-                        <Button onClick={onSendEmail} variant="outline">
-                            <Mail className="h-4 w-4 mr-2" />
-                            Send Email
-                        </Button>
+                <div className="py-6">
+                    <div className="flex flex-col items-center gap-4 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900">
+                            <Mail className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-foreground">
+                                {referral.client_first_name} {referral.client_last_name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                An email will be sent to the referral source requesting more information.
+                            </p>
+                        </div>
                     </div>
+                </div>
+                <div className="flex gap-3 justify-end">
+                    <Button onClick={onClose} variant="outline">
+                        Cancel
+                    </Button>
+                    <Button onClick={onSendEmail} className="bg-teal-600 hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-800">
+                        <Mail className="h-4 w-4 mr-2" />
+                        Send Email
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>
