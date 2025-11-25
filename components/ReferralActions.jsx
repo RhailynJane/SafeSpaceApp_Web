@@ -34,18 +34,18 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
         <Dialog open={true} onOpenChange={onClose}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle className="text-3xl text-teal-900">Accept and Assign Referral</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-2xl font-semibold text-foreground">Accept and Assign Referral</DialogTitle>
+                    <DialogDescription className="text-muted-foreground">
                         Accept the referral for {referral.client_first_name} {referral.client_last_name} and assign it to a team member.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label htmlFor="assignee" className="block text-sm font-medium text-gray-700">Assign to</label>
-                        <select id="assignee" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
+                        <label htmlFor="assignee" className="block text-sm font-medium text-foreground mb-2">Assign to</label>
+                        <select id="assignee" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="mt-1 block w-full p-3 border border-input rounded-lg bg-background text-foreground">
                             <option value="">Select a team member...</option>
                             {assignableUsers.map(user => (
-                                <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.roles.role_name})</option>
+                                <option key={user.id || user._id} value={user.id || user._id}>{user.first_name} {user.last_name} ({user.role_name})</option>
                             ))}
                         </select>
                     </div>

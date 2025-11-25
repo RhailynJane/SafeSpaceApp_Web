@@ -62,12 +62,15 @@ export async function GET(req) {
       ['team_leader', 'support_worker'].includes(user.roleId)
     );
 
-    // Transform to match expected format with role information
+    // Transform to match expected format with proper field names
     const users = assignableUsers.map(user => ({
-      ...user,
-      role: {
-        role_name: user.roleId,
-      },
+      id: user._id,
+      _id: user._id,
+      first_name: user.firstName,
+      last_name: user.lastName,
+      email: user.email,
+      role_name: user.roleId,
+      clerkId: user.clerkId,
     }));
 
     // Return the users as JSON with a 200 (success) status code
