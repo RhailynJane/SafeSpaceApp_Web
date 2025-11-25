@@ -189,6 +189,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     // Map clients into legacy shape used in this view and modals - INCLUDING ALL FIELDS
     const mappedClients = convexClients.map((c) => ({
       id: String(c._id),
+      org_id: c.orgId || "",
+      orgId: c.orgId || "",
       client_first_name: c.firstName || "",
       client_last_name: c.lastName || "",
       email: c.email || "",
@@ -458,6 +460,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     // Create a deterministic channel URL by sorting user IDs
     const channelUrl = `client_chat_${[user.id, otherUserId].sort().join('_')}`;
 
+    console.log('Opening chat with:', { 
+      currentUser: user.id, 
+      otherUserId, 
+      channelUrl,
+      name: dynamicChannelName 
+    });
+
     const response = await fetch('/api/sendbird', {
       method: 'POST',
       headers: {
@@ -472,7 +481,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
     if (!response.ok) {
       const errorData = await response.json();
-      alert('Failed to create chat channel. Please try again later.');
+      console.error('Sendbird error:', errorData);
+      alert(`Failed to create chat channel: ${errorData.error || 'Unknown error'}`);
       return;
     }
 
