@@ -170,10 +170,16 @@ export const update = mutation({
     address: v.optional(v.string()),
     dateOfBirth: v.optional(v.string()),
     gender: v.optional(v.string()),
+    pronouns: v.optional(v.string()),
+    primaryLanguage: v.optional(v.string()),
+    mentalHealthConcerns: v.optional(v.string()),
+    supportNeeded: v.optional(v.string()),
+    ethnoculturalBackground: v.optional(v.string()),
     status: v.optional(v.string()),
     riskLevel: v.optional(v.string()),
     emergencyContactName: v.optional(v.string()),
     emergencyContactPhone: v.optional(v.string()),
+    emergencyContactRelationship: v.optional(v.string()),
     assignedUserId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -213,6 +219,11 @@ export const update = mutation({
     if (updates.address !== undefined) patch.address = sanitizeString(updates.address, 500);
     if (updates.dateOfBirth !== undefined) patch.dateOfBirth = sanitizeString(updates.dateOfBirth, 20);
     if (updates.gender !== undefined) patch.gender = sanitizeString(updates.gender, 50);
+    if (updates.pronouns !== undefined) patch.pronouns = sanitizeString(updates.pronouns, 50);
+    if (updates.primaryLanguage !== undefined) patch.primaryLanguage = sanitizeString(updates.primaryLanguage, 50);
+    if (updates.mentalHealthConcerns !== undefined) patch.mentalHealthConcerns = sanitizeString(updates.mentalHealthConcerns, 1000);
+    if (updates.supportNeeded !== undefined) patch.supportNeeded = sanitizeString(updates.supportNeeded, 1000);
+    if (updates.ethnoculturalBackground !== undefined) patch.ethnoculturalBackground = sanitizeString(updates.ethnoculturalBackground, 200);
     if (updates.status !== undefined) patch.status = sanitizeString(updates.status, 20);
     if (updates.riskLevel !== undefined) patch.riskLevel = sanitizeString(updates.riskLevel, 20);
     if (updates.emergencyContactName !== undefined) patch.emergencyContactName = sanitizeString(updates.emergencyContactName, 100);
@@ -221,6 +232,7 @@ export const update = mutation({
       validatePhone(ePhone);
       patch.emergencyContactPhone = ePhone;
     }
+    if (updates.emergencyContactRelationship !== undefined) patch.emergencyContactRelationship = sanitizeString(updates.emergencyContactRelationship, 100);
     if (updates.assignedUserId !== undefined) patch.assignedUserId = sanitizeString(updates.assignedUserId, 200);
 
     patch.updatedAt = Date.now();
@@ -236,6 +248,7 @@ export const update = mutation({
       timestamp: Date.now(),
     });
 
-    return clientId;
+    // Return the updated client
+    return await ctx.db.get(clientId);
   },
 });

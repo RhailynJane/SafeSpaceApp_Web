@@ -112,6 +112,64 @@ export const list = query({
       users = users.filter((u) => u.status !== "deleted");
     }
 
+    // Also fetch clients and include them in the list
+    // Do a full table scan for now to ensure we get all clients
+    let clients = await ctx.db.query("clients").collect();
+    
+    console.log("Fetched ALL clients count (before filtering):", clients.length);
+    console.log("All clients data:", clients);
+    
+    // Apply org filtering for clients
+    if (currentUser.roleId !== "superadmin") {
+      if (currentUser.orgId) {
+        clients = clients.filter((c) => c.orgId === currentUser.orgId);
+      }
+    } else if (orgId) {
+      clients = clients.filter((c) => c.orgId === orgId);
+    }
+    
+    console.log("After org filtering, clients count:", clients.length);
+
+    // Apply status filter to clients
+    if (status) {
+      clients = clients.filter((c) => c.status === status);
+    } else if (!includeDeleted) {
+      clients = clients.filter((c) => c.status !== "deleted");
+    }
+
+    console.log("After filtering, clients count:", clients.length);
+
+    // Transform clients to match user structure
+    const clientsAsUsers = clients.map((c) => ({
+      _id: c._id as any, // Cast to allow mixing client and user IDs
+      _creationTime: c._creationTime,
+      clerkId: "", // Clients don't have Clerk accounts
+      email: c.email || "N/A",
+      firstName: c.firstName || "",
+      lastName: c.lastName || "",
+      phoneNumber: c.phone || "",
+      orgId: c.orgId,
+      roleId: "client" as const,
+      status: c.status || "active",
+      createdAt: c.createdAt || c._creationTime,
+      updatedAt: c.updatedAt || c._creationTime,
+      lastLogin: 0, // Clients don't log in
+    }));
+
+    console.log("Transformed clients:", clientsAsUsers);
+
+    // Filter clients by role if specified
+    if (roleId && roleId !== "client") {
+      // Don't include clients if filtering for non-client roles
+      console.log("Skipping clients due to role filter:", roleId);
+    } else {
+      // Merge users and clients
+      console.log("Merging", users.length, "users with", clientsAsUsers.length, "clients");
+      users = [...users, ...clientsAsUsers];
+    }
+
+    console.log("Final users count:", users.length);
+
     // Sort by creation date (newest first)
     return users.sort((a, b) => b.createdAt - a.createdAt);
   },
@@ -681,5 +739,92 @@ export const getTeamLeaders = query({
       profileImageUrl: tl.profileImageUrl,
       phoneNumber: tl.phoneNumber,
     }));
+  },
+});
+
+/**
+ * Self-sync/register mutation
+ * Allows users to create or update their own record without requiring admin permissions
+ * Used for automatic user synchronization from Clerk
+ */
+export const syncSelf = mutation({
+  args: {
+    clerkId: v.string(),
+    email: v.string(),
+    firstName: v.string(),
+    lastName: v.string(),
+    roleId: v.string(),
+    orgId: v.string(),
+    profileImageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Validate inputs
+    validateEmail(args.email);
+    validateRoleId(args.roleId);
+
+    const sanitizedFirstName = sanitizeString(args.firstName, 100);
+    const sanitizedLastName = sanitizeString(args.lastName, 100);
+    const sanitizedEmail = args.email.toLowerCase().trim();
+
+    if (!sanitizedFirstName || !sanitizedLastName) {
+      throw new Error("First name and last name are required");
+    }
+
+    // Check if user already exists
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    const now = Date.now();
+
+    if (existing) {
+      // Update existing user if orgId or roleId is missing
+      const updates: any = {
+        updatedAt: now,
+        lastLogin: now,
+      };
+
+      if (!existing.orgId) {
+        updates.orgId = args.orgId;
+      }
+      if (!existing.roleId) {
+        updates.roleId = args.roleId;
+      }
+      if (!existing.firstName) {
+        updates.firstName = sanitizedFirstName;
+      }
+      if (!existing.lastName) {
+        updates.lastName = sanitizedLastName;
+      }
+      if (!existing.email) {
+        updates.email = sanitizedEmail;
+      }
+      if (args.profileImageUrl && !existing.profileImageUrl) {
+        updates.profileImageUrl = args.profileImageUrl;
+        updates.imageUrl = args.profileImageUrl; // Mobile compatibility
+      }
+
+      await ctx.db.patch(existing._id, updates);
+      return existing._id;
+    } else {
+      // Create new user
+      const userId = await ctx.db.insert("users", {
+        clerkId: args.clerkId,
+        email: sanitizedEmail,
+        firstName: sanitizedFirstName,
+        lastName: sanitizedLastName,
+        roleId: args.roleId,
+        orgId: args.orgId,
+        profileImageUrl: args.profileImageUrl,
+        imageUrl: args.profileImageUrl, // Mobile compatibility
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+        lastLogin: now,
+      });
+
+      return userId;
+    }
   },
 });

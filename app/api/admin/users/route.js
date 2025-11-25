@@ -33,25 +33,42 @@ export async function GET(request) {
 
     // Fetch users via Convex; authorization is enforced in the query
     // Pass includeDeleted flag to get all users (including deleted) when needed
+    // NOTE: The users.list query already includes clients merged in, so no need to fetch separately
     const convexUsers = await fetchQuery(api.users.list, { 
       clerkId: userId, 
       status: status,
       includeDeleted: includeDeleted 
     });
 
-    // Map Convex users to legacy shape expected by the admin users table
-    const users = (convexUsers || []).map((u) => ({
-      id: u.clerkId || u._id, // use Clerk ID for downstream delete endpoint
-      first_name: u.firstName || '',
-      last_name: u.lastName || '',
-      email: u.email || '',
-      last_login: u.lastLogin ? new Date(u.lastLogin).toISOString() : 'N/A',
-      created_at: u.createdAt ? new Date(u.createdAt).toISOString() : '',
-      status: (u.status || 'active').charAt(0).toUpperCase() + (u.status || 'active').slice(1),
-      role: { role_name: u.roleId || '' },
-    }));
+    // Map Convex users (which already includes clients) to legacy shape expected by the admin users table
+    const users = (convexUsers || []).map((u) => {
+      // Determine if this is a client (no clerkId means it's a client)
+      const isClient = !u.clerkId;
+      
+      return {
+        id: u.clerkId || u._id, // use Clerk ID for users, Convex ID for clients
+        first_name: u.firstName || '',
+        last_name: u.lastName || '',
+        email: u.email || '',
+        last_login: u.lastLogin ? new Date(u.lastLogin).toISOString() : 'N/A',
+        created_at: u.createdAt ? new Date(u.createdAt).toISOString() : '',
+        status: (u.status || 'active').charAt(0).toUpperCase() + (u.status || 'active').slice(1),
+        role: { role_name: u.roleId || '' },
+        isClient: isClient
+      };
+    });
 
-    return NextResponse.json(users);
+    // Deduplicate by ID (in case there are any duplicates from the query)
+    const uniqueUsers = users.reduce((acc, user) => {
+      if (!acc.find(u => u.id === user.id)) {
+        acc.push(user);
+      }
+      return acc;
+    }, []);
+
+    console.log(`Fetched ${users.length} users, deduplicated to ${uniqueUsers.length}`);
+
+    return NextResponse.json(uniqueUsers);
   } catch (error) {
     console.error('Error fetching users:', error);
     return createErrorResponse('Error fetching users', 500, error.message);

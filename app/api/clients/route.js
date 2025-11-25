@@ -1,185 +1,66 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma.js";
 import { NextResponse } from "next/server";
+import { getConvexClient } from "@/lib/convex-provider";
+import { api } from "@/convex/_generated/api";
+
+/**
+ * Helper function to map Convex client data to frontend snake_case format
+ */
+function mapClientToSnakeCase(client) {
+  return {
+    _id: client._id,
+    id: client._id, // For backwards compatibility
+    client_first_name: client.firstName,
+    client_last_name: client.lastName,
+    first_name: client.firstName,
+    last_name: client.lastName,
+    email: client.email,
+    phone: client.phone,
+    address: client.address,
+    date_of_birth: client.dateOfBirth,
+    gender: client.gender,
+    emergency_contact_name: client.emergencyContactName,
+    emergency_contact_phone: client.emergencyContactPhone,
+    status: client.status,
+    risk_level: client.riskLevel,
+    assigned_user_id: client.assignedUserId,
+    org_id: client.orgId,
+    last_session_date: client.lastSessionDate,
+    created_at: client.createdAt,
+    updated_at: client.updatedAt,
+  };
+}
 
 export async function GET(request) {
-
   try {
-
     const { userId } = await auth();
-
     
-
     if (!userId) {
-
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     }
 
+    const user = await currentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
+    const convex = await getConvexClient();
 
-    let user = await prisma.user.findUnique({
-
-      where: { clerk_user_id: userId },
-
-      include: { role: true },
-
+    // Fetch clients from Convex using the list query
+    const clients = await convex.query(api.clients.list, {
+      clerkId: userId,
     });
 
+    // Map Convex clients to snake_case format for frontend compatibility
+    const mappedClients = clients.map(mapClientToSnakeCase);
 
-
-    if (!user) {
-
-      const clerkUser = await currentUser();
-
-      if (!clerkUser) {
-
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-      }
-
-
-
-      const emailAddress = clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId);
-
-      if (!emailAddress) {
-
-        return NextResponse.json({ error: "Primary email address not found for Clerk user." }, { status: 500 });
-
-      }
-
-      const email = emailAddress.emailAddress;
-
-
-
-      const rawRole = clerkUser.publicMetadata.role || "support_worker";
-
-      const roleName = rawRole ? rawRole.replace(/-/g, "_") : "support_worker";
-
-
-
-      const role = await prisma.role.findUnique({
-
-        where: { role_name: roleName },
-
-      });
-
-
-
-      if (!role) {
-
-        return NextResponse.json({ error: `Role '${roleName}' not found` }, { status: 500 });
-
-      }
-
-
-
-      user = await prisma.user.upsert({
-
-        where: { email: email },
-
-        update: { clerk_user_id: clerkUser.id },
-
-        create: {
-
-          clerk_user_id: clerkUser.id,
-
-          email: email,
-
-          first_name: clerkUser.firstName || "",
-
-          last_name: clerkUser.lastName || "",
-
-          role_id: role.id,
-
-        },
-
-        include: {
-
-          role: true,
-
-        },
-
-      });
-
-    }
-
-
-
-    if (!user.role) {
-
-      return NextResponse.json({ error: `User with clerk_user_id ${userId} has an invalid role_id.` }, { status: 500 });
-
-    }
-
-
-
-    const userRole = user.role.role_name.replace(/_/g, "-");
-
-
-
-
-
-    let clients;
-
-    if (userRole === "support-worker") {
-
-      clients = await prisma.client.findMany({
-        select: {
-          id: true,
-          client_first_name: true,
-          client_last_name: true,
-          last_session_date: true,
-          risk_level: true,
-          status: true,
-          email: true,
-          user: {
-            select: {
-              clerk_user_id: true,
-            },
-          },
-        },
-      });
-
-    } else {
-
-      clients = await prisma.client.findMany({
-
-        orderBy: { created_at: "desc" },
-        select: {
-          id: true,
-          client_first_name: true,
-          client_last_name: true,
-          last_session_date: true,
-          risk_level: true,
-          status: true,
-          email: true,
-          user: {
-            select: {
-              clerk_user_id: true,
-            },
-          },
-        },
-      });
-
-    }
-
-
-
-    return NextResponse.json(clients, { status: 200 });
+    return NextResponse.json(mappedClients, { status: 200 });
 
   } catch (error) {
-
     console.error("Error fetching clients:", error);
-
     return NextResponse.json(
-
       { message: "Error fetching clients", error: error.message },
-
       { status: 500 }
-
     );
-
   }
-
 }

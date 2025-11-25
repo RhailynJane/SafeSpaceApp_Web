@@ -46,6 +46,9 @@ export default function AccountsPage() {
       : "skip"
   );
 
+  // Debug: Log users to console
+  console.log("SuperAdmin Users List:", users);
+
   async function handleToggleSuspend(targetClerkId, currentStatus) {
     const action = currentStatus === "suspended" ? "unsuspend" : "suspend";
     try {
@@ -119,6 +122,7 @@ export default function AccountsPage() {
                   {role.name}
                 </option>
               ))}
+              <option value="client">Client</option>
             </select>
           </div>
 
@@ -175,6 +179,7 @@ export default function AccountsPage() {
                 const org = visibleOrganizations.find((o) => o.slug === u.orgId);
                 const role = roles?.find((r) => r.slug === u.roleId);
                 const effectiveStatus = statusOverride[u.clerkId] ?? u.status;
+                const isClient = u.roleId === "client";
 
                 return (
                   <tr key={u._id} className="hover:bg-muted/30">
@@ -189,8 +194,10 @@ export default function AccountsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
-                        {role?.name || u.roleId}
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        isClient ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
+                      }`}>
+                        {isClient ? "Client" : (role?.name || u.roleId)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
@@ -215,31 +222,36 @@ export default function AccountsPage() {
                         : "Never"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            aria-label="Actions"
-                            className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted text-foreground"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/superadmin/accounts/${u.clerkId}`}>View</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/superadmin/accounts/${u.clerkId}/edit`}>Edit</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleToggleSuspend(u.clerkId, effectiveStatus)}
-                          >
-                            {effectiveStatus === "suspended" ? "Unsuspend" : "Suspend"}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {!isClient && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              aria-label="Actions"
+                              className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted text-foreground"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/superadmin/accounts/${u.clerkId}`}>View</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/superadmin/accounts/${u.clerkId}/edit`}>Edit</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleToggleSuspend(u.clerkId, effectiveStatus)}
+                            >
+                              {effectiveStatus === "suspended" ? "Unsuspend" : "Suspend"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                      {isClient && (
+                        <span className="text-xs text-muted-foreground">Client Record</span>
+                      )}
                     </td>
                   </tr>
                 );

@@ -45,18 +45,18 @@ function TimelineModal({ data, onClose }) {
         <Dialog open={true} onOpenChange={onClose}>
             <DialogContent className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="capitalize text-2xl bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">Referral Timeline - {data.clientFirstName} {data.clientLastName}</DialogTitle>
+                    <DialogTitle className="capitalize text-2xl bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">Referral Timeline - {data.client_first_name} {data.client_last_name}</DialogTitle>
                     <DialogDescription className="text-base">Complete status history and processing timeline</DialogDescription>
                 </DialogHeader>
                 <div className="bg-gradient-to-r from-teal-50 to-cyan-50 p-6 rounded-xl border-2 border-teal-200 mb-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <p className="text-xs font-semibold text-gray-600 uppercase mb-1">Client</p>
-                            <p className="capitalize text-lg font-bold text-gray-800">{data.clientFirstName} {data.clientLastName}</p>
+                            <p className="capitalize text-lg font-bold text-gray-800">{data.client_first_name} {data.client_last_name}</p>
                         </div>
                         <div>
                             <p className="text-xs font-semibold text-gray-600 uppercase mb-1">Referral Source</p>
-                            <p className="text-lg font-bold text-gray-800">{data.referralSource || 'Unknown'}</p>
+                            <p className="text-lg font-bold text-gray-800">{data.referral_source || 'Unknown'}</p>
                         </div>
                         <div>
                             <p className="text-xs font-semibold text-gray-600 uppercase mb-1">Current Status</p>
@@ -144,9 +144,9 @@ export default function ReferralTrackingPage() {
         const lowercasedQuery = searchQuery.toLowerCase();
         const filtered = referrals.filter(ref => {
             const matchesSearch = (
-                (ref.clientFirstName || '').toLowerCase().includes(lowercasedQuery) ||
-                (ref.clientLastName || '').toLowerCase().includes(lowercasedQuery) ||
-                (ref.referralSource || '').toLowerCase().includes(lowercasedQuery)
+                (ref.client_first_name || '').toLowerCase().includes(lowercasedQuery) ||
+                (ref.client_last_name || '').toLowerCase().includes(lowercasedQuery) ||
+                (ref.referral_source || '').toLowerCase().includes(lowercasedQuery)
             );
             const matchesStatus = statusFilter === "all" || (ref.status || '').toLowerCase().replace(/[_-]/g, '') === statusFilter.toLowerCase().replace(/[_-]/g, '');
             return matchesSearch && matchesStatus;
@@ -168,16 +168,16 @@ export default function ReferralTrackingPage() {
                         icon: 'ClockIcon',
                         status: 'SUBMITTED',
                         message: `Referral submitted`,
-                        timestamp: referral.submittedDate || Date.now(),
+                        timestamp: referral.submitted_date || Date.now(),
                         actor: 'System',
-                        note: `Referral created for ${referral.clientFirstName} ${referral.clientLastName}`
+                        note: `Referral created for ${referral.client_first_name} ${referral.client_last_name}`
                     },
                     ...(referral.status !== 'pending' ? [{
                         icon: 'EyeIcon',
                         status: (referral.status || 'pending').toUpperCase().replace('-', ' '),
                         message: `Status changed to ${referral.status}`,
-                        timestamp: referral.processedDate || Date.now(),
-                        actor: referral.processedByUserId || 'Admin',
+                        timestamp: referral.processed_date || Date.now(),
+                        actor: referral.processed_by_user_id || 'Admin',
                         note: `Referral status updated`
                     }] : [])
                 ];
@@ -186,14 +186,14 @@ export default function ReferralTrackingPage() {
         } catch (error) {
             console.error('Failed to fetch timeline:', error);
             // Fallback to basic mock data
-            const mockEvents = [
+                const mockEvents = [
                 {
                     icon: 'ClockIcon',
                     status: 'SUBMITTED',
                     message: `Referral submitted`,
-                    timestamp: referral.submittedDate || Date.now(),
+                    timestamp: referral.submitted_date || Date.now(),
                     actor: 'System',
-                    note: `Referral created for ${referral.clientFirstName} ${referral.clientLastName}`
+                    note: `Referral created for ${referral.client_first_name} ${referral.client_last_name}`
                 }
             ];
             setSelectedReferral({ ...referral, events: mockEvents });
@@ -264,8 +264,8 @@ export default function ReferralTrackingPage() {
                                         <div className="flex-1">
                                             <div className="flex items-start justify-between mb-3">
                                                 <div>
-                                                    <h3 className="font-bold text-xl text-gray-800 dark:text-gray-100 capitalize">{ref.clientFirstName} {ref.clientLastName}</h3>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Age: {ref.age || 'N/A'} • Source: {ref.referralSource || 'Unknown'}</p>
+                                                    <h3 className="font-bold text-xl text-gray-800 dark:text-gray-100 capitalize">{ref.client_first_name} {ref.client_last_name}</h3>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Age: {ref.age || 'N/A'} • Source: {ref.referral_source || 'Unknown'}</p>
                                                 </div>
                                                 <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 ${getStatusBadgeColor(ref.status)}`}>
                                                     {(ref.status || 'pending').toUpperCase()}
@@ -273,14 +273,14 @@ export default function ReferralTrackingPage() {
                                             </div>
                                             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 mb-3">
                                                 <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Reason for Referral:</p>
-                                                <p className="text-sm text-gray-700 dark:text-gray-300">{ref.reasonForReferral || 'No reason provided'}</p>
+                                                <p className="text-sm text-gray-700 dark:text-gray-300">{ref.reason_for_referral || 'No reason provided'}</p>
                                             </div>
                                             <ProgressTracker steps={["pending", "in-review", "accepted"]} currentProgress={[ref.status]} />
                                         </div>
                                         <div className="flex flex-col justify-between items-end gap-3">
                                             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                                                 <CalendarIcon />
-                                                <span>Submitted: {new Date(ref.submittedDate).toLocaleDateString()}</span>
+                                                <span>Submitted: {new Date(ref.submitted_date).toLocaleDateString()}</span>
                                             </div>
                                             {ref.phone && (
                                                 <div className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">

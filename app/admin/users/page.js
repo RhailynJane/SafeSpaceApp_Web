@@ -113,18 +113,24 @@ export default function UsersPage() {
     const [syncResult, setSyncResult] = useState(null);
 
     useEffect(() => {
-        const getUsers = async () => {
-            // Include deleted users when "all" is selected
-            const url = filterStatus === 'all' 
-                ? '/api/admin/users?includeDeleted=true' 
-                : filterStatus === 'deleted' 
-                    ? '/api/admin/users?status=deleted' 
-                    : '/api/admin/users';
-            const res = await fetch(url);
-            const data = await res.json();
-            setUsers(data);
+        const getUsersAndClients = async () => {
+            try {
+                // Fetch users and clients from backend (already merged)
+                const userUrl = filterStatus === 'all' 
+                    ? '/api/admin/users?includeDeleted=true' 
+                    : filterStatus === 'deleted' 
+                        ? '/api/admin/users?status=deleted' 
+                        : '/api/admin/users';
+                const userRes = await fetch(userUrl);
+                const userData = await userRes.json();
+
+                setUsers(Array.isArray(userData) ? userData : []);
+            } catch (error) {
+                console.error('Error fetching users and clients:', error);
+                setUsers([]);
+            }
         };
-        getUsers();
+        getUsersAndClients();
         // refetch when deleted filter toggles
     }, [filterStatus]);
 
@@ -133,14 +139,15 @@ export default function UsersPage() {
     const filteredUsers = Array.isArray(users) ? users
         .filter(user => {
             const lowercasedQuery = searchQuery.toLowerCase();
+            const roleName = user.role?.role_name || 'client';
             const matchesSearch = (
-                user.first_name.toLowerCase().includes(lowercasedQuery) ||
-                user.last_name.toLowerCase().includes(lowercasedQuery) ||
-                user.email.toLowerCase().includes(lowercasedQuery) ||
-                user.role.role_name.toLowerCase().includes(lowercasedQuery)
+                (user.first_name || '').toLowerCase().includes(lowercasedQuery) ||
+                (user.last_name || '').toLowerCase().includes(lowercasedQuery) ||
+                (user.email || '').toLowerCase().includes(lowercasedQuery) ||
+                roleName.toLowerCase().includes(lowercasedQuery)
             );
-            const matchesRole = filterRole === 'all' || user.role.role_name.toLowerCase() === filterRole.toLowerCase();
-            const matchesStatus = filterStatus === 'all' || user.status.toLowerCase() === filterStatus.toLowerCase();
+            const matchesRole = filterRole === 'all' || roleName.toLowerCase() === filterRole.toLowerCase();
+            const matchesStatus = filterStatus === 'all' || (user.status || 'active').toLowerCase() === filterStatus.toLowerCase();
             return matchesSearch && matchesRole && matchesStatus;
         })
         .sort((a, b) => {
@@ -151,12 +158,12 @@ export default function UsersPage() {
                     bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
                     break;
                 case 'email':
-                    aVal = a.email.toLowerCase();
-                    bVal = b.email.toLowerCase();
+                    aVal = (a.email || '').toLowerCase();
+                    bVal = (b.email || '').toLowerCase();
                     break;
                 case 'role':
-                    aVal = a.role.role_name.toLowerCase();
-                    bVal = b.role.role_name.toLowerCase();
+                    aVal = (a.role?.role_name || 'client').toLowerCase();
+                    bVal = (b.role?.role_name || 'client').toLowerCase();
                     break;
                 case 'last_login':
                     aVal = a.last_login === 'N/A' ? 0 : new Date(a.last_login).getTime();
@@ -296,6 +303,7 @@ export default function UsersPage() {
                                     <option value="admin">Administrator</option>
                                     <option value="team_leader">Team Leader</option>
                                     <option value="support_worker">Support Worker</option>
+                                    <option value="client">Client</option>
                                 </select>
                             </div>
                             <div>
@@ -395,7 +403,7 @@ export default function UsersPage() {
                                         {/* Role */}
                                         <td className="py-4 px-6">
                                             <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800 capitalize">
-                                                {user.role.role_name.replace('_', ' ')}
+                                                {(user.role?.role_name || 'client').replace('_', ' ')}
                                             </span>
                                         </td>
                                         {/* Last Login */}
@@ -501,7 +509,7 @@ export default function UsersPage() {
                                 <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3 text-sm">
                                     <div>
                                         <span className="text-muted-foreground text-xs">Role</span>
-                                        <p className="font-medium text-foreground">{user.role.role_name}</p>
+                                        <p className="font-medium text-foreground">{user.role?.role_name || 'client'}</p>
                                     </div>
                                     <div>
                                         <span className="text-muted-foreground text-xs">Status</span>

@@ -115,8 +115,35 @@ export async function PATCH(req, { params }) {
     // If the referral was accepted, create a client record in Convex
     if (body.status === 'accepted' && body.processed_by_user_id) {
       try {
-        await convex.mutation(api.clients.create, {
-          clerkId: user.id,
+        console.log("Creating client from accepted referral...");
+        
+        // Get the admin/team leader who accepted the referral to determine orgId
+        const adminUser = await convex.query(api.users.getByClerkId, {
+          clerkId: userId,
+        });
+
+        console.log("Admin user:", adminUser);
+
+        if (!adminUser) {
+          console.error("❌ Admin user not found in Convex. User needs to be synced to Convex first.");
+          throw new Error("Admin user not found in Convex database");
+        }
+        
+        if (!adminUser.orgId) {
+          console.error("❌ Admin user has no organization assigned. Please contact system administrator.");
+          throw new Error("Admin user has no organization");
+        }
+
+        // Get the assigned user's clerk ID
+        const assignedUser = await convex.query(api.users.getByClerkId, {
+          clerkId: userId,
+          targetClerkId: body.processed_by_user_id,
+        });
+
+        console.log("Assigned user:", assignedUser);
+
+        const clientData = {
+          clerkId: userId,
           firstName: updated.clientFirstName,
           lastName: updated.clientLastName,
           email: updated.email,
@@ -124,12 +151,24 @@ export async function PATCH(req, { params }) {
           address: updated.address,
           emergencyContactName: updated.emergencyFirstName ? `${updated.emergencyFirstName} ${updated.emergencyLastName || ''}`.trim() : undefined,
           emergencyContactPhone: updated.emergencyPhone,
-          status: 'Active',
-          riskLevel: 'Low',
-        });
+          assignedUserId: assignedUser ? assignedUser.clerkId : body.processed_by_user_id, // Assign to the support worker
+          orgId: adminUser.orgId, // Use the admin's organization
+        };
+
+        console.log("Creating client with data:", clientData);
+
+        const clientId = await convex.mutation(api.clients.create, clientData);
+        
+        console.log("✅ Client created successfully with ID:", clientId);
       } catch (clientError) {
-        console.error("Error creating client from referral:", clientError);
-        // Don't fail the whole request if client creation fails
+        console.error("❌ Error creating client from referral:", clientError);
+        console.error("Error details:", clientError.message);
+        // Return error so user knows client creation failed
+        return NextResponse.json({ 
+          error: "Failed to create client record", 
+          details: clientError.message,
+          referral: mapReferralToSnakeCase(updated) 
+        }, { status: 500 });
       }
     }
 

@@ -100,6 +100,19 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         return;
       }
 
+      // Sync user to Convex to ensure they exist with proper orgId
+      try {
+        const syncRes = await fetch("/api/users/sync");
+        if (syncRes.ok) {
+          const syncData = await syncRes.json();
+          console.log("User synced to Convex:", syncData);
+        } else {
+          console.warn("Failed to sync user to Convex");
+        }
+      } catch (syncError) {
+        console.warn("User sync error:", syncError);
+      }
+
       // Always fetch crisis events and audit logs (clients handled via Convex)
       const [crisisRes, auditRes] = await Promise.all([
         fetch("/api/crisis-events"),
@@ -170,7 +183,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   useEffect(() => {
     if (!convexClients) return;
     
-    // Map clients into legacy shape used in this view and modals
+    console.log("📋 Convex clients received:", convexClients);
+    console.log("📊 Number of clients:", convexClients.length);
+    
+    // Map clients into legacy shape used in this view and modals - INCLUDING ALL FIELDS
     const mappedClients = convexClients.map((c) => ({
       id: String(c._id),
       client_first_name: c.firstName || "",
@@ -181,7 +197,27 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       status: (c.status || "active").replace(/^[a-z]/, (m) => m.toUpperCase()),
       risk_level: (c.riskLevel || "low").replace(/^[a-z]/, (m) => m.toUpperCase()),
       last_session_date: c.lastSessionDate ? new Date(c.lastSessionDate).toISOString() : new Date(c.createdAt).toISOString(),
+      // Additional personal information
+      age: c.age || "",
+      date_of_birth: c.dateOfBirth || "",
+      gender: c.gender || "",
+      pronouns: c.pronouns || "",
+      primary_language: c.primaryLanguage || "",
+      // Clinical information
+      mental_health_concerns: c.mentalHealthConcerns || "",
+      support_needed: c.supportNeeded || "",
+      ethnocultural_background: c.ethnoculturalBackground || "",
+      // Emergency contact information
+      emergency_contact_name: c.emergencyContactName || "",
+      emergency_contact_phone: c.emergencyContactPhone || "",
+      emergency_contact_relationship: c.emergencyContactRelationship || "",
+      // Referral information (if any)
+      referral_source: c.referralSource || "",
+      reason_for_referral: c.reasonForReferral || "",
+      additional_notes: c.additionalNotes || "",
     }));
+    
+    console.log("📋 Mapped clients with all fields:", mappedClients);
     
     // Only update if data actually changed
     setClients(prev => {
@@ -842,7 +878,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         </div>
                       </div>
                       <div className="mt-4">
-                        <ClientActionButtons client={client} onMessage={() => openChat(client)} schedule={schedule} />
+                        <ClientActionButtons 
+                          client={client} 
+                          onMessage={() => openChat(client)} 
+                          schedule={schedule}
+                        />
                       </div>
                     </div>
                   ))}

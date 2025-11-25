@@ -163,11 +163,22 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
 
     setIsProcessing(true);
     try {
+      // userId is actually the _id from assignableUsers
+      // We need to find the clerkId from assignableUsers
+      const selectedUser = assignableUsers.find(u => (u.id || u._id) === userId);
+      const clerkId = selectedUser?.clerkId;
+
+      if (!clerkId) {
+        throw new Error("Could not find clerk ID for selected user");
+      }
+
       const body = {
         status: "accepted",
-        processed_by_user_id: parseInt(userId, 10),
+        processed_by_user_id: clerkId, // Send Clerk ID, not _id
         processed_date: new Date().toISOString(),
       };
+
+      console.log("Accepting referral with body:", body);
 
       const res = await fetch(`/api/referrals/${referral._id}`, {
         method: "PATCH",
