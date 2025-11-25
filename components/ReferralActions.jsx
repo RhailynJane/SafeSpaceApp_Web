@@ -135,7 +135,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
         processed_date: new Date().toISOString(),
       };
 
-      const res = await fetch(`/api/referrals/${referral.id}`, {
+      const res = await fetch(`/api/referrals/${referral._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -148,7 +148,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
       }
 
       const updatedReferral = await res.json();
-      onStatusUpdate?.(referral.id, updatedReferral);
+      onStatusUpdate?.(referral._id, updatedReferral);
 
       setShowAssignDialog(false);
       setShowSuccessDialog(true);
@@ -171,7 +171,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     try {
       const body = { status: selectedAction };
 
-      const res = await fetch(`/api/referrals/${referral.id}`, {
+      const res = await fetch(`/api/referrals/${referral._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -184,7 +184,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
       }
 
       const updatedReferral = await res.json();
-      onStatusUpdate?.(referral.id, updatedReferral);
+      onStatusUpdate?.(referral._id, updatedReferral);
 
       setShowConfirmDialog(false);
       setShowSuccessDialog(true);
@@ -204,7 +204,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     const body = { 
       status: selectedAction};
 
-    const res = await fetch(`/api/referrals/${referral.id}`, {
+    const res = await fetch(`/api/referrals/${referral._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -216,7 +216,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     }
 
     const updatedReferral = await res.json();
-    onStatusUpdate?.(referral.id, updatedReferral);
+    onStatusUpdate?.(referral._id, updatedReferral);
 
     // Then open email composer
     setShowEmailComposer(true);

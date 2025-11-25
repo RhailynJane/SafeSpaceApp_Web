@@ -56,6 +56,34 @@ function isValidAge(n) {
 }
 
 
+// Helper to map Convex camelCase fields to snake_case expected by frontend
+function mapReferralToSnakeCase(referral) {
+  return {
+    _id: referral._id,
+    id: referral._id, // Keep both for backwards compatibility
+    client_id: referral.clientId,
+    client_first_name: referral.clientFirstName,
+    client_last_name: referral.clientLastName,
+    age: referral.age,
+    phone: referral.phone,
+    email: referral.email,
+    address: referral.address,
+    emergency_first_name: referral.emergencyFirstName,
+    emergency_last_name: referral.emergencyLastName,
+    emergency_phone: referral.emergencyPhone,
+    referral_source: referral.referralSource,
+    reason_for_referral: referral.reasonForReferral,
+    additional_notes: referral.additionalNotes,
+    submitted_date: referral.submittedDate,
+    status: referral.status,
+    processed_date: referral.processedDate,
+    processed_by_user_id: referral.processedByUserId,
+    updated_at: referral.updatedAt,
+    created_at: referral.createdAt,
+    orgId: referral.orgId,
+  };
+}
+
 // ----------------------
 // 📍 GET /api/referrals
 // ----------------------
@@ -101,8 +129,11 @@ export async function GET() {
     const convex = await getConvexClient();
     const referrals = await convex.query(api.referrals.list, {});
 
+    // Map Convex camelCase to snake_case for frontend compatibility
+    const mappedReferrals = referrals.map(mapReferralToSnakeCase);
+
     // Return the list of referrals as a JSON response.
-    return NextResponse.json(referrals, { status: 200 });
+    return NextResponse.json(mappedReferrals, { status: 200 });
 
   } catch (error) {
     // Handles unexpected runtime or database errors.

@@ -122,7 +122,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
       alert("Please select a Support Worker.");
       return;
     }
-    const res = await fetch(`/api/referrals/${modal.data.id}`, {
+    const res = await fetch(`/api/referrals/${modal.data._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -131,7 +131,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
       }),
     });
     if (res.ok) {
-      setTrackedReferrals(trackedReferrals.filter(r => r.id !== modal.data.id));
+      setTrackedReferrals(trackedReferrals.filter(r => r._id !== modal.data._id));
       closeModal();
     } else {
       const errorData = await res.json();
@@ -140,13 +140,13 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
   };
 
   const handleDeclineReferral = async () => {
-    const res = await fetch(`/api/referrals/${modal.data.id}`, {
+    const res = await fetch(`/api/referrals/${modal.data._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'declined' }),
     });
     if (res.ok) {
-      setTrackedReferrals(trackedReferrals.filter(r => r.id !== modal.data.id));
+      setTrackedReferrals(trackedReferrals.filter(r => r._id !== modal.data._id));
       closeModal();
     }
   };
@@ -276,7 +276,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
           {/* Referrals List */}
           <div className="space-y-4">
             {filteredReferrals.map((referral) => (
-              <div key={referral.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
+              <div key={referral._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
                 <div className="flex items-start justify-between">
                   <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-3">

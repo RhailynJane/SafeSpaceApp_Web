@@ -271,7 +271,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   const handleReferralStatusUpdate = (referralId, updatedReferral) => {
     setReferrals(prev =>
-      prev.map(r => (r.id === referralId ? updatedReferral : r))
+      prev.map(r => (r._id === referralId ? updatedReferral : r))
     );
   };
 
@@ -367,7 +367,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   };
 
   const reopenReferral = async (id) => {
-    setReferrals(prev => prev.map(r => r.id === id ? { ...r, status: "pending" } : r));
+    setReferrals(prev => prev.map(r => r._id === id ? { ...r, status: "pending" } : r));
   };
 
   const handleCallEnd = () => {};
@@ -647,11 +647,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).map(referral => (
-                      <div key={referral.id} className="border rounded-lg p-4 space-y-4">
+                      <div key={referral._id} className="border border-border bg-card rounded-lg p-4 space-y-4">
                         <div className="flex items-start justify-between">
                           <div className="space-y-2">
-                            <h3 className="font-semibold text-lg">{referral.client_first_name} {referral.client_last_name}</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                            <h3 className="font-semibold text-lg text-foreground">{referral.client_first_name} {referral.client_last_name}</h3>
+                            <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground">
                               <div>Age: {referral.age}</div>
                               <div>Source: {referral.referral_source}</div>
                               <div>Submitted: {new Date(referral.submitted_date).toLocaleDateString()}</div>
@@ -660,13 +660,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         </div>
 
                         <div className="space-y-2">
-                          <h4 className="font-medium">Reason for Referral:</h4>
-                          <p className="text-sm text-gray-700">{referral.reason_for_referral}</p>
+                          <h4 className="font-medium text-foreground">Reason for Referral:</h4>
+                          <p className="text-sm text-muted-foreground">{referral.reason_for_referral}</p>
                         </div>
 
                         <div className="space-y-2">
-                          <h4 className="font-medium">Contact Information:</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                          <h4 className="font-medium text-foreground">Contact Information:</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-muted-foreground">
                             <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4" />
                               {referral.phone}
@@ -688,8 +688,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
                         {referral.additional_notes && (
                           <div className="space-y-2">
-                            <h4 className="font-medium">Additional Notes:</h4>
-                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded">{referral.additional_notes}</p>
+                            <h4 className="font-medium text-foreground">Additional Notes:</h4>
+                            <p className="text-sm text-muted-foreground bg-muted p-3 rounded">{referral.additional_notes}</p>
                           </div>
                         )}
 
@@ -704,9 +704,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     ))}
 
                     {referrals.filter(r => r.status && ['pending', 'in-review'].includes(r.status.toLowerCase())).length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
+                      <div className="text-center py-8 text-muted-foreground">
                         <CheckCircle className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">No pending referrals</h3>
+                        <h3 className="text-lg font-medium mb-2 text-foreground">No pending referrals</h3>
                         <p className="text-sm">All referrals have been processed.</p>
                       </div>
                     )}
@@ -722,7 +722,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
-                      <div key={referral.id} className="border border-border rounded-lg p-4 space-y-2 bg-card">
+                      <div key={referral._id} className="border border-border rounded-lg p-4 space-y-2 bg-card">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold text-lg text-foreground">{referral.client_first_name} {referral.client_last_name}</h3>
                           <Badge className={
