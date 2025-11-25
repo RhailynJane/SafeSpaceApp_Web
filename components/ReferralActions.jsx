@@ -27,31 +27,54 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (!selectedUserId) {
+            alert("Please select a team member to assign the referral to.");
+            return;
+        }
         onAssign(selectedUserId);
     };
 
     return (
         <Dialog open={true} onOpenChange={onClose}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-semibold text-foreground">Accept and Assign Referral</DialogTitle>
                     <DialogDescription className="text-muted-foreground">
-                        Accept the referral for {referral.client_first_name} {referral.client_last_name} and assign it to a team member.
+                        Accept the referral for <span className="font-medium text-foreground">{referral.client_first_name} {referral.client_last_name}</span> and assign it to a team member.
                     </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="assignee" className="block text-sm font-medium text-foreground mb-2">Assign to</label>
-                        <select id="assignee" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="mt-1 block w-full p-3 border border-input rounded-lg bg-background text-foreground">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-3">
+                        <label htmlFor="assignee" className="block text-sm font-medium text-foreground">
+                            Assign to
+                        </label>
+                        <select 
+                            id="assignee" 
+                            value={selectedUserId} 
+                            onChange={(e) => setSelectedUserId(e.target.value)} 
+                            className="w-full px-4 py-3 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                            required
+                        >
                             <option value="">Select a team member...</option>
                             {assignableUsers.map(user => (
-                                <option key={user.id || user._id} value={user.id || user._id}>{user.first_name} {user.last_name} ({user.role_name})</option>
+                                <option key={user.id || user._id} value={user.id || user._id}>
+                                    {user.first_name} {user.last_name} ({user.role_name === 'support_worker' ? 'Support Worker' : 'Team Leader'})
+                                </option>
                             ))}
                         </select>
                     </div>
-                    <div className="flex justify-end gap-4 pt-4">
-                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit" className="bg-teal-800 hover:bg-teal-900">Accept and Assign</Button>
+                    <div className="flex gap-3 justify-end pt-4 border-t border-border">
+                        <Button type="button" variant="outline" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            type="submit" 
+                            className="bg-teal-600 hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-800"
+                            disabled={!selectedUserId}
+                        >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Accept and Assign
+                        </Button>
                     </div>
                 </form>
             </DialogContent>
@@ -358,28 +381,36 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
 
       {/* ------------------------ Confirmation Dialog ------------------------ */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="text-3xl text-teal-800">
-              Confirm {getActionConfig(selectedAction)?.label} Referral
+            <DialogTitle className="text-2xl font-semibold text-foreground">
+              Confirm Decline Referral
             </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to {selectedAction?.toLowerCase()} the referral for{" "}
-              <strong>{referral.client_first_name} {referral.client_last_name}</strong>?
-              <br />
-              <span className="text-sm text-gray-600 mt-2 block">
-                {getActionConfig(selectedAction)?.description}
-              </span>
+            <DialogDescription className="text-muted-foreground">
+              Are you sure you want to decline the referral for{" "}
+              <span className="font-medium text-foreground">{referral.client_first_name} {referral.client_last_name}</span>?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <div className="py-4">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
+                <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Declining this referral will mark it as rejected and remove it from your pending queue.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end pt-4 border-t border-border">
             <Button variant="outline" onClick={resetState} disabled={isProcessing}>
               Cancel
             </Button>
             <Button
               onClick={handleConfirmAction}
               disabled={isProcessing}
-              className={getActionConfig(selectedAction)?.className}
+              variant="destructive"
             >
               {isProcessing ? (
                 <>
@@ -388,12 +419,12 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
                 </>
               ) : (
                 <>
-                  {React.createElement(getActionConfig(selectedAction)?.icon, { className: "h-4 w-4 mr-2" })}
-                  Confirm {getActionConfig(selectedAction)?.label}
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Confirm Decline
                 </>
               )}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
