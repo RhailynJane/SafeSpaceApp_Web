@@ -734,7 +734,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     <CardDescription>Referrals that have been accepted, declined, or are in progress.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).map(referral => (
+                    {referrals.filter(r => r.status && ['accepted', 'declined'].includes(r.status.toLowerCase())).map(referral => (
                       <div key={referral._id} className="border border-border rounded-lg p-4 space-y-2 bg-card">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold text-lg text-foreground">{referral.client_first_name} {referral.client_last_name}</h3>
@@ -754,10 +754,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         </div>
                       </div>
                     ))}
-                    {referrals.filter(r => r.status && ['accepted', 'declined', 'more-info-requested'].includes(r.status.toLowerCase())).length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
+                    {referrals.filter(r => r.status && ['accepted', 'declined'].includes(r.status.toLowerCase())).length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
                         <FileText className="mx-auto h-16 w-16 mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium mb-2">No processed referrals</h3>
+                        <h3 className="text-lg font-medium mb-2 text-foreground">No processed referrals</h3>
                         <p className="text-sm">Process a referral from the 'Pending' tab.</p>
                       </div>
                     )}
