@@ -27,7 +27,7 @@ import ViewNoteModal from "@/components/Notes/ViewNoteModal";
 import EditNoteModal from "@/components/Notes/EditNoteModal";
 import DeleteNoteModal from "@/components/Notes/DeleteNoteModal";
 import AddAppointmentModal from "@/components/schedule/AddAppointmentModal";
-import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal";
+import ScheduleFilters from "@/components/schedule/ScheduleFilters";
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 import ViewReportModal from "@/components/reports/ViewReportModal";
@@ -72,6 +72,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const todayStr = `${year}-${month}-${day}`;
   
   const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [scheduleFilter, setScheduleFilter] = useState({ type: 'day', start: todayStr, end: todayStr });
 
   const dragHandleRef = useRef(null);
   const position = useDraggable(dragHandleRef);
@@ -258,6 +259,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       }
       return {
         id: a._id,
+        _id: a._id,
+        client_id: a.clientId,
+        clientId: a.clientId,
         appointment_date: a.appointmentDate,
         appointment_time: a.appointmentTime || "",
         type: a.type || "",
@@ -363,12 +367,18 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     // Optimistically add in legacy shape; Convex query will refresh shortly
     const optim = {
       id: newAppointment._id || newAppointment.id || Math.random().toString(36).slice(2),
+      _id: newAppointment._id || newAppointment.id,
+      client_id: newAppointment.clientId || newAppointment.client_id,
+      clientId: newAppointment.clientId || newAppointment.client_id,
       appointment_date: newAppointment.appointmentDate || newAppointment.appointment_date || todayStr,
       appointment_time: newAppointment.appointmentTime || newAppointment.appointment_time || "",
       type: newAppointment.type || "",
       duration: typeof newAppointment.duration === 'number' ? `${newAppointment.duration} min` : (newAppointment.duration || ""),
       details: newAppointment.details || newAppointment.notes || "",
-      client: { client_first_name: "", client_last_name: "" },
+      client: newAppointment.client || { 
+        client_first_name: newAppointment.client?.client_first_name || "", 
+        client_last_name: newAppointment.client?.client_last_name || "" 
+      },
     };
     setSchedule((prev) => [...prev, optim]);
     // Ensure the schedule view switches to the newly added appointment's date
@@ -993,33 +1003,34 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   <CardTitle className="text-card-foreground">Schedule</CardTitle>
                   <CardDescription>Your appointments for the selected date</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    className="border border-input rounded px-2 py-2 text-sm bg-background text-foreground"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                  />
-                  <Button variant="outline" size="sm" onClick={() => setSelectedDate(todayStr)}>Today</Button>
-                </div>
+                <ScheduleFilters 
+                  selectedDate={selectedDate} 
+                  onDateChange={setSelectedDate}
+                  onFilterChange={setScheduleFilter}
+                />
               </div>
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
                 <AddAppointmentModal onAdd={handleAddAppointment} defaultDate={selectedDate} clients={clients} existingAppointments={schedule} />
-                <ViewAvailabilityModal
-                  availability={[
-                    { day: "Monday", time: "10:00 AM - 12:00 PM" },
-                    { day: "Wednesday", time: "2:00 PM - 4:00 PM" },
-                    { day: "Friday", time: "9:00 AM - 11:00 AM" },
-                  ]}
-                />
                 <ViewCalendarModal schedule={schedule} />
               </div>
 
               <div className="space-y-4">
                 {(() => {
                   const items = schedule
+                    .filter((appt) => {
+                      // Filter appointments based on the selected date range
+                      if (!appt.appointment_date) return false;
+                      const apptDate = appt.appointment_date.substring(0, 10);
+                      
+                      if (scheduleFilter.type === 'day') {
+                        return apptDate === scheduleFilter.start;
+                      } else if (scheduleFilter.type === 'week' || scheduleFilter.type === 'month' || scheduleFilter.type === 'custom') {
+                        return apptDate >= scheduleFilter.start && apptDate <= scheduleFilter.end;
+                      }
+                      return true;
+                    })
                     .map((appt) => {
                       if (!appt.appointment_date || !appt.appointment_time) return { ...appt, combinedDateTime: null };
                       // Combine local date and time for consistent sorting/display
@@ -1040,7 +1051,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                           <div>
                             <h3 className="font-semibold">{appt.client.client_first_name} {appt.client.client_last_name}</h3>
                             <p className="text-sm text-gray-600">
-                              {new Date(appt.appointment_date).toLocaleDateString()} at {appt.appointment_time} • {appt.type} • {appt.duration}
+                              {appt.appointment_date} at {appt.appointment_time} • {appt.type} • {appt.duration}
                             </p>
                             {appt.details && (
                               <p className="text-sm text-gray-500 mt-1">{appt.details}</p>
@@ -1055,7 +1066,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   }
                   return (
                     <div className="text-center py-8 text-gray-500">
-                      <p>No appointments for this date.</p>
+                      <p>No appointments for this {scheduleFilter.type === 'day' ? 'date' : scheduleFilter.type}.</p>
                       <p className="text-sm mt-1">Click "Add Appointment" to get started</p>
                     </div>
                   );

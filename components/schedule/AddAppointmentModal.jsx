@@ -198,6 +198,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
       }
       if (onAdd) onAdd({
         _id: createdId,
+        clientId: client_id,
         appointmentDate: appointment_date,
         appointmentTime: appointment_time,
         type,
