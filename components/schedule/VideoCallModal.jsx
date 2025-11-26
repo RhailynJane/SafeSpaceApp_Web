@@ -60,13 +60,13 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
 
   /**
    * EFFECT: Configuration Check
-   * Runs once on component mount to verify if the Sendbird App ID is set.
+   * Runs once on component mount to verify if the Sendbird Calls App ID is set.
    */
   useEffect(() => {
-    const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
+    const appId = process.env.NEXT_PUBLIC_SENDBIRD_CALLS_APP_ID;
     if (!appId || appId === 'placeholder_disable_video_calls') {
       setIsEnabled(false);
-      setError("Video call feature is not configured. Contact administrator to enable this feature.");
+      setError("Video calling requires a separate Sendbird Calls application. The current Sendbird App ID is for chat only, not for voice/video calls. Please create a Sendbird Calls application at https://dashboard.sendbird.com and add NEXT_PUBLIC_SENDBIRD_CALLS_APP_ID to your .env.local file.");
     } else {
       setIsEnabled(true);
     }
@@ -83,9 +83,9 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
         setCallStatus("connecting");
         setError("");
 
-        const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
+        const appId = process.env.NEXT_PUBLIC_SENDBIRD_CALLS_APP_ID;
         if (!appId) {
-          throw new Error("Sendbird App ID is not configured");
+          throw new Error("Sendbird Calls App ID is not configured. Please create a Sendbird Calls application (different from Chat app) at https://dashboard.sendbird.com");
         }
 
         // Initialize SDK
