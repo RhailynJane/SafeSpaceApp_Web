@@ -32,6 +32,7 @@ import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 
 import SendbirdChat from "@/components/SendbirdChat";
+import ChatInterface from "@/components/chat/ChatInterface";
 
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
@@ -1919,15 +1920,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         {/* Messages Tab (Chat) */}
         {defaultTab === "Messages" && (
           <div className="space-y-6">
-            <Card className="border-border bg-card">
-              <CardHeader>
-                <CardTitle className="text-card-foreground">Messages</CardTitle>
-                <CardDescription>Chat with clients and team members</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Select a conversation from the Messages section to start chatting.</p>
-              </CardContent>
-            </Card>
+            <ChatInterface />
           </div>
         )}
       </div>
