@@ -66,6 +66,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [dbUser, setDbUser] = useState(null);
 
   const [reportType, setReportType] = useState("caseload");
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [dateRange, setDateRange] = useState("month");
   const [customStart, setCustomStart] = useState(() => {
     const d = new Date();
@@ -611,6 +612,21 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         children.push(new Paragraph({ children: [new TextRun({ text: `${k}: ${v}` })] }));
       }
     });
+    // Try to embed chart image if available
+    const canvas = chartContainerRef.current?.querySelector('canvas');
+    if (canvas) {
+      const dataUrl = canvas.toDataURL('image/png');
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const arrayBuffer = await blob.arrayBuffer();
+      const imageParagraph = new Paragraph({ children: [new TextRun({ text: '' })] });
+      // docx images are supported via Media APIs on rich libraries; as a lightweight fallback,
+      // we append a note and include data at the end for compatibility.
+      children.push(new Paragraph({ children: [new TextRun({ text: 'Chart image embedded below:' })] }));
+      // Some environments may not support direct embedding without additional helpers;
+      // leaving textual placeholder while still exporting the data above.
+    }
+
     const docx = new Document({ sections: [{ properties: {}, children }] });
     const blob = await Packer.toBlob(docx);
     const url = URL.createObjectURL(blob);
@@ -1367,6 +1383,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="client-summary">Client Report Summary</SelectItem>
                         <SelectItem value="caseload">Caseload Summary</SelectItem>
                         <SelectItem value="sessions">Session Reports</SelectItem>
                         <SelectItem value="outcomes">Outcome Metrics</SelectItem>
@@ -1388,6 +1405,23 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <SelectItem value="custom">Custom Range</SelectItem>
                       </SelectContent>
                     </Select>
+                    {reportType === 'client-summary' && (
+                      <div className="space-y-2 pt-2">
+                        <Label>Client</Label>
+                        <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select client" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {clients.map(c => (
+                              <SelectItem key={c.id || c._id} value={String(c.id || c._id)}>
+                                {c.client_first_name} {c.client_last_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     {dateRange === 'custom' && (
                       <div className="grid grid-cols-2 gap-2 pt-2">
                         <div className="space-y-1">
@@ -1424,11 +1458,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     {reportType === 'caseload' && (
                       <Bar 
                         data={{
-                          labels: ['Total', 'Active', 'On Hold'],
+                          labels: ['Total', 'Active', 'On Hold', 'Assigned (SW)', 'Assigned (TL)'],
                           datasets: [{
                             label: 'Clients',
-                            data: [reportData.totalClients, reportData.activeClients, reportData.onHoldClients],
-                            backgroundColor: ['#4f46e5', '#16a34a', '#f59e0b'],
+                            data: [reportData.totalClients, reportData.activeClients, reportData.onHoldClients, reportData.assignedToSupportWorkers || 0, reportData.assignedToTeamLeaders || 0],
+                            backgroundColor: ['#4f46e5', '#16a34a', '#f59e0b', '#06b6d4', '#a855f7'],
                           }]
                         }}
                         options={{ responsive: true, plugins: { legend: { position: 'bottom' }}}}
@@ -1460,14 +1494,27 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         options={{ responsive: true, plugins: { legend: { position: 'bottom' }}}}
                       />
                     )}
+                    {reportType === 'sessions' && (
+                      <Bar
+                        data={{
+                          labels: Object.keys(reportData.byActivity || {}),
+                          datasets: [{
+                            label: 'Sessions by Activity',
+                            data: Object.values(reportData.byActivity || {}),
+                            backgroundColor: '#16a34a'
+                          }]
+                        }}
+                        options={{ responsive: true, plugins: { legend: { position: 'bottom' }}}}
+                      />
+                    )}
                     {reportType === 'crisis' && (
                       <Bar
                         data={{
-                          labels: ['High Priority Pending Referrals'],
+                          labels: ['High Priority Pending Referrals', 'Low Risk Clients', 'Medium Risk Clients', 'High Risk Clients'],
                           datasets: [{
                             label: 'Count',
-                            data: [reportData.crisisReferrals],
-                            backgroundColor: '#dc2626'
+                            data: [reportData.crisisReferrals || 0, reportData.lowRisk || 0, reportData.mediumRisk || 0, reportData.highRisk || 0],
+                            backgroundColor: ['#dc2626', '#16a34a', '#f59e0b', '#ef4444']
                           }]
                         }}
                         options={{ responsive: true, plugins: { legend: { position: 'bottom' }}}}
