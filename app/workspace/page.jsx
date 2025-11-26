@@ -30,7 +30,7 @@ import AddAppointmentModal from "@/components/schedule/AddAppointmentModal";
 import ScheduleFilters from "@/components/schedule/ScheduleFilters";
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
-import ViewReportModal from "@/components/reports/ViewReportModal";
+
 import SendbirdChat from "@/components/SendbirdChat";
 
 import jsPDF from "jspdf";
@@ -77,37 +77,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const chartContainerRef = useRef(null);
   const [reportData, setReportData] = useState(null);
   const [reportValidationMsg, setReportValidationMsg] = useState("");
-  const [selectedReport, setSelectedReport] = useState(null);
+
   // Ensure user is initialized before queries (avoid name clashes)
   const isUserReady = typeof isLoaded !== 'undefined' && isLoaded && !!user;
   const dbUserRec = useQuery(api.users.getByClerkId, isUserReady ? { clerkId: user?.id } : 'skip') || null;
-  const [recentCursor, setRecentCursor] = useState(undefined);
-  const [cursorStack, setCursorStack] = useState([]);
-  // Pagination state for Recent Reports
-  const [recentFilterType, setRecentFilterType] = useState('all');
-  const [recentStart, setRecentStart] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().substring(0,10);
-  });
-  const [recentEnd, setRecentEnd] = useState(() => new Date().toISOString().substring(0,10));
-  // Now that recentStart/recentEnd exist, compute timestamps and query
-  const startMs2 = recentStart ? new Date(recentStart + 'T00:00:00').getTime() : undefined;
-  const endMs2 = recentEnd ? new Date(recentEnd + 'T23:59:59').getTime() : undefined;
-  const queryArgs = isUserReady
-    ? {
-        orgId: dbUserRec?.orgId, // Re-enabled after migration fixed existing reports
-        reportType: recentFilterType === 'all' ? undefined : recentFilterType,
-        start: startMs2,
-        end: endMs2,
-        limit: 20,
-        ...(recentCursor && { cursor: recentCursor }), // Only include cursor if it's not null/undefined
-      }
-    : 'skip';
-  
-  const recentResp = useQuery(
-    api.reports.list,
-    queryArgs
-  );
-  const recentReports = recentResp || []; // Convex query returns array directly, not paginated
+
 
   
   const [modalOpen, setModalOpen] = useState(false);
@@ -992,6 +966,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     a.click();
     URL.revokeObjectURL(url);
   };
+
+
 
   const reopenReferral = async (id) => {
     setReferrals(prev => prev.map(r => r._id === id ? { ...r, status: "pending" } : r));
@@ -1924,107 +1900,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardContent>
             </Card>
 
-            {/* Recent Reports - fetched from Convex */}
-            <Card className="border-border bg-card">
-              <CardHeader>
-                <CardTitle className="text-card-foreground">Recent Reports</CardTitle>
-                <CardDescription>Latest generated reports (stored in Convex)</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Filter by Type</Label>
-                    <Select value={recentFilterType} onValueChange={setRecentFilterType}>
-                      <SelectTrigger><SelectValue placeholder="All types" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="client-summary">Client Summary</SelectItem>
-                        <SelectItem value="caseload">Caseload</SelectItem>
-                        <SelectItem value="sessions">Sessions</SelectItem>
-                        <SelectItem value="interventions">Interventions</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Start</Label>
-                    <Input type="date" value={recentStart} max={recentEnd} onChange={e => setRecentStart(e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">End</Label>
-                    <Input type="date" value={recentEnd} min={recentStart} onChange={e => setRecentEnd(e.target.value)} />
-                  </div>
-                </div>
-                {recentReports.length === 0 && (
-                  <div className="text-center py-6">
-                    <div className="text-sm text-muted-foreground mb-2">No reports found for the selected filters.</div>
-                    <div className="text-xs text-muted-foreground">Generate a report above to populate this list, or adjust your date range and type filters.</div>
-                  </div>
-                )}
-                {recentReports
-                  .filter(r => recentFilterType === 'all' || r.reportType === recentFilterType)
-                  .filter(r => {
-                    if (!recentStart && !recentEnd) return true;
-                    const d = new Date(r.createdAt);
-                    const s = recentStart ? new Date(recentStart + 'T00:00:00') : new Date(0);
-                    const e = recentEnd ? new Date(recentEnd + 'T23:59:59') : new Date(8640000000000000);
-                    return d >= s && d <= e;
-                  })
-                  .map((r) => (
-                  <div key={r.id} className="flex items-center justify-between border rounded-lg p-3">
-                    <div className="min-w-0">
-                      <div className="font-medium text-foreground truncate">{r.title}</div>
-                      <div className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleString()} • {r.reportType}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setSelectedReport(r) || setModalOpen(true)}>Open</Button>
-                      <Button variant="secondary" size="sm" onClick={() => {
-                        const data = r.dataJson || {};
-                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${r.title.replace(/\s+/g,'_')}.json`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                      }}>Download JSON</Button>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={cursorStack.length === 0}
-                    onClick={() => {
-                      const stack = [...cursorStack];
-                      const prev = stack.pop();
-                      setCursorStack(stack);
-                      setRecentCursor(prev || undefined);
-                    }}
-                  >Prev</Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (recentResp?.continueCursor) {
-                        setCursorStack((s) => [...s, recentCursor]);
-                        setRecentCursor(recentResp.continueCursor);
-                      }
-                    }}
-                    disabled={!recentResp?.continueCursor}
-                  >Next</Button>
-                  <Button variant="outline" size="sm" onClick={() => { setCursorStack([]); setRecentCursor(undefined); }}>Reset</Button>
-                </div>
-              </CardContent>
-            </Card>
 
-            {selectedReport && (
-              <ViewReportModal
-                report={selectedReport}
-                open={modalOpen}
-                onClose={() => setModalOpen(false)}
-              />
-            )}
+
+
           </div>
         )}
 

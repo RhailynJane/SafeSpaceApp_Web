@@ -57,7 +57,7 @@ export const list = query({
       hasChartImage: !!r.chartStorageId,
       chartMimeType: r.chartMimeType,
       dataJson: r.dataJson,
-    });
+    }));
     
     return mapped;
   },
