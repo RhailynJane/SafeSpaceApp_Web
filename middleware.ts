@@ -34,7 +34,9 @@ export default clerkMiddleware(async (auth, req) => {
   response.headers.set('X-Frame-Options', 'DENY'); // Prevent clickjacking
   response.headers.set('X-Content-Type-Options', 'nosniff'); // Prevent MIME sniffing
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin'); // Control referrer info
-  response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()'); // Restrict feature access
+  
+  // Permissions Policy - Allow camera and microphone for Daily.co video calling
+  response.headers.set('Permissions-Policy', 'camera=(self "https://*.daily.co"), microphone=(self "https://*.daily.co"), display-capture=(self "https://*.daily.co")');
   
   // Content Security Policy (CSP) - Adjust based on your needs
   const cspDirectives = [
@@ -43,8 +45,10 @@ export default clerkMiddleware(async (auth, req) => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://*.clerk.accounts.dev https://clerk-telemetry.com https://convex.cloud https://*.convex.cloud wss://*.convex.cloud https://*.sendbird.com wss://*.sendbird.com",
+    "connect-src 'self' https://*.clerk.accounts.dev https://clerk-telemetry.com https://convex.cloud https://*.convex.cloud wss://*.convex.cloud https://*.sendbird.com wss://*.sendbird.com https://*.daily.co wss://*.daily.co",
     "worker-src 'self' blob:",
+    "frame-src 'self' https://*.daily.co",
+    "media-src 'self' blob: https://*.daily.co",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
