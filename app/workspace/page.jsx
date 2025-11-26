@@ -105,7 +105,21 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         }
       : 'skip'
   );
-  const recentReports = recentResp?.page || [];
+  const recentReports = recentResp || []; // Convex query returns array directly, not paginated
+  
+  // Debug logging for recent reports
+  useEffect(() => {
+    console.log('📊 Recent Reports Debug:', {
+      isUserReady,
+      dbUserOrgId: dbUserRec?.orgId,
+      recentFilterType,
+      startMs2,
+      endMs2,
+      recentResp,
+      recentReportsCount: recentReports?.length || 0
+    });
+  }, [isUserReady, dbUserRec?.orgId, recentFilterType, startMs2, endMs2, recentResp]);
+  
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -605,8 +619,23 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       // Sessions Summary: Aggregate by support worker
       const bySupportWorker = {};
       filteredNotes.forEach(n => {
-        // Use the mapped author_name from notes, which includes proper fallback
-        const workerName = n.author_name || 'Unknown Worker';
+        // Enhanced support worker name resolution
+        let workerName = 'Unknown Worker';
+        
+        if (n.author_name && n.author_name !== 'Unknown Author' && !n.author_name.startsWith('User (')) {
+          // Use the properly resolved author_name
+          workerName = n.author_name;
+        } else if (n.author_user_id && assignableUsers) {
+          // Try to resolve name directly from assignableUsers if author_name failed
+          const worker = assignableUsers.find(u => 
+            u.clerkId === n.author_user_id || u._id === n.author_user_id || u.id === n.author_user_id
+          );
+          if (worker) {
+            workerName = `${worker.firstName || worker.first_name || ''} ${worker.lastName || worker.last_name || ''}`.trim();
+          } else if (n.author_user_id) {
+            workerName = `Unknown Staff (${n.author_user_id.substring(0, 8)}...)`;
+          }
+        }
         
         if (!bySupportWorker[workerName]) {
           bySupportWorker[workerName] = { total: 0 };
