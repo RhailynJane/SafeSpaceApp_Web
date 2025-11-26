@@ -63,7 +63,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [showChat, setShowChat] = useState(false);
   const [channelUrl, setChannelUrl] = useState("");
   const [chatChannelName, setChatChannelName] = useState("Chat");
-  const todayStr = new Date().toISOString().split('T')[0];
+  
+  // Get today's date in local timezone (YYYY-MM-DD)
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  const todayStr = `${year}-${month}-${day}`;
+  
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
   const dragHandleRef = useRef(null);
@@ -260,12 +267,22 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       };
     });
     
-    // Only update if data actually changed
+    // Merge with any optimistic items already in schedule for the selected date
     setSchedule(prev => {
-      if (JSON.stringify(prev) === JSON.stringify(appts)) return prev;
-      return appts;
+      const prevForDate = prev.filter(p => p.appointment_date === selectedDate);
+      const mergedForDate = [...appts, ...prevForDate].reduce((acc, item) => {
+        const key = String(item.id || `${item.appointment_date}_${item.appointment_time}_${item.type}`);
+        if (!acc.find(x => String(x.id || `${x.appointment_date}_${x.appointment_time}_${x.type}`) === key)) {
+          acc.push(item);
+        }
+        return acc;
+      }, []);
+      const others = prev.filter(p => p.appointment_date !== selectedDate);
+      const next = [...others, ...mergedForDate];
+      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      return next;
     });
-  }, [convexTodaysAppts, convexClients]);
+  }, [convexTodaysAppts, convexClients, selectedDate]);
 
   // Populate schedule with all appointments for ScheduleModal
   useEffect(() => {
@@ -298,10 +315,17 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       };
     });
     
-    // Only update if data actually changed
+    // Merge with any optimistic items across all dates
     setSchedule(prev => {
-      if (JSON.stringify(prev) === JSON.stringify(allAppts)) return prev;
-      return allAppts;
+      const merged = [...allAppts, ...prev].reduce((acc, item) => {
+        const key = String(item.id || `${item.appointment_date}_${item.appointment_time}_${item.type}`);
+        if (!acc.find(x => String(x.id || `${x.appointment_date}_${x.appointment_time}_${x.type}`) === key)) {
+          acc.push(item);
+        }
+        return acc;
+      }, []);
+      if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
+      return merged;
     });
   }, [convexAllAppts, convexClients]);
 
@@ -347,6 +371,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       client: { client_first_name: "", client_last_name: "" },
     };
     setSchedule((prev) => [...prev, optim]);
+    // Ensure the schedule view switches to the newly added appointment's date
+    if (optim.appointment_date && optim.appointment_date !== selectedDate) {
+      setSelectedDate(optim.appointment_date);
+    }
     mutate("/api/dashboard");
   };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
@@ -978,7 +1006,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             </CardHeader>
             <CardContent>
               <div className="flex gap-2 mb-4">
-                <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} />
+                <AddAppointmentModal onAdd={handleAddAppointment} defaultDate={selectedDate} clients={clients} existingAppointments={schedule} />
                 <ViewAvailabilityModal
                   availability={[
                     { day: "Monday", time: "10:00 AM - 12:00 PM" },

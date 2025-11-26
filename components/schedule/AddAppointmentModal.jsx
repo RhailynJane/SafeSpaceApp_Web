@@ -43,6 +43,7 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/contexts/ToastContext';
 
 // Import icons from lucide-react library
 import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
@@ -58,25 +59,27 @@ import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
  * a successful appointment creation, receiving the new appointment data.
  * @returns {JSX.Element} The Add Appointment Modal component.
  */
-export default function AddAppointmentModal({ onAdd }) {
+export default function AddAppointmentModal({ onAdd, defaultDate, clients: clientsProp, existingAppointments }) {
   const { user, isLoaded } = useUser();
   const clients = useQuery(
     api.clients.list,
     isLoaded && user?.id ? { clerkId: user.id } : 'skip'
   ) || [];
+  const clientOptions = clientsProp && Array.isArray(clientsProp) ? clientsProp : clients;
   const listForDate = useQuery(
     api.appointments.listByDate,
     isLoaded && user?.id ? { clerkId: user.id, date: new Date().toISOString().split('T')[0] } : 'skip'
   );
   const createAppt = useMutation(api.appointments.create);
+  const toast = useToast();
 
   // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
 
   // State for appointment date, initialized to today's date in "YYYY-MM-DD" format
-  const [appointment_date, setAppointmentDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const [appointment_date, setAppointmentDate] = useState(defaultDate || todayStr);
   // State for appointment time
   const [appointment_time, setAppointmentTime] = useState("");
   // State for the selected client's ID
@@ -185,13 +188,32 @@ export default function AddAppointmentModal({ onAdd }) {
         clientDbId: client_id ? client_id : undefined,
       });
 
-      // 8. Execute the 'onAdd' callback with a minimal object
-      if (onAdd) onAdd({ _id: createdId, appointmentDate: appointment_date, appointmentTime: appointment_time, type, duration: `${durationInMinutes} min` });
+      // 8. Execute the 'onAdd' callback with enriched client name for optimistic UI
+      let first = '';
+      let last = '';
+      const found = clientOptions.find((c) => String(c._id || c.id) === String(client_id));
+      if (found) {
+        first = found.firstName || found.client_first_name || '';
+        last = found.lastName || found.client_last_name || '';
+      }
+      if (onAdd) onAdd({
+        _id: createdId,
+        appointmentDate: appointment_date,
+        appointmentTime: appointment_time,
+        type,
+        duration: `${durationInMinutes} min`,
+        details,
+        client: { client_first_name: first, client_last_name: last },
+      });
+
+      // Show success toast
+      toast.success('Appointment added successfully');
 
       // 9. Reset form states for the next use
       setClientId("");
       setAppointmentTime("");
-      setAppointmentDate(new Date().toISOString().split("T")[0]); // Reset date to today
+      const resetDate = new Date();
+      setAppointmentDate(`${resetDate.getFullYear()}-${String(resetDate.getMonth() + 1).padStart(2, '0')}-${String(resetDate.getDate()).padStart(2, '0')}`);
       setType("Individual Session");
       setDuration("50 min");
       setDetails("");
@@ -219,17 +241,17 @@ export default function AddAppointmentModal({ onAdd }) {
       </DialogTrigger>
 
       {/* DialogContent contains the modal's structure and form */}
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         {/* Modal Header/Title section */}
-        <DialogHeader>
-          <DialogTitle className="text-teal-800">New Appointment</DialogTitle>
-          <DialogDescription>
+        <DialogHeader className="space-y-3 pb-4">
+          <DialogTitle className="text-2xl font-semibold text-teal-800 dark:text-teal-400">New Appointment</DialogTitle>
+          <DialogDescription className="text-base text-gray-600 dark:text-gray-400">
             Fill in the details for the new appointment.
           </DialogDescription>
         </DialogHeader>
 
         {/* The main form, attached to the handleSubmit function */}
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <form className="space-y-5" onSubmit={handleSubmit}>
           {/* Client Selection Field */}
           <div className="space-y-2">
             <Label htmlFor="client" className="flex items-center gap-2">
@@ -242,9 +264,9 @@ export default function AddAppointmentModal({ onAdd }) {
                 <SelectValue placeholder="Select a client" />
               </SelectTrigger>
               <SelectContent>
-                {clients.map((client) => (
-                  <SelectItem key={client._id} value={client._id}>
-                    {client.firstName} {client.lastName}
+                {clientOptions.map((client) => (
+                  <SelectItem key={client._id || client.id} value={client._id || client.id}>
+                    {(client.firstName || client.client_first_name) || ''} {(client.lastName || client.client_last_name) || ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -252,7 +274,7 @@ export default function AddAppointmentModal({ onAdd }) {
           </div>
 
           {/* Date and Time Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="date" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -262,7 +284,7 @@ export default function AddAppointmentModal({ onAdd }) {
                 id="date"
                 type="date"
                 value={appointment_date}
-                min={new Date().toISOString().split("T")[0]}
+                min={todayStr}
                 // Update state when the input changes
                 onChange={(e) => setAppointmentDate(e.target.value)}
                 required // HTML validation attribute
@@ -288,7 +310,7 @@ export default function AddAppointmentModal({ onAdd }) {
           </div>
 
           {/* Session Type and Duration Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="type">Session Type</Label>
               {/* Select component for appointment type */}

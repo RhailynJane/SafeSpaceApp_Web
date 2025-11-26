@@ -101,7 +101,9 @@ export const create = mutation({
       status: args.status ?? "scheduled",
       notes: args.notes,
       meetingLink: args.meetingLink,
-      clientId: args.clientId,
+      // Persist the selected client from web form
+      // Prefer the database id when provided; fall back to legacy string id
+      clientId: (args.clientDbId as any) ?? args.clientId,
       scheduledByUserId: args.clerkId,
       supportWorkerId: assignedWorkerClerkId ?? undefined,
       orgId: orgId ?? undefined,
