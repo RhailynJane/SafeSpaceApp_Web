@@ -48,10 +48,12 @@ export default function WorkspaceLayout({ children }) {
     );
   }
 
+  const userRole = user?.publicMetadata?.role;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="flex min-h-screen">
-        <WorkspaceNav />
+        <WorkspaceNav userRole={userRole} />
         <main className="flex-1 p-6 overflow-auto">
           {sessionId && <PresencePinger />}
           <WorkspaceGreeting />

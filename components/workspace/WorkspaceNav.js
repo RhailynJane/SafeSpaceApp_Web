@@ -17,16 +17,17 @@ import {
 /**
  * WorkspaceNav component provides a side navigation for the workspace.
  * It dynamically highlights the currently active tab based on the URL query parameter.
+ * Navigation items are filtered based on user role.
  */
-export default function WorkspaceNav() {
+export default function WorkspaceNav({ userRole }) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const activeTab = searchParams?.get('tab') || 'Overview';
 
-    const navLinks = [
+    const allNavLinks = [
         { name: 'Overview', tab: 'Overview', icon: LayoutDashboard },
         { name: 'Clients', tab: 'Clients', icon: Users },
-        { name: 'Referrals', tab: 'Referrals', icon: UserPlus },
+        { name: 'Referrals', tab: 'Referrals', icon: UserPlus, roles: ['team_leader', 'admin', 'superadmin'] },
         { name: 'Notes', tab: 'Notes', icon: FileText },
         { name: 'Schedule', tab: 'Schedule', icon: Calendar },
         { name: 'Reports', tab: 'Reports', icon: BarChart3 },
@@ -34,6 +35,17 @@ export default function WorkspaceNav() {
         { name: 'Crisis Events', tab: 'Crisis', icon: AlertTriangle },
         { name: 'Audit Logs', tab: 'Audit', icon: ClipboardList },
     ];
+
+    // Filter navigation links based on user role
+    const navLinks = allNavLinks.filter(link => {
+        if (link.roles) {
+            // Normalize role format for comparison
+            const normalizedUserRole = userRole?.replace(/-/g, '_');
+            return link.roles.includes(normalizedUserRole);
+        }
+        // If no roles specified, show to all users
+        return true;
+    });
 
     return (
         <aside className="h-screen w-64 border-r border-border bg-card text-card-foreground sticky top-0">

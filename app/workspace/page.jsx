@@ -175,7 +175,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       }
 
       // Conditionally fetch referrals and assignable users
-      if (userRole === "team-leader") {
+      if (userRole === "team-leader" || userRole === "admin") {
         const [refRes, usersRes] = await Promise.all([
           fetch("/api/referrals"),
           fetch("/api/assignable-users"),
@@ -504,7 +504,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     }
   };
 
-  const tabs = userRole === "team-leader"
+  const tabs = (userRole === "team-leader" || userRole === "admin")
     ? ["Overview", "Referrals", "Clients", "Schedule", "Notes", "Crisis", "Reports", "Audit Log"]
     : ["Overview", "Clients", "Schedule", "Notes", "Crisis", "Reports"];
 
@@ -1159,8 +1159,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           </div>
         )}
 
-        {/* Referrals Tab - Team Leaders Only */}
-        {defaultTab === "Referrals" && userRole === "team-leader" && (
+        {/* Referrals Tab - Team Leaders and Admins Only */}
+        {defaultTab === "Referrals" && (userRole === "team-leader" || userRole === "admin") && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-foreground">Referral Management</h2>

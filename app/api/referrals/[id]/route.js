@@ -59,6 +59,23 @@ async function getConvexClient() {
  */
 export async function GET(req, { params }) {
   try {
+    // Authentication and role check
+    const user = await currentUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const role = user?.publicMetadata?.role;
+    const allowedRoles = ["admin", "team_leader"];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json(
+        { 
+          error: "Forbidden - Access to referrals is restricted to Team Leaders and Administrators only",
+          yourRole: role,
+          allowedRoles: allowedRoles
+        }, 
+        { status: 403 }
+      );
+    }
+
     const { id } = await params; // Extracts referral ID from the route parameters
     
     const convex = await getConvexClient();
@@ -91,6 +108,20 @@ export async function PATCH(req, { params }) {
     
     if (!user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    // Check user role - only team leaders and admins can update referrals
+    const role = user?.publicMetadata?.role;
+    const allowedRoles = ["admin", "team_leader"];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json(
+        { 
+          error: "Forbidden - Access to referrals is restricted to Team Leaders and Administrators only",
+          yourRole: role,
+          allowedRoles: allowedRoles
+        }, 
+        { status: 403 }
+      );
+    }
 
     // Parse the request body for updated data
     const body = await req.json();
