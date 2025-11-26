@@ -25,7 +25,19 @@ SafeSpace now uses **Daily.co** for video calling, replacing Sendbird. Daily.co 
 4. Copy your API key (starts with a long string)
    - If you don't see one, click "Create API Key"
 
-### 3. Configure Environment Variable
+### 3. Add Payment Method (Required)
+**Important**: Daily.co requires a payment method on file, even for free tier usage.
+
+1. Go to [Daily.co Billing](https://dashboard.daily.co/billing)
+2. Click **Add Payment Method**
+3. Enter your credit/debit card information
+4. Save the payment method
+
+**Note**: You won't be charged unless you exceed the free tier (10,000 minutes/month). This is just for account verification.
+
+**Error if skipped**: `account-missing-payment-method` - Video calls won't work without this step!
+
+### 4. Configure Environment Variable
 1. Open `.env.local` in your SafeSpace project
 2. Find the line:
    ```
@@ -39,7 +51,7 @@ Example:
 DAILY_API_KEY=abc123def456ghi789jkl012mno345pqr678stu901vwx234yz
 ```
 
-### 4. Restart Your Development Server
+### 5. Restart Your Development Server
 ```bash
 # Stop the server (Ctrl+C)
 # Start it again
@@ -77,6 +89,14 @@ npm run dev
   - Network quality indicator
 
 ## Troubleshooting
+
+### "account-missing-payment-method"
+**This is the most common error!**
+- Daily.co requires a payment method on file, even for free tier
+- Go to: https://dashboard.daily.co/billing
+- Add a credit/debit card (you won't be charged for free tier usage)
+- This is just for account verification
+- Retry the video call after adding payment method
 
 ### "Video call feature is not configured"
 - Check that `DAILY_API_KEY` is set in `.env.local`

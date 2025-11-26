@@ -127,7 +127,12 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
 
       frame.on('error', (error) => {
         console.error('Daily error:', error);
-        setError('An error occurred during the call');
+        if (error?.errorMsg === 'account-missing-payment-method') {
+          setError('Daily.co account requires payment method. Please add payment info at https://dashboard.daily.co/billing');
+        } else {
+          setError(error?.errorMsg || 'An error occurred during the call');
+        }
+        setCallStatus('error');
       });
 
       // Join the room
@@ -140,7 +145,11 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
 
     } catch (err) {
       console.error("Error joining call:", err);
-      setError(err.message || "Failed to join video call. Please try again.");
+      if (err?.errorMsg === 'account-missing-payment-method') {
+        setError('Daily.co account requires payment method. Please add payment info at https://dashboard.daily.co/billing');
+      } else {
+        setError(err?.errorMsg || err?.message || "Failed to join video call. Please try again.");
+      }
       setCallStatus("error");
     }
   };
@@ -221,11 +230,12 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
             Video Call with {appointment?.client_name || appointment?.client?.client_first_name || "Client"}
           </DialogTitle>
           <DialogDescription className="dark:text-gray-400">
+            {callStatus === "idle" && "Initializing video call..."}
             {callStatus === "creating" && "Creating secure video room..."}
             {callStatus === "ready" && "Room ready - Click 'Join Call' to start"}
             {callStatus === "joining" && "Joining call..."}
             {callStatus === "joined" && "Call in progress"}
-            {callStatus === "error" && "Call failed"}
+            {callStatus === "error" && "Call failed - Check error message below"}
           </DialogDescription>
         </DialogHeader>
 
