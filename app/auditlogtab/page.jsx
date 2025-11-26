@@ -7,22 +7,16 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [expandedLog, setExpandedLog] = useState(null);
 
-  // Filter logs to show only current user's activities
-  const userLogs = useMemo(() => {
-    if (!currentUser) return auditLogs;
-    return auditLogs.filter(log => log.actor_id === currentUser.id || log.actor_id === currentUser.email);
-  }, [auditLogs, currentUser]);
-
   // Get unique entity types for filter
   const entityTypes = useMemo(() => {
-    const types = new Set(userLogs.map(log => log.entity_type));
+    const types = new Set(auditLogs.map(log => log.entity_type));
     return ['all', ...Array.from(types)];
-  }, [userLogs]);
+  }, [auditLogs]);
 
   // Calculate user statistics
   const userStats = useMemo(() => {
     const stats = {
-      totalActions: userLogs.length,
+      totalActions: 0,
       creates: 0,
       updates: 0,
       deletes: 0,
@@ -30,7 +24,10 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
       lastActivity: null
     };
 
-    userLogs.forEach(log => {
+    const userAuditLogs = currentUser ? auditLogs.filter(log => String(log.user_id) === String(currentUser.id)) : [];
+    stats.totalActions = userAuditLogs.length;
+
+    userAuditLogs.forEach(log => {
       const action = log.action.toLowerCase();
       if (action.includes('create') || action.includes('add')) stats.creates++;
       if (action.includes('update') || action.includes('edit') || action.includes('modify')) stats.updates++;
@@ -38,17 +35,20 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
       if (action.includes('login') || action.includes('signin')) stats.logins++;
     });
 
-    if (userLogs.length > 0) {
-      const sortedByDate = [...userLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      stats.lastActivity = sortedByDate[0].created_at;
+    if (userAuditLogs.length > 0) {
+      const sortedByDate = [...userAuditLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      stats.lastActivity = sortedByDate[0].timestamp;
     }
 
     return stats;
-  }, [userLogs]);
+  }, [auditLogs, currentUser]);
 
   // Filter and sort logs
   const filteredLogs = useMemo(() => {
-    let filtered = userLogs.filter(log => {
+    let filtered = auditLogs.filter(log => {
+      // Filter by current user
+      const matchesUser = currentUser ? String(log.user_id) === String(currentUser.id) : true;
+
       const matchesSearch = 
         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.entity_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -56,15 +56,15 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
       
       const matchesFilter = filterType === 'all' || log.entity_type === filterType;
       
-      return matchesSearch && matchesFilter;
+      return matchesUser && matchesSearch && matchesFilter;
     });
 
     return filtered.sort((a, b) => {
-      const dateA = new Date(a.created_at);
-      const dateB = new Date(b.created_at);
+      const dateA = new Date(a.timestamp);
+      const dateB = new Date(b.timestamp);
       return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
     });
-  }, [userLogs, searchTerm, filterType, sortOrder]);
+  }, [auditLogs, searchTerm, filterType, sortOrder, currentUser]);
 
   // Get badge color based on action type
   const getBadgeColor = (action) => {
@@ -78,12 +78,11 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
 
   const exportLogs = () => {
     const csv = [
-      ['Timestamp', 'User', 'Action', 'Entity Type', 'Details'],
+      ['Timestamp', 'User ID', 'Action', 'Details'],
       ...filteredLogs.map(log => [
-        new Date(log.created_at).toISOString(),
-        log.actor_id,
+        new Date(log.timestamp).toISOString(),
+        log.user_id,
         log.action,
-        log.entity_type,
         log.details || ''
       ])
     ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -163,7 +162,7 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                 <div>
                   <p className="text-sm text-gray-600">User ID</p>
-                  <p className="font-medium">{currentUser.id || currentUser.email}</p>
+                  <p className="font-medium">{currentUser.id}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Last Activity</p>
@@ -179,16 +178,16 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
                       : 'No activity yet'}
                   </p>
                 </div>
-                {currentUser.name && (
+                {currentUser.first_name && currentUser.last_name && (
                   <div>
                     <p className="text-sm text-gray-600">Name</p>
-                    <p className="font-medium">{currentUser.name}</p>
+                    <p className="font-medium">{currentUser.first_name} {currentUser.last_name}</p>
                   </div>
                 )}
-                {currentUser.role && (
+                {currentUser.role?.role_name && (
                   <div>
                     <p className="text-sm text-gray-600">Role</p>
-                    <p className="font-medium capitalize">{currentUser.role}</p>
+                    <p className="font-medium capitalize">{currentUser.role.role_name}</p>
                   </div>
                 )}
               </div>
@@ -257,7 +256,7 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
 
           {/* Results count */}
           <div className="mt-4 text-sm text-gray-600">
-            Showing {filteredLogs.length} of {userLogs.length} activities
+            Showing {filteredLogs.length} of {auditLogs.length} activities
           </div>
         </div>
 
@@ -280,7 +279,7 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Calendar className="w-4 h-4" />
-                          <span>{new Date(log.created_at).toLocaleString('en-US', {
+                          <span>{new Date(log.timestamp).toLocaleString('en-US', {
                             year: 'numeric',
                             month: 'short',
                             day: 'numeric',

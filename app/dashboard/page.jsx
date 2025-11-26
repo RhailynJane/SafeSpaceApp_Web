@@ -109,13 +109,30 @@ const formatMetrics = (metrics) => [
   },
 ];
 
-export default function DashboardPage({ clients, onAdd }) {
+export default function DashboardPage({ clients, onAdd, schedule = [] }) {
   const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
 
   const handleAddAppointment = async (newAppt) => {
+    if (onAdd) {
+      onAdd(newAppt);
+    }
+
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const isToday = newAppt.date === todayStr;
+
+    const newData = {
+      ...data,
+      upcomingAppointments: [...data.upcomingAppointments, newAppt].sort((a, b) => new Date(a.appointment_date) - new Date(b.appointment_date)),
+      metrics: {
+        ...data.metrics,
+        totalAppointments: data.metrics.totalAppointments + 1,
+        todaysSessions: isToday ? data.metrics.todaysSessions + 1 : data.metrics.todaysSessions,
+      }
+    };
+
     try {
-      await mutate();
+      await mutate(newData, { revalidate: false });
       globalMutate("/api/appointments");
     } catch (err) {
       console.error("Error revalidating dashboard after add:", err);
@@ -129,6 +146,33 @@ export default function DashboardPage({ clients, onAdd }) {
   const { metrics, notifications, upcomingAppointments, role } = data || {};
 
   const formattedMetrics = formatMetrics(metrics || {});
+
+  const todaysUpcomingAppointments = (upcomingAppointments || [])
+    .map(appt => {
+      if (!appt.date || !appt.appointment_time) {
+        return { ...appt, combinedDateTime: null };
+      }
+      const datePart = appt.date.substring(0, 10);
+      const timePart = appt.appointment_time.substring(11, 19);
+      const dateStr = `${datePart}T${timePart}Z`; // Append Z for UTC
+      const combinedDateTime = new Date(dateStr);
+      return { ...appt, combinedDateTime };
+    })
+    .filter(appt => {
+      if (!appt.combinedDateTime) {
+        return false;
+      }
+      const now = new Date();
+      const tomorrow = new Date();
+      tomorrow.setDate(now.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
+    })
+        .sort((a, b) => {
+      if (!a.combinedDateTime) return 1;
+      if (!b.combinedDateTime) return -1;
+      return a.combinedDateTime.getTime() - b.combinedDateTime.getTime();
+    });
 
   return (
     <div className="space-y-6">
@@ -206,11 +250,11 @@ export default function DashboardPage({ clients, onAdd }) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
             {/* <-- AddAppointmentModal kept exactly as before, now wired to handleAddAppointment */}
-            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} className="bg-white border-teal-200" />
+            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
-            {upcomingAppointments?.length > 0 ? (
-              upcomingAppointments.map((appointment) => (
+            {todaysUpcomingAppointments.length > 0 ? (
+              todaysUpcomingAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
                   className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200"
@@ -232,7 +276,7 @@ export default function DashboardPage({ clients, onAdd }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900">
-                      {new Date(appointment.appointment_time).toLocaleTimeString([], {
+                      {new Date(appointment.date).toLocaleDateString(undefined, { timeZone: 'UTC' })} {new Date(appointment.appointment_time).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}

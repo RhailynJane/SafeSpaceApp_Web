@@ -9,32 +9,13 @@ import { Users, AlertTriangle, FileText, Calendar, UserCheck, Clock, Eye, BarCha
 import AddAppointmentModal from "./schedule/AddAppointmentModal";
 
 
-export function DashboardOverview({
-  userRole,
-  clients = [],
-  schedule = [],
-  addAppointmentModalOpen,
-  setAddAppointmentModalOpen,
-  onAdd,
-}) {
+export function DashboardOverview({ userRole, schedule = [] }) {
   const metrics = getMetricsForRole(userRole);
 
   const [notifications, setNotifications] = useState([]);
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const response = await fetch('/api/notifications/mine');
-        if (response.ok) {
-          const data = await response.json();
-          setNotifications(Array.isArray(data) ? data : []);
-        }
-      } catch (error) {
-        console.error("Failed to fetch notifications:", error);
-      }
-    };
-    fetchNotifications();
-  }, []);
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const todaySchedule = schedule.filter(appointment => appointment.date === todayStr);
 
   const todaySchedule = schedule.filter(appt => {
     const apptDate = new Date(appt.appointment_date);

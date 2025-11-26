@@ -1,15 +1,7 @@
 'use client';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 /**
  * ViewReportModal Component
@@ -36,16 +28,39 @@ export default function ViewReportModal({ report, open, onClose }) {
             {report.name}
           </DialogTitle>
           <DialogDescription>
-            Generated on {new Date(report.created_at).toLocaleString()}
+            {report.date} • {report.type}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto pr-2 bg-gray-50 p-4 rounded-lg border">
-          <pre className="text-sm whitespace-pre-wrap">
-            {JSON.stringify(report.data, null, 2)}
-          </pre>
+
+        <div className="mt-4 max-h-96 overflow-y-auto p-2 bg-gray-50 border rounded">
+          {report.data ? (
+            <table className="w-full text-sm text-left border-collapse">
+              <tbody>
+                {Object.entries(report.data).map(([key, value]) => (
+                  <tr key={key} className="border-b last:border-b-0">
+                    <td className="py-2 px-4 font-medium capitalize text-gray-700">
+                      {key.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2 px-4 text-gray-900">
+                      {typeof value === "object" && value !== null
+                        ? Object.entries(value).map(([subKey, subValue]) => (
+                            <div key={subKey}>
+                              <span className="font-medium">{subKey}:</span> {String(subValue)}
+                            </div>
+                          ))
+                        : String(value)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="text-gray-600 text-sm">No preview available</p>
+          )}
         </div>
-        <DialogFooter className="flex-shrink-0 mt-4">
-          <Button variant="outline" onClick={onClose}>Close</Button>
+
+        <DialogFooter className="mt-4">
+          <Button onClick={onClose}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

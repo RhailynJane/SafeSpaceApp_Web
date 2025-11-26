@@ -13,7 +13,7 @@ export async function POST(request) {
 
     const res = await fetch(
       `https://api-${process.env.SENDBIRD_APP_ID}.sendbird.com/v3/users/${encodeURIComponent(
-        userId
+        userId.trim()
       )}/block`,
       {
         method: "POST",
@@ -21,7 +21,7 @@ export async function POST(request) {
           "Content-Type": "application/json",
           "Api-Token": process.env.SENDBIRD_API_TOKEN,
         },
-        body: JSON.stringify({ target_id: targetId }),
+        body: JSON.stringify({ target_id: targetId.trim() }),
       }
     );
 

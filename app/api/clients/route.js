@@ -33,7 +33,78 @@ export async function GET(req) {
       },
     });
 
-    // Step 4: Return clients
+        include: {
+
+          role: true,
+
+        },
+
+      });
+
+    }
+
+
+
+    if (!user.role) {
+
+      return NextResponse.json({ error: `User with clerk_user_id ${userId} has an invalid role_id.` }, { status: 500 });
+
+    }
+
+
+
+    const userRole = user.role.role_name.replace(/_/g, "-");
+
+
+
+
+
+    let clients;
+
+    if (userRole === "support-worker") {
+
+      clients = await prisma.client.findMany({
+        select: {
+          id: true,
+          client_first_name: true,
+          client_last_name: true,
+          last_session_date: true,
+          risk_level: true,
+          status: true,
+          email: true,
+          user: {
+            select: {
+              clerk_user_id: true,
+            },
+          },
+        },
+      });
+
+    } else {
+
+      clients = await prisma.client.findMany({
+
+        orderBy: { created_at: "desc" },
+        select: {
+          id: true,
+          client_first_name: true,
+          client_last_name: true,
+          last_session_date: true,
+          risk_level: true,
+          status: true,
+          email: true,
+          user: {
+            select: {
+              clerk_user_id: true,
+            },
+          },
+        },
+      });
+
+    }
+
+
+
     return NextResponse.json(clients, { status: 200 });
 
   } catch (error) {
