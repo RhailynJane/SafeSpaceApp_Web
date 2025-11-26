@@ -16,135 +16,187 @@ import {
 import { Button } from "@/components/ui/button";
 
 // Import icons from lucide-react library
-import { Video, PhoneOff, Copy, Check, ExternalLink } from "lucide-react";
+import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2, AlertCircle } from "lucide-react";
+
+// Define a variable for the SendBirdCall SDK
+let SendBirdCall = null;
+// Dynamically import SendBirdCall only when 'window' (the browser environment) is available.
+if (typeof window !== 'undefined') {
+  SendBirdCall = require('sendbird-calls');
+}
 
 /**
  * VideoCallModal Component
  *
- * A modal component to handle video calls using Jitsi Meet (100% free, open-source).
- * Jitsi provides secure, high-quality video calls perfect for therapy/healthcare sessions.
+ * A modal component to handle video calls using Sendbird Calls SDK.
+ * Sendbird provides reliable video calling for messaging apps.
  *
  * @param {Object} props - The component props.
  * @param {Object} props.appointment - Data about the appointment (e.g., client_name).
  * @param {boolean} props.open - State to control the visibility of the modal.
  * @param {function(boolean): void} props.onOpenChange - Callback to change the modal's open state.
- * @param {string} props.currentUserId - The ID of the currently logged-in user.
- * @param {string} props.recipientUserId - The ID of the user to call.
+ * @param {string} props.currentUserId - The ID of the currently logged-in user (the caller).
+ * @param {string} props.recipientUserId - The ID of the user to call (the client/therapist).
  * @returns {JSX.Element} The Video Call Modal component.
  */
 export default function VideoCallModal({ appointment, open, onOpenChange, currentUserId, recipientUserId }) {
-  // State for Jitsi API instance
-  const [jitsiApi, setJitsiApi] = useState(null);
-  // State for call connection status: "idle", "loading", "ready", "joined", "ended"
+  // State to hold the active call object returned by Sendbird
+  const [call, setCall] = useState(null);
+  // State for toggling microphone mute status
+  const [isMuted, setIsMuted] = useState(false);
+  // State for toggling local video status
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  // State for call connection status: "idle", "connecting", "connected", "error"
   const [callStatus, setCallStatus] = useState("idle");
-  // State for the meeting room name
-  const [roomName, setRoomName] = useState("");
-  // State for the meeting URL to share
-  const [meetingUrl, setMeetingUrl] = useState("");
-  // State to check if URL was copied
-  const [copied, setCopied] = useState(false);
+  // State to store and display error messages
+  const [error, setError] = useState("");
+  // State to check if the video call feature is correctly configured
+  const [isEnabled, setIsEnabled] = useState(false);
 
-  // Ref for the container where Jitsi will embed the video
-  const jitsiContainerRef = useRef(null);
+  // useRef is used to directly reference DOM elements (video tags)
+  const localVideoRef = useRef(null); // Reference for the current user's video feed
+  const remoteVideoRef = useRef(null); // Reference for the other user's video feed
+  const callRef = useRef(null); // A stable reference to the call object for cleanup functions
 
   /**
-   * Generate a unique room name for this appointment
+   * EFFECT: Configuration Check
+   * Runs once on component mount to verify if the Sendbird App ID is set.
    */
   useEffect(() => {
-    if (open && appointment) {
-      const appointmentId = appointment.id || appointment._id;
-      const uniqueRoom = `safespace-${appointmentId}-${Date.now()}`;
-      setRoomName(uniqueRoom);
-      setMeetingUrl(`https://meet.jit.si/${uniqueRoom}`);
-      setCallStatus("ready");
+    const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
+    if (!appId || appId === 'placeholder_disable_video_calls') {
+      setIsEnabled(false);
+      setError("Video call feature is not configured. Contact administrator to enable this feature.");
+    } else {
+      setIsEnabled(true);
     }
-  }, [open, appointment]);
+  }, []);
 
   /**
-   * Initialize Jitsi Meet when user clicks Join Call
+   * EFFECT: Call Initiation and Connection
    */
-  const joinCall = () => {
-    if (!roomName || callStatus === "joined") return;
+  useEffect(() => {
+    if (!open || !appointment || !isEnabled || !SendBirdCall) return;
 
-    setCallStatus("loading");
+    const initSendbird = async () => {
+      try {
+        setCallStatus("connecting");
+        setError("");
 
-    // Load Jitsi Meet API script dynamically
-    const script = document.createElement('script');
-    script.src = 'https://meet.jit.si/external_api.js';
-    script.async = true;
-    script.onload = () => {
-      initializeJitsi();
+        const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
+        if (!appId) {
+          throw new Error("Sendbird App ID is not configured");
+        }
+
+        // Initialize SDK
+        if (!SendBirdCall.isInitialized) {
+          SendBirdCall.init(appId);
+        }
+
+        // Authenticate User
+        const authOption = {
+          userId: currentUserId || `user-${Date.now()}`,
+          accessToken: null,
+        };
+        await SendBirdCall.authenticate(authOption);
+
+        // Connect WebSocket
+        await SendBirdCall.connectWebSocket();
+
+        // Request Media Permissions
+        await SendBirdCall.useMedia({
+          audio: true,
+          video: true,
+        });
+
+        // Dial the Call
+        const dialParams = {
+          userId: recipientUserId || "user-2",
+          isVideoCall: true,
+          callOption: {
+            localMediaView: localVideoRef.current,
+            remoteMediaView: remoteVideoRef.current,
+            audioEnabled: true,
+            videoEnabled: true,
+          },
+        };
+
+        const newCall = await SendBirdCall.dial(dialParams);
+        setCall(newCall);
+        callRef.current = newCall;
+
+        // Set up Call Listeners
+        newCall.onEstablished = (call) => {
+          setCallStatus("connected");
+          console.log('Call established');
+        };
+
+        newCall.onEnded = (call) => {
+          console.log('Call ended');
+          handleEndCall();
+        };
+
+      } catch (err) {
+        console.error("Error initializing Sendbird:", err);
+        setError(err.message || "Failed to start video call. Please try again.");
+        setCallStatus("error");
+      }
     };
-    document.body.appendChild(script);
+
+    initSendbird();
+
+    // Cleanup
+    return () => {
+      if (callRef.current) {
+        try {
+          callRef.current.end();
+        } catch (e) {
+          console.error("Error ending call:", e);
+        }
+      }
+      if (SendBirdCall?.isInitialized) {
+        try {
+          SendBirdCall.deauthenticate();
+        } catch (e) {
+          console.error("Error deauthenticating:", e);
+        }
+      }
+    };
+  }, [open, appointment, currentUserId, recipientUserId, isEnabled]);
+
+  /**
+   * Handler to toggle the microphone on/off
+   */
+  const handleToggleMute = () => {
+    if (call) {
+      try {
+        if (isMuted) {
+          call.unmuteMicrophone();
+        } else {
+          call.muteMicrophone();
+        }
+        setIsMuted(!isMuted);
+      } catch (err) {
+        console.error("Error toggling mute:", err);
+      }
+    }
   };
 
   /**
-   * Initialize Jitsi Meet API
+   * Handler to toggle the local video stream on/off
    */
-  const initializeJitsi = () => {
-    if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) {
-      console.error('Jitsi API not available or container not ready');
-      return;
-    }
-
-    const domain = 'meet.jit.si'; // Free Jitsi server
-    const options = {
-      roomName: roomName,
-      width: '100%',
-      height: '100%',
-      parentNode: jitsiContainerRef.current,
-      configOverwrite: {
-        startWithAudioMuted: false,
-        startWithVideoMuted: false,
-        enableWelcomePage: false,
-        prejoinPageEnabled: false, // Skip pre-join screen
-        disableDeepLinking: true,
-      },
-      interfaceConfigOverwrite: {
-        TOOLBAR_BUTTONS: [
-          'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-          'fodeviceselection', 'hangup', 'chat', 'raisehand',
-          'videoquality', 'filmstrip', 'tileview', 'settings',
-        ],
-        SHOW_JITSI_WATERMARK: false,
-        SHOW_WATERMARK_FOR_GUESTS: false,
-        SHOW_BRAND_WATERMARK: false,
-        DEFAULT_BACKGROUND: '#1a1a1a',
-        DISABLE_VIDEO_BACKGROUND: false,
-        FILM_STRIP_MAX_HEIGHT: 120,
-      },
-      userInfo: {
-        displayName: currentUserId || 'Therapist',
-      },
-    };
-
-    try {
-      const api = new window.JitsiMeetExternalAPI(domain, options);
-
-      // Event listeners
-      api.addEventListener('videoConferenceJoined', () => {
-        console.log('✅ Joined Jitsi meeting successfully');
-        setCallStatus('joined');
-      });
-
-      api.addEventListener('videoConferenceLeft', () => {
-        console.log('Left Jitsi meeting');
-        handleEndCall();
-      });
-
-      api.addEventListener('readyToClose', () => {
-        console.log('Ready to close');
-        handleEndCall();
-      });
-
-      api.addEventListener('participantJoined', (participant) => {
-        console.log('Participant joined:', participant.displayName);
-      });
-
-      setJitsiApi(api);
-    } catch (error) {
-      console.error('Error initializing Jitsi:', error);
-      setCallStatus('ready');
+  const handleToggleVideo = () => {
+    if (call) {
+      try {
+        if (isVideoOff) {
+          call.startVideo();
+        } else {
+          call.stopVideo();
+        }
+        setIsVideoOff(!isVideoOff);
+      } catch (err) {
+        console.error("Error toggling video:", err);
+      }
     }
   };
 
@@ -152,48 +204,49 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
    * Handler to terminate the call and close the modal
    */
   const handleEndCall = () => {
-    if (jitsiApi) {
+    if (callRef.current) {
       try {
-        jitsiApi.dispose();
+        callRef.current.end();
       } catch (e) {
-        console.error("Error disposing Jitsi API:", e);
+        console.error("Error ending call:", e);
       }
     }
-    
-    // Reset all states
-    setJitsiApi(null);
+    setCall(null);
+    callRef.current = null;
     setCallStatus("idle");
-    setRoomName("");
-    setMeetingUrl("");
-    setCopied(false);
+    setIsMuted(false);
+    setIsVideoOff(false);
     onOpenChange(false);
   };
 
-  /**
-   * Copy meeting URL to clipboard
-   */
-  const handleCopyUrl = () => {
-    navigator.clipboard.writeText(meetingUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // Configuration Disabled State
+  if (!isEnabled) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md dark:bg-gray-900 dark:border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
+              <AlertCircle className="h-5 w-5" />
+              Video Call Unavailable
+            </DialogTitle>
+            <DialogDescription className="dark:text-gray-400">
+              The video call feature is currently not configured.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
+            <p className="text-sm">{error || "Video calling is not enabled. Please contact your system administrator."}</p>
+          </div>
+          <div className="flex justify-end pt-4">
+            <Button onClick={() => onOpenChange(false)} variant="outline" className="dark:border-gray-700">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
-  /**
-   * Open meeting in new tab
-   */
-  const openInNewTab = () => {
-    window.open(meetingUrl, '_blank');
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (jitsiApi) {
-        jitsiApi.dispose();
-      }
-    };
-  }, [jitsiApi]);
-
+  // Main Call UI
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[90vh] flex flex-col dark:bg-gray-900 dark:border-gray-800">
@@ -202,136 +255,109 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
             Video Call with {appointment?.client_name || appointment?.client?.client_first_name || "Client"}
           </DialogTitle>
           <DialogDescription className="dark:text-gray-400 text-sm">
-            {callStatus === "idle" && "Initializing video call..."}
-            {callStatus === "ready" && "Share the meeting link with your client or join the call"}
-            {callStatus === "loading" && "Loading Jitsi Meet..."}
-            {callStatus === "joined" && "Connected - Use the controls in the video window"}
-            {callStatus === "ended" && "Call ended"}
+            {callStatus === "connecting" && "Connecting to call..."}
+            {callStatus === "connected" && "Call in progress - Use controls below to manage your audio/video"}
+            {callStatus === "error" && "Call failed - See error message below"}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Pre-join Screen */}
-        {callStatus === "ready" && (
-          <div className="flex-1 flex flex-col gap-4 overflow-auto py-4">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 border border-blue-100 dark:border-gray-700">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="p-3 bg-blue-600 rounded-lg">
-                  <Video className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg mb-1">
-                    Secure Video Meeting
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Powered by Jitsi Meet - Free, open-source, and secure video conferencing
-                  </p>
-                </div>
-              </div>
-
-              {/* Meeting URL */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block">
-                  📋 Share this meeting link with your client:
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={meetingUrl}
-                    readOnly
-                    onClick={(e) => e.target.select()}
-                    className="flex-1 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleCopyUrl}
-                    className={`${
-                      copied 
-                        ? 'bg-green-600 hover:bg-green-700' 
-                        : 'bg-blue-600 hover:bg-blue-700'
-                    } text-white px-4 py-3`}
-                  >
-                    {copied ? (
-                      <>
-                        <Check className="h-4 w-4 mr-2" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={openInNewTab}
-                    className="dark:border-gray-600 dark:hover:bg-gray-800 px-4 py-3"
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <span className="text-green-600 dark:text-green-400">✓</span>
-                  No account needed - Your client can join directly from any browser
-                </p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-center gap-3 pt-2">
-              <Button
-                onClick={joinCall}
-                size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
-              >
-                <Video className="h-5 w-5 mr-2" />
-                Join Video Call
-              </Button>
-              <Button
-                onClick={() => onOpenChange(false)}
-                variant="outline"
-                size="lg"
-                className="dark:border-gray-600 dark:hover:bg-gray-800 px-6"
-              >
-                Cancel
-              </Button>
-            </div>
+        {/* Error message display */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg flex items-start gap-2 flex-shrink-0">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <p className="text-sm">{error}</p>
           </div>
         )}
 
-        {/* Loading State */}
-        {callStatus === "loading" && (
-          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-950 rounded-lg">
-            <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-400 font-medium">Loading video call...</p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">This may take a few seconds</p>
-            </div>
-          </div>
-        )}
+        {/* Video Display Area */}
+        <div className="flex-1 relative bg-gray-900 dark:bg-gray-950 rounded-lg overflow-hidden min-h-0">
+          {/* Remote video (other person) */}
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover bg-gray-800"
+          />
 
-        {/* Jitsi Meet Container */}
-        {callStatus === "joined" && (
-          <div className="flex-1 flex flex-col min-h-0">
-            <div 
-              ref={jitsiContainerRef} 
-              className="flex-1 rounded-lg overflow-hidden bg-gray-900"
+          {/* Local video (you) - Picture-in-picture style */}
+          <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-white dark:border-gray-700 shadow-xl">
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover bg-gray-700"
             />
-            <div className="flex justify-center gap-3 pt-4 flex-shrink-0">
-              <Button
-                onClick={handleEndCall}
-                variant="destructive"
-                size="lg"
-                className="bg-red-600 hover:bg-red-700 text-white px-8"
-              >
-                <PhoneOff className="h-5 w-5 mr-2" />
-                End Call & Close
-              </Button>
-            </div>
           </div>
-        )}
+
+          {/* Connecting overlay */}
+          {callStatus === "connecting" && (
+            <div className="absolute inset-0 bg-black/70 flex items-center justify-center backdrop-blur-sm">
+              <div className="text-center text-white">
+                <Loader2 className="h-16 w-16 animate-spin mx-auto mb-4" />
+                <p className="text-xl font-semibold">Connecting...</p>
+                <p className="text-sm text-gray-300 mt-2">Please wait while we establish the connection</p>
+              </div>
+            </div>
+          )}
+
+          {/* Call status indicator */}
+          <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2">
+            {callStatus === "connecting" && (
+              <>
+                <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+                Connecting...
+              </>
+            )}
+            {callStatus === "connected" && (
+              <>
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                Connected
+              </>
+            )}
+            {callStatus === "error" && (
+              <>
+                <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                Failed
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Call Controls */}
+        <div className="flex justify-center gap-4 pt-6 pb-2 flex-shrink-0">
+          {/* Mute Button */}
+          <Button
+            onClick={handleToggleMute}
+            variant={isMuted ? "destructive" : "outline"}
+            size="lg"
+            className="rounded-full h-14 w-14 p-0 dark:border-gray-700"
+            disabled={callStatus !== "connected"}
+          >
+            {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+          </Button>
+
+          {/* Video Toggle Button */}
+          <Button
+            onClick={handleToggleVideo}
+            variant={isVideoOff ? "destructive" : "outline"}
+            size="lg"
+            className="rounded-full h-14 w-14 p-0 dark:border-gray-700"
+            disabled={callStatus !== "connected"}
+          >
+            {isVideoOff ? <VideoOff className="h-6 w-6" /> : <Video className="h-6 w-6" />}
+          </Button>
+
+          {/* End Call Button */}
+          <Button
+            onClick={handleEndCall}
+            variant="destructive"
+            size="lg"
+            className="rounded-full h-14 w-14 p-0 bg-red-600 hover:bg-red-700"
+          >
+            <PhoneOff className="h-6 w-6" />
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
