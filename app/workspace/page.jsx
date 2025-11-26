@@ -1635,7 +1635,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => window.open('tel:911')}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
@@ -1648,13 +1648,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Crisis Hotline</div>
                       <div className="text-xs">988</div>
-                    </div>
-                  </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => alert('Contact supervisor: ' + (supervisor?.name || 'No supervisor assigned'))}>
-                    <div className="text-center">
-                      <Phone className="h-6 w-6 mx-auto mb-1" />
-                      <div className="text-sm">Call Supervisor</div>
-                      <div className="text-xs">{supervisor?.name || 'Not Available'}</div>
                     </div>
                   </Button>
                 </div>
