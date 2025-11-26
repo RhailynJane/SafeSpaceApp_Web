@@ -34,6 +34,21 @@ import ViewReportModal from "@/components/reports/ViewReportModal";
 import SendbirdChat from "@/components/SendbirdChat";
 
 import jsPDF from "jspdf";
+import * as XLSX from "xlsx";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import { Bar, Pie } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  ArcElement,
+  BarElement,
+  Title as ChartTitle,
+  Tooltip,
+  Legend
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, ArcElement, BarElement, ChartTitle, Tooltip, Legend);
 import AuditLogTab from "../auditlogtab/page";
 
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
@@ -52,6 +67,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   const [reportType, setReportType] = useState("caseload");
   const [dateRange, setDateRange] = useState("month");
+  const [customStart, setCustomStart] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().substring(0,10);
+  });
+  const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().substring(0,10));
+  const chartContainerRef = useRef(null);
   const [reportData, setReportData] = useState(null);
   const [selectedReport, setSelectedReport] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -470,29 +492,133 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     }
   };
 
+  const computeDateBounds = () => {
+    const end = new Date();
+    const start = new Date();
+    if (dateRange === 'week') start.setDate(end.getDate() - 7);
+    else if (dateRange === 'month') start.setDate(end.getDate() - 30);
+    else if (dateRange === 'quarter') start.setDate(end.getDate() - 90);
+    else if (dateRange === 'year') start.setDate(end.getDate() - 365);
+    else if (dateRange === 'custom') {
+      return { start: new Date(customStart + 'T00:00:00'), end: new Date(customEnd + 'T23:59:59') };
+    }
+    return { start, end };
+  };
+
   const generateReport = () => {
+    const { start, end } = computeDateBounds();
+    const withinRange = (dateStr) => {
+      if (!dateStr) return false;
+      const d = new Date(dateStr.substring(0,10) + 'T00:00:00');
+      return d >= start && d <= end;
+    };
+
     if (reportType === "caseload") {
       setReportData({
         totalClients: clients.length,
         activeClients: clients.filter(c => c.status === "Active").length,
         onHoldClients: clients.filter(c => c.status !== "Active").length,
+        rangeStart: start.toISOString().substring(0,10),
+        rangeEnd: end.toISOString().substring(0,10)
       });
     } else if (reportType === "sessions") {
+      const filteredSessions = schedule.filter(s => withinRange(s.appointment_date || s.appointmentDate));
       setReportData({
-        sessions: schedule
-
+        totalSessions: filteredSessions.length,
+        byClient: filteredSessions.reduce((acc, s) => {
+          const key = s.client_id || s.clientId || 'unknown';
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {}),
+        rangeStart: start.toISOString().substring(0,10),
+        rangeEnd: end.toISOString().substring(0,10)
       });
     } else if (reportType === "outcomes") {
       setReportData({
         highRisk: clients.filter(c => c.riskLevel === "High").length,
         mediumRisk: clients.filter(c => c.riskLevel === "Medium").length,
         lowRisk: clients.filter(c => c.riskLevel === "Low").length,
+        rangeStart: start.toISOString().substring(0,10),
+        rangeEnd: end.toISOString().substring(0,10)
       });
     } else if (reportType === "crisis") {
+      const filteredCrisis = referrals.filter(r => r.priority === "High" && r.status === "pending" && withinRange(r.created_at || r.date));
       setReportData({
-        crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
+        crisisReferrals: filteredCrisis.length,
+        rangeStart: start.toISOString().substring(0,10),
+        rangeEnd: end.toISOString().substring(0,10)
       });
     }
+  };
+
+  const exportPDF = () => {
+    if (!reportData) return;
+    const doc = new jsPDF();
+    let y = 10;
+    doc.setFontSize(14);
+    doc.text(`Report: ${reportType}`, 10, y); y += 8;
+    doc.setFontSize(10);
+    Object.entries(reportData).forEach(([k,v]) => {
+      if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+        doc.text(`${k}:`, 10, y); y += 6;
+        Object.entries(v).forEach(([sk, sv]) => {
+          doc.text(`  ${sk}: ${sv}`, 10, y); y += 6;
+        });
+      } else {
+        doc.text(`${k}: ${v}`, 10, y); y += 6;
+      }
+    });
+    const canvas = chartContainerRef.current?.querySelector('canvas');
+    if (canvas) {
+      const imgData = canvas.toDataURL('image/png');
+      doc.addPage();
+      doc.text('Chart', 10, 10);
+      doc.addImage(imgData, 'PNG', 10, 20, 180, 100);
+    }
+    doc.save(`report-${reportType}.pdf`);
+  };
+
+  const exportExcel = () => {
+    if (!reportData) return;
+    const wb = XLSX.utils.book_new();
+    const flat = [];
+    Object.entries(reportData).forEach(([k,v]) => {
+      if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+        Object.entries(v).forEach(([sk, sv]) => flat.push({ key: `${k}.${sk}`, value: sv }));
+      } else {
+        flat.push({ key: k, value: v });
+      }
+    });
+    const ws = XLSX.utils.json_to_sheet(flat);
+    XLSX.utils.book_append_sheet(wb, ws, 'Report');
+    XLSX.writeFile(wb, `report-${reportType}.xlsx`);
+  };
+
+  const exportWord = async () => {
+    if (!reportData) return;
+    const children = [
+      new Paragraph({ children: [new TextRun({ text: `Report: ${reportType}`, bold: true, size: 28 })] }),
+      new Paragraph({ children: [new TextRun({ text: `Date Range: ${reportData.rangeStart} to ${reportData.rangeEnd}` })] }),
+    ];
+    Object.entries(reportData).forEach(([k,v]) => {
+      if (k === 'rangeStart' || k === 'rangeEnd') return;
+      if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+        children.push(new Paragraph({ children: [new TextRun({ text: `${k}:`, bold: true })] }));
+        Object.entries(v).forEach(([sk, sv]) => {
+          children.push(new Paragraph({ children: [new TextRun({ text: `  ${sk}: ${sv}` })] }));
+        });
+      } else {
+        children.push(new Paragraph({ children: [new TextRun({ text: `${k}: ${v}` })] }));
+      }
+    });
+    const docx = new Document({ sections: [{ properties: {}, children }] });
+    const blob = await Packer.toBlob(docx);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${reportType}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const reopenReferral = async (id) => {
@@ -1259,8 +1385,21 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         <SelectItem value="month">Last Month</SelectItem>
                         <SelectItem value="quarter">Last Quarter</SelectItem>
                         <SelectItem value="year">Last Year</SelectItem>
+                        <SelectItem value="custom">Custom Range</SelectItem>
                       </SelectContent>
                     </Select>
+                    {dateRange === 'custom' && (
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Start</Label>
+                          <Input type="date" value={customStart} max={customEnd} onChange={e => setCustomStart(e.target.value)} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">End</Label>
+                          <Input type="date" value={customEnd} min={customStart} onChange={e => setCustomEnd(e.target.value)} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <Button className="w-full" onClick={generateReport}>
@@ -1269,11 +1408,71 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 </Button>
 
                 {reportData && (
-                  <div className="mt-4 p-4 border border-border rounded-lg bg-muted">
-                    <h4 className="font-medium mb-2 text-foreground">Report Generated</h4>
-                    <pre className="text-sm text-muted-foreground">
+                  <div className="mt-4 p-4 border border-border rounded-lg bg-muted space-y-4" ref={chartContainerRef}>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-foreground">Report Generated</h4>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={exportPDF}>PDF</Button>
+                        <Button variant="outline" size="sm" onClick={exportExcel}>Excel</Button>
+                        <Button variant="outline" size="sm" onClick={exportWord}>Word</Button>
+                      </div>
+                    </div>
+                    <pre className="text-xs text-muted-foreground max-h-40 overflow-y-auto bg-background/40 p-2 rounded">
                       {JSON.stringify(reportData, null, 2)}
                     </pre>
+                    {/* Chart Visualization */}
+                    {reportType === 'caseload' && (
+                      <Bar 
+                        data={{
+                          labels: ['Total', 'Active', 'On Hold'],
+                          datasets: [{
+                            label: 'Clients',
+                            data: [reportData.totalClients, reportData.activeClients, reportData.onHoldClients],
+                            backgroundColor: ['#4f46e5', '#16a34a', '#f59e0b'],
+                          }]
+                        }}
+                        options={{ responsive: true, plugins: { legend: { position: 'bottom' }}}}
+                      />
+                    )}
+                    {reportType === 'outcomes' && (
+                      <Pie 
+                        data={{
+                          labels: ['High Risk', 'Medium Risk', 'Low Risk'],
+                          datasets: [{
+                            label: 'Risk Levels',
+                            data: [reportData.highRisk, reportData.mediumRisk, reportData.lowRisk],
+                            backgroundColor: ['#dc2626', '#f59e0b', '#16a34a'],
+                          }]
+                        }}
+                        options={{ responsive: true, plugins: { legend: { position: 'bottom' }}}}
+                      />
+                    )}
+                    {reportType === 'sessions' && (
+                      <Bar
+                        data={{
+                          labels: Object.keys(reportData.byClient),
+                          datasets: [{
+                            label: 'Sessions per Client',
+                            data: Object.values(reportData.byClient),
+                            backgroundColor: '#4f46e5'
+                          }]
+                        }}
+                        options={{ responsive: true, plugins: { legend: { position: 'bottom' }}}}
+                      />
+                    )}
+                    {reportType === 'crisis' && (
+                      <Bar
+                        data={{
+                          labels: ['High Priority Pending Referrals'],
+                          datasets: [{
+                            label: 'Count',
+                            data: [reportData.crisisReferrals],
+                            backgroundColor: '#dc2626'
+                          }]
+                        }}
+                        options={{ responsive: true, plugins: { legend: { position: 'bottom' }}}}
+                      />
+                    )}
                   </div>
                 )}
               </CardContent>
