@@ -63,12 +63,12 @@ const NewConversationModal = ({ open, onClose, onConversationCreated }) => {
 
   const getRoleColor = (roleId) => {
     switch (roleId) {
-      case 'admin': return 'bg-red-100 text-red-800';
-      case 'team_leader': return 'bg-blue-100 text-blue-800';
-      case 'support_worker': return 'bg-green-100 text-green-800';
-      case 'peer_support': return 'bg-purple-100 text-purple-800';
-      case 'client': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'admin': return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800';
+      case 'team_leader': return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/20 dark:text-blue-200 dark:border-blue-800';
+      case 'support_worker': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-200 dark:border-green-800';
+      case 'peer_support': return 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/20 dark:text-purple-200 dark:border-purple-800';
+      case 'client': return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/20 dark:text-orange-200 dark:border-orange-800';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-900/20 dark:text-gray-200 dark:border-gray-800';
     }
   };
 
@@ -85,26 +85,31 @@ const NewConversationModal = ({ open, onClose, onConversationCreated }) => {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Start New Conversation</DialogTitle>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-lg font-semibold">Start New Conversation</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-6 flex-1 overflow-hidden">
           {/* Conversation Title */}
-          <div>
-            <Label htmlFor="title">Conversation Title (Optional)</Label>
+          <div className="space-y-2">
+            <Label htmlFor="title" className="text-sm font-medium">
+              Conversation Title (Optional)
+            </Label>
             <Input
               id="title"
               placeholder="Enter conversation title..."
               value={conversationTitle}
               onChange={(e) => setConversationTitle(e.target.value)}
+              className="w-full"
             />
           </div>
 
           {/* User Search */}
-          <div>
-            <Label htmlFor="search">Add Participants</Label>
+          <div className="space-y-2">
+            <Label htmlFor="search" className="text-sm font-medium">
+              Add Participants
+            </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
@@ -112,25 +117,29 @@ const NewConversationModal = ({ open, onClose, onConversationCreated }) => {
                 placeholder="Search users..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
+                className="pl-10 w-full"
               />
             </div>
           </div>
 
           {/* Selected Users */}
           {selectedUsers.length > 0 && (
-            <div>
-              <Label>Selected Participants ({selectedUsers.length})</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">
+                Selected Participants ({selectedUsers.length})
+              </Label>
+              <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg border">
                 {selectedUsers.map(user => (
                   <Badge 
                     key={user.clerkId}
                     variant="secondary"
-                    className="flex items-center gap-1 cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-secondary/80 transition-colors"
                     onClick={() => handleUserToggle(user)}
                   >
-                    {user.firstName} {user.lastName}
-                    <span className="ml-1 text-xs">×</span>
+                    <span className="text-sm">
+                      {user.firstName} {user.lastName}
+                    </span>
+                    <span className="text-xs opacity-70 hover:opacity-100">×</span>
                   </Badge>
                 ))}
               </div>
@@ -138,64 +147,72 @@ const NewConversationModal = ({ open, onClose, onConversationCreated }) => {
           )}
 
           {/* User List */}
-          <div>
-            <ScrollArea className="h-60">
-              <div className="space-y-1">
-                {filteredUsers.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-4">
-                    {searchTerm ? 'No users found' : 'No users available'}
-                  </p>
-                ) : (
-                  filteredUsers.map(filteredUser => (
-                    <div
-                      key={filteredUser.clerkId}
-                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors hover:bg-accent ${
-                        selectedUsers.find(u => u.clerkId === filteredUser.clerkId) 
-                          ? 'bg-primary/10 border border-primary/20' 
-                          : ''
-                      }`}
-                      onClick={() => handleUserToggle(filteredUser)}
-                    >
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={filteredUser.imageUrl || filteredUser.profileImageUrl} />
-                        <AvatarFallback className="text-xs">
-                          {filteredUser.firstName?.[0] || 'U'}
-                          {filteredUser.lastName?.[0] || ''}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">
-                          {filteredUser.firstName} {filteredUser.lastName}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {filteredUser.email}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className={`text-xs ${getRoleColor(filteredUser.roleId)}`}>
-                          {formatRoleName(filteredUser.roleId)}
-                        </Badge>
-                        {selectedUsers.find(u => u.clerkId === filteredUser.clerkId) && (
-                          <Check className="h-4 w-4 text-primary" />
-                        )}
-                      </div>
+          <div className="space-y-2 flex-1 overflow-hidden">
+            <Label className="text-sm font-medium">Available Users</Label>
+            <div className="border rounded-lg overflow-hidden">
+              <ScrollArea className="h-64">
+                <div className="p-2 space-y-1">
+                  {filteredUsers.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      <p className="text-sm">
+                        {searchTerm ? 'No users found matching your search' : 'No users available'}
+                      </p>
                     </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
+                  ) : (
+                    filteredUsers.map(filteredUser => (
+                      <div
+                        key={filteredUser.clerkId}
+                        className={`flex items-center gap-3 p-3 rounded-md cursor-pointer transition-all hover:bg-accent/50 ${
+                          selectedUsers.find(u => u.clerkId === filteredUser.clerkId) 
+                            ? 'bg-primary/10 border border-primary/30 shadow-sm' 
+                            : 'hover:shadow-sm'
+                        }`}
+                        onClick={() => handleUserToggle(filteredUser)}
+                      >
+                        <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
+                          <AvatarImage src={filteredUser.imageUrl || filteredUser.profileImageUrl} />
+                          <AvatarFallback className="text-sm font-medium bg-primary/10 text-primary">
+                            {filteredUser.firstName?.[0] || 'U'}
+                            {filteredUser.lastName?.[0] || ''}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <p className="font-medium text-sm text-foreground">
+                            {filteredUser.firstName} {filteredUser.lastName}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {filteredUser.email}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge className={`text-xs px-2 py-1 ${getRoleColor(filteredUser.roleId)}`}>
+                            {formatRoleName(filteredUser.roleId)}
+                          </Badge>
+                          {selectedUsers.find(u => u.clerkId === filteredUser.clerkId) && (
+                            <div className="w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                              <Check className="h-3 w-3 text-primary-foreground" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="pt-6 border-t">
+          <Button variant="outline" onClick={onClose} className="px-6">
             Cancel
           </Button>
           <Button 
             onClick={handleCreateConversation}
             disabled={selectedUsers.length === 0}
+            className="px-6"
           >
-            Start Conversation
+            Start Conversation ({selectedUsers.length})
           </Button>
         </DialogFooter>
       </DialogContent>

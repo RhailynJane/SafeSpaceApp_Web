@@ -134,8 +134,11 @@ const ChatInterface = () => {
         <ScrollArea className="flex-1">
           <div className="p-2">
             {filteredConversations.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p>No conversations yet</p>
+              <div className="text-center py-12 px-4 text-muted-foreground">
+                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Send className="h-8 w-8" />
+                </div>
+                <p className="text-sm mb-4">No conversations yet</p>
                 <Button 
                   size="sm" 
                   variant="outline" 
@@ -165,21 +168,21 @@ const ChatInterface = () => {
                           {getInitials(conversation)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-medium text-card-foreground truncate">
+                          <h3 className="font-medium text-card-foreground truncate text-sm">
                             {getConversationTitle(conversation)}
                           </h3>
                           {conversation.unreadCount > 0 && (
-                            <Badge variant="default" className="ml-2 h-5 min-w-[20px] px-1.5 text-xs">
-                              {conversation.unreadCount}
+                            <Badge variant="default" className="ml-2 h-5 min-w-[20px] px-2 text-xs font-medium">
+                              {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate mt-1">
+                        <p className="text-sm text-muted-foreground truncate leading-tight">
                           {conversation.latestMessage?.body || 'Start a conversation...'}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground">
                           {conversation.latestMessage?.createdAt 
                             ? formatDistanceToNow(new Date(conversation.latestMessage.createdAt), { addSuffix: true })
                             : formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })
@@ -234,55 +237,67 @@ const ChatInterface = () => {
 
             {/* Messages Area */}
             <ScrollArea className="flex-1 p-4">
-              <div className="space-y-4">
-                {messages?.page?.map((message) => (
-                  <div
-                    key={message._id}
-                    className={`flex gap-3 ${
-                      message.senderId === user?.id ? 'flex-row-reverse' : ''
-                    }`}
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={message.sender?.imageUrl} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                        {message.sender?.firstName?.[0] || 'U'}
-                        {message.sender?.lastName?.[0] || ''}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className={`flex flex-col max-w-[70%] ${
-                      message.senderId === user?.id ? 'items-end' : 'items-start'
-                    }`}>
-                      <div className={`px-3 py-2 rounded-lg ${
-                        message.senderId === user?.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      }`}>
-                        <p className="text-sm">{message.body}</p>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
-                      </p>
-                    </div>
+              <div className="space-y-6">
+                {messages?.page?.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p className="text-sm">No messages yet. Start the conversation!</p>
                   </div>
-                ))}
+                ) : (
+                  messages?.page?.map((message) => (
+                    <div
+                      key={message._id}
+                      className={`flex gap-3 ${
+                        message.senderId === user?.id ? 'flex-row-reverse' : ''
+                      }`}
+                    >
+                      <Avatar className="h-8 w-8 mt-1">
+                        <AvatarImage src={message.sender?.imageUrl} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                          {message.sender?.firstName?.[0] || 'U'}
+                          {message.sender?.lastName?.[0] || ''}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={`flex flex-col max-w-[75%] space-y-1 ${
+                        message.senderId === user?.id ? 'items-end' : 'items-start'
+                      }`}>
+                        <div className={`px-4 py-3 rounded-2xl shadow-sm ${
+                          message.senderId === user?.id
+                            ? 'bg-primary text-primary-foreground rounded-br-md'
+                            : 'bg-muted text-foreground rounded-bl-md'
+                        }`}>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                            {message.body}
+                          </p>
+                        </div>
+                        <p className={`text-xs text-muted-foreground px-1 ${
+                          message.senderId === user?.id ? 'text-right' : 'text-left'
+                        }`}>
+                          {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
 
             {/* Message Input */}
             <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-card">
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Type a message..."
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  className="flex-1"
-                />
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Type a message..."
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    className="min-h-[44px] resize-none rounded-lg border-border focus:border-primary"
+                  />
+                </div>
                 <Button 
                   type="submit" 
                   size="sm" 
                   disabled={!messageInput.trim()}
-                  className="px-3"
+                  className="h-[44px] px-4 rounded-lg"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
