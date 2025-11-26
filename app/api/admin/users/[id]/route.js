@@ -144,13 +144,36 @@ export async function DELETE(request, context) {
     // Determine role to decide soft-delete vs hard-delete permissions
     const myRole = await resolveUserRole(me.id, me.publicMetadata);
 
-    // Treat path param as Clerk user ID to delete
     const params = await context.params;
     const { id } = params;
-    const targetClerkId = decodeURIComponent(id);
-    if (!targetClerkId || typeof targetClerkId !== 'string') {
+    const targetId = decodeURIComponent(id);
+    if (!targetId || typeof targetId !== 'string') {
       return createErrorResponse('Invalid target user id', 400);
     }
+
+    // Check if this is a Convex client ID (starts with specific pattern like 'js7978...')
+    const isConvexClientId = targetId.match(/^[a-z0-9]{32}$/);
+    
+    if (isConvexClientId) {
+      // This is a client record, handle differently
+      console.log('Deleting client with Convex ID:', targetId);
+      
+      try {
+        // For client records, use the remove mutation for soft deletion
+        await fetchMutation(api.clients.remove, {
+          clerkId: me.id,
+          clientId: targetId
+        });
+        
+        return NextResponse.json({ success: true, type: 'client' });
+      } catch (convexErr) {
+        console.error('Error deleting client:', convexErr);
+        return createErrorResponse('Error deleting client record', 500, String(convexErr?.message || convexErr));
+      }
+    }
+
+    // Handle Clerk user deletion
+    const targetClerkId = targetId;
 
     // 1) Delete in Clerk first (prevents future logins)
     const res = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(targetClerkId)}`, {
@@ -180,7 +203,7 @@ export async function DELETE(request, context) {
       return createErrorResponse('User deleted in authentication, but app data could not be updated.', 502, String(convexErr?.message || convexErr));
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, type: 'user' });
   } catch (error) {
     console.error('Error deleting user:', error);
     return createErrorResponse('Error deleting user', 500, error.message);

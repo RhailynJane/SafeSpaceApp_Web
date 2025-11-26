@@ -253,6 +253,40 @@ export const update = mutation({
   },
 });
 
+export const remove = mutation({
+  args: {
+    clerkId: v.string(),
+    clientId: v.id("clients"),
+  },
+  handler: async (ctx, { clerkId, clientId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.MANAGE_CLIENTS);
+
+    const existing = await ctx.db.get(clientId);
+    if (!existing) throw new Error("Client not found");
+
+    // Authorization: must be same org unless superadmin
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (iq) => iq.eq("clerkId", clerkId))
+      .first();
+    if (!me) throw new Error("User not found");
+
+    if (me.roleId !== "superadmin") {
+      if (!existing.orgId || me.orgId !== existing.orgId) {
+        throw new Error("Unauthorized: Cannot delete client from another organization");
+      }
+    }
+
+    // Soft delete by updating status
+    await ctx.db.patch(clientId, {
+      status: 'deleted',
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
 export const listByOrg = query({
   args: { orgId: v.string() },
   handler: async (ctx, { orgId }) => {
