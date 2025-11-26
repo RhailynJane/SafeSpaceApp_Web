@@ -8,40 +8,80 @@ import { v } from "convex/values";
 export const list = query({
   args: {
     orgId: v.optional(v.string()),
+    reportType: v.optional(v.string()),
+    createdBy: v.optional(v.string()),
+    start: v.optional(v.number()),
+    end: v.optional(v.number()),
     limit: v.optional(v.number()),
+    cursor: v.optional(v.id("reports")),
   },
   handler: async (ctx, args) => {
-    // Get reports ordered by timestamp descending
-    let reports;
+    console.log('[REPORTS LIST] Query args:', args);
+    // Start with the most efficient base query
+    let results;
     
-    if (args.orgId) {
-      // Filter by organization if provided
-      reports = await ctx.db
-        .query("auditLogs")
-        .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId as any))
+    if (args.orgId && (args.start != null || args.end != null)) {
+      // Use org + date range index if both are provided
+      const s = args.start ?? 0;
+      const e = args.end ?? Number.MAX_SAFE_INTEGER;
+      results = await ctx.db
+        .query("reports")
+        .withIndex("by_org", (q) => q.eq("orgId", args.orgId as any))
+        .filter((q) => q.gte(q.field("createdAt"), s) && q.lte(q.field("createdAt"), e))
+        .order("desc")
+        .take(args.limit || 100);
+    } else if (args.orgId) {
+      // Use org index
+      results = await ctx.db
+        .query("reports")
+        .withIndex("by_org", (q) => q.eq("orgId", args.orgId as any))
+        .order("desc")
+        .take(args.limit || 100);
+    } else if (args.start != null || args.end != null) {
+      // Use date range index
+      const s = args.start ?? 0;
+      const e = args.end ?? Number.MAX_SAFE_INTEGER;
+      results = await ctx.db
+        .query("reports")
+        .withIndex("by_createdAt", (q) => q.gte("createdAt", s).lte("createdAt", e))
         .order("desc")
         .take(args.limit || 100);
     } else {
-      reports = await ctx.db
-        .query("auditLogs")
+      // Default query by creation time
+      results = await ctx.db
+        .query("reports")
+        .withIndex("by_createdAt")
         .order("desc")
         .take(args.limit || 100);
     }
     
-    // Transform audit logs into report format
-    const formattedReports = reports.map(log => ({
-      id: log._id,
-      report_date: new Date(log.timestamp).toISOString(),
-      action: log.action,
-      entity_type: log.entityType,
-      entity_id: log.entityId,
-      user_id: log.userId,
-      details: log.details,
-      timestamp: log.timestamp,
-      orgId: log.orgId,
-    }));
+    // Apply additional filters in memory
+    let filtered = results;
     
-    return formattedReports;
+    if (args.reportType) {
+      filtered = filtered.filter(r => r.reportType === args.reportType);
+    }
+    
+    if (args.createdBy) {
+      filtered = filtered.filter(r => r.createdBy === args.createdBy);
+    }
+    
+    const mapped = filtered.map((r) => ({
+      id: r._id,
+      title: r.title,
+      reportType: r.reportType,
+      sizeBytes: r.sizeBytes,
+      createdAt: r.createdAt,
+      createdBy: r.createdBy,
+      orgId: r.orgId,
+      hasFile: !!r.fileStorageId,
+      fileMimeType: r.fileMimeType,
+      hasChartImage: !!r.chartStorageId,
+      chartMimeType: r.chartMimeType,
+      dataJson: r.dataJson,
+    }));
+    console.log('[REPORTS LIST] Returning', mapped.length, 'reports:', mapped.map(r => ({ title: r.title, type: r.reportType, createdAt: new Date(r.createdAt) })));
+    return mapped;
   },
 });
 
@@ -52,23 +92,27 @@ export const create = mutation({
   args: {
     reportType: v.string(),
     title: v.string(),
-    data: v.string(),
+    // Structured metrics snapshot; optional if only file is stored
+    dataJson: v.optional(v.any()),
     orgId: v.optional(v.string()),
+    createdBy: v.optional(v.string()),
+    // File/chart storage via direct upload is not enabled here; persist JSON only
   },
   handler: async (ctx, args) => {
-    // Create an audit log entry for the report generation
-    const reportId = await ctx.db.insert("auditLogs", {
-      action: `report_generated_${args.reportType}`,
-      entityType: "report",
-      details: JSON.stringify({
-        title: args.title,
-        data: args.data,
-      }),
-      timestamp: Date.now(),
+    const id = await ctx.db.insert("reports", {
+      title: args.title,
+      reportType: args.reportType,
+      sizeBytes: undefined,
+      createdAt: Date.now(),
+      createdBy: args.createdBy as any,
       orgId: args.orgId as any,
+      dataJson: args.dataJson,
+      fileStorageId: undefined,
+      fileMimeType: undefined,
+      chartStorageId: undefined,
+      chartMimeType: undefined,
     });
-    
-    return reportId;
+    return id;
   },
 });
 

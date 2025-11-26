@@ -681,13 +681,16 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           ? reportData
           : undefined;
 
-        await createReport({
+        const reportPayload = {
           reportType: normalizedType,
           title: `${normalizedType.replace('-', ' ')} (${new Date().toLocaleDateString()})`,
           dataJson,
           orgId: dbUser?.orgId,
           createdBy: user.id,
-        });
+        };
+        console.log('Creating report with payload:', reportPayload);
+        const reportId = await createReport(reportPayload);
+        console.log('Report created with ID:', reportId);
       } catch (e) {
         console.warn('Failed to persist report:', e);
       }
