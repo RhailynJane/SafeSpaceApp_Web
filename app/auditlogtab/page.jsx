@@ -11,6 +11,8 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
   const [dateFilter, setDateFilter] = useState('all');
   const [customDateFrom, setCustomDateFrom] = useState('');
   const [customDateTo, setCustomDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Get unique entity types for filter
   const entityTypes = useMemo(() => {
@@ -76,20 +78,18 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
           if (customDateFrom > customDateTo) {
             matchesDate = false; // Invalid range, show no results
           } else {
-            const fromDate = new Date(customDateFrom);
-            const toDate = new Date(customDateTo);
-            fromDate.setHours(0, 0, 0, 0); // Start of day
-            toDate.setHours(23, 59, 59, 999); // End of day
-            matchesDate = logDate >= fromDate && logDate <= toDate;
+            // Create dates in local timezone and compare dates only
+            const logDateStr = logDate.toISOString().split('T')[0];
+            matchesDate = logDateStr >= customDateFrom && logDateStr <= customDateTo;
           }
         } else if (customDateFrom && !customDateTo) {
-          const fromDate = new Date(customDateFrom);
-          fromDate.setHours(0, 0, 0, 0); // Start of day
-          matchesDate = logDate >= fromDate;
+          // Compare date strings to avoid timezone issues
+          const logDateStr = logDate.toISOString().split('T')[0];
+          matchesDate = logDateStr >= customDateFrom;
         } else if (!customDateFrom && customDateTo) {
-          const toDate = new Date(customDateTo);
-          toDate.setHours(23, 59, 59, 999); // End of day
-          matchesDate = logDate <= toDate;
+          // Compare date strings to avoid timezone issues
+          const logDateStr = logDate.toISOString().split('T')[0];
+          matchesDate = logDateStr <= customDateTo;
         }
         // If both are empty, show all (matchesDate stays true)
       }
@@ -97,12 +97,27 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
       return matchesSearch && matchesFilter && matchesDate;
     });
 
-    return filtered.sort((a, b) => {
+    const sorted = filtered.sort((a, b) => {
       const dateA = new Date(a.created_at);
       const dateB = new Date(b.created_at);
       return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
     });
+
+    return sorted;
   }, [auditLogs, searchTerm, filterType, sortOrder, dateFilter, customDateFrom, customDateTo]);
+
+  // Paginated logs
+  const paginatedLogs = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredLogs.slice(startIndex, endIndex);
+  }, [filteredLogs, currentPage, itemsPerPage]);
+
+  // Calculate total pages
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+
+  // Reset to first page when filters change
+  const resetPagination = () => setCurrentPage(1);
 
   // Get badge color based on action type (with dark mode support)
   const getBadgeColor = (action) => {
@@ -215,7 +230,10 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
                 type="text"
                 placeholder="Search your activities..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  resetPagination();
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
@@ -225,7 +243,10 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
               <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
               <select
                 value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
+                onChange={(e) => {
+                  setFilterType(e.target.value);
+                  resetPagination();
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 {entityTypes.map(type => (
@@ -241,7 +262,10 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
               <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
               <select
                 value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  resetPagination();
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="all">All Dates</option>
@@ -274,7 +298,10 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
                   <input
                     type="date"
                     value={customDateFrom}
-                    onChange={(e) => setCustomDateFrom(e.target.value)}
+                    onChange={(e) => {
+                    setCustomDateFrom(e.target.value);
+                    resetPagination();
+                  }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Select start date"
                   />
@@ -284,7 +311,10 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
                   <input
                     type="date"
                     value={customDateTo}
-                    onChange={(e) => setCustomDateTo(e.target.value)}
+                    onChange={(e) => {
+                    setCustomDateTo(e.target.value);
+                    resetPagination();
+                  }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Select end date"
                   />
@@ -298,10 +328,30 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
             </div>
           )}
 
-          {/* Clear Filters and Results count */}
+          {/* Results count and Pagination controls */}
           <div className="mt-6 flex items-center justify-between">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Showing {filteredLogs.length} of {auditLogs.length} activities
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Showing {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredLogs.length)} of {filteredLogs.length} activities
+                {auditLogs.length !== filteredLogs.length && (
+                  <span className="text-gray-500 dark:text-gray-500"> (filtered from {auditLogs.length} total)</span>
+                )}
+              </div>
+              {filteredLogs.length > 0 && (
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value={5}>5 per page</option>
+                  <option value={10}>10 per page</option>
+                  <option value={25}>25 per page</option>
+                  <option value={50}>50 per page</option>
+                </select>
+              )}
               {(searchTerm || filterType !== 'all' || dateFilter !== 'all') && (
                 <button
                   onClick={() => {
@@ -310,31 +360,57 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
                     setDateFilter('all');
                     setCustomDateFrom('');
                     setCustomDateTo('');
+                    resetPagination();
                   }}
-                  className="ml-3 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-xs"
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline text-xs"
                 >
                   Clear all filters
                 </button>
               )}
             </div>
-            {dateFilter === 'custom' && (customDateFrom || customDateTo) && (
-              <button
-                onClick={() => {
-                  setCustomDateFrom('');
-                  setCustomDateTo('');
-                }}
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline"
-              >
-                Clear date range
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {dateFilter === 'custom' && (customDateFrom || customDateTo) && (
+                <button
+                  onClick={() => {
+                    setCustomDateFrom('');
+                    setCustomDateTo('');
+                    resetPagination();
+                  }}
+                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline"
+                >
+                  Clear date range
+                </button>
+              )}
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="p-6">
           <div className="space-y-3">
-            {filteredLogs.length > 0 ? (
-              filteredLogs.map((log) => (
+            {paginatedLogs.length > 0 ? (
+              paginatedLogs.map((log) => (
                 <div key={log.id} className="border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md dark:hover:shadow-xl transition bg-white dark:bg-gray-700/50">
                   <div 
                     className="p-4 cursor-pointer"
@@ -380,16 +456,26 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
                   </div>
                 </div>
               ))
+            ) : filteredLogs.length === 0 ? (
+              <div className="text-center py-16">
+                <FileText className="mx-auto h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  {searchTerm || filterType !== 'all' || dateFilter !== 'all' ? 'No matching activities found' : 'No activities yet'}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {searchTerm || filterType !== 'all' || dateFilter !== 'all'
+                    ? 'Try adjusting your filters or search terms' 
+                    : 'Your activities will appear here as you use the system'}
+                </p>
+              </div>
             ) : (
               <div className="text-center py-16">
                 <FileText className="mx-auto h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  {searchTerm || filterType !== 'all' ? 'No matching activities found' : 'No activities yet'}
+                  No activities on this page
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {searchTerm || filterType !== 'all' 
-                    ? 'Try adjusting your filters or search terms' 
-                    : 'Your activities will appear here as you use the system'}
+                  Navigate to other pages to see more activities
                 </p>
               </div>
             )}
