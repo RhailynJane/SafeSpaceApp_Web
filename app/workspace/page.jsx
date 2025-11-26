@@ -174,6 +174,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     api.appointments.listByDate,
     isUserLoaded ? { clerkId: user.id, date: selectedDate } : 'skip'
   ) || [];
+  const convexAllAppts = useQuery(
+    api.appointments.list,
+    isUserLoaded && dbUser?.orgId ? { clerkId: user.id, orgId: dbUser.orgId } : 'skip'
+  ) || [];
   const convexMyNotes = useQuery(
     api.notes.listForUser,
     isUserLoaded ? { clerkId: user.id } : 'skip'
@@ -261,6 +265,44 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       return appts;
     });
   }, [convexTodaysAppts, convexClients]);
+
+  // Populate schedule with all appointments for ScheduleModal
+  useEffect(() => {
+    if (!convexAllAppts || !convexClients) return;
+    
+    // Map all appointments
+    const allAppts = convexAllAppts.map((a) => {
+      const found = convexClients.find(c => c._id === a.clientId);
+      let first = "";
+      let last = "";
+      if (found) {
+        first = found.firstName || "";
+        last = found.lastName || "";
+      } else if (a.clientName) {
+        const parts = String(a.clientName).trim().split(" ");
+        first = parts[0] || "";
+        last = parts.slice(1).join(" ") || "";
+      }
+      return {
+        id: a._id,
+        _id: a._id,
+        client_id: a.clientId,
+        clientId: a.clientId,
+        appointment_date: a.appointmentDate,
+        appointment_time: a.appointmentTime || "",
+        type: a.type || "",
+        duration: a.duration ? `${a.duration} min` : "",
+        details: a.notes || "",
+        client: { client_first_name: first, client_last_name: last },
+      };
+    });
+    
+    // Only update if data actually changed
+    setSchedule(prev => {
+      if (JSON.stringify(prev) === JSON.stringify(allAppts)) return prev;
+      return allAppts;
+    });
+  }, [convexAllAppts, convexClients]);
 
   useEffect(() => {
     if (!convexMyNotes || !convexClients) return;

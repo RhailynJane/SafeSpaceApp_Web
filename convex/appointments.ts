@@ -174,3 +174,43 @@ export const listByDate = query({
     return withNames;
   },
 });
+
+/**
+ * Query to list all appointments for an organization (no date filter)
+ * Useful for modals that need to show complete appointment history
+ */
+export const list = query({
+  args: {
+    clerkId: v.string(),
+    orgId: v.optional(v.string()),
+  },
+  handler: async (ctx, { clerkId, orgId }) => {
+    // Viewing appointments is permitted broadly among staff
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_APPOINTMENTS);
+
+    let items = await ctx.db.query("appointments").collect();
+
+    // Filter by org if provided
+    if (orgId) {
+      items = items.filter(a => a.orgId === orgId);
+    }
+
+    // Enrich with client names if available
+    const withNames = await Promise.all(
+      items.map(async (a) => {
+        let clientName: string | undefined = undefined;
+        if (a.clientId) {
+          const client = await ctx.db
+            .query("clients")
+            .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
+            .collect();
+          const found = client.find((c) => c._id === (a as any).clientId);
+          if (found) clientName = `${found.firstName || ""} ${found.lastName || ""}`.trim();
+        }
+        return { ...a, clientName };
+      })
+    );
+
+    return withNames;
+  },
+});
