@@ -17,53 +17,42 @@ export const list = query({
   },
   handler: async (ctx, args) => {
     console.log('[REPORTS LIST] Query args:', args);
-    // Start with the most efficient base query
-    let results;
     
-    if (args.orgId && (args.start != null || args.end != null)) {
-      // Use org + date range index if both are provided
-      const s = args.start ?? 0;
-      const e = args.end ?? Number.MAX_SAFE_INTEGER;
-      results = await ctx.db
-        .query("reports")
-        .withIndex("by_org", (q) => q.eq("orgId", args.orgId as any))
-        .filter((q) => q.gte(q.field("createdAt"), s) && q.lte(q.field("createdAt"), e))
-        .order("desc")
-        .take(args.limit || 100);
-    } else if (args.orgId) {
-      // Use org index
-      results = await ctx.db
-        .query("reports")
-        .withIndex("by_org", (q) => q.eq("orgId", args.orgId as any))
-        .order("desc")
-        .take(args.limit || 100);
-    } else if (args.start != null || args.end != null) {
-      // Use date range index
-      const s = args.start ?? 0;
-      const e = args.end ?? Number.MAX_SAFE_INTEGER;
-      results = await ctx.db
-        .query("reports")
-        .withIndex("by_createdAt", (q) => q.gte("createdAt", s).lte("createdAt", e))
-        .order("desc")
-        .take(args.limit || 100);
-    } else {
-      // Default query by creation time
-      results = await ctx.db
-        .query("reports")
-        .withIndex("by_createdAt")
-        .order("desc")
-        .take(args.limit || 100);
+    // Start with a simple query and apply filters
+    let q = ctx.db.query("reports");
+    
+    // Use org index if orgId provided
+    if (args.orgId) {
+      q = ctx.db.query("reports").withIndex("by_org", (idx) => idx.eq("orgId", args.orgId as any));
     }
     
-    // Apply additional filters in memory
+    // Get all results first, then filter
+    let results = await q.order("desc").take(args.limit || 100);
+    
+    console.log('[REPORTS LIST] Raw results count:', results.length);
+    console.log('[REPORTS LIST] First few results:', results.slice(0, 3).map(r => ({ id: r._id, type: r.reportType, orgId: r.orgId, createdAt: new Date(r.createdAt) })));
+    
+    // Apply filters in memory
     let filtered = results;
     
-    if (args.reportType) {
-      filtered = filtered.filter(r => r.reportType === args.reportType);
+    // Filter by date range
+    if (args.start != null || args.end != null) {
+      const start = args.start ?? 0;
+      const end = args.end ?? Number.MAX_SAFE_INTEGER;
+      filtered = filtered.filter(r => r.createdAt >= start && r.createdAt <= end);
+      console.log('[REPORTS LIST] After date filter:', filtered.length, 'results');
     }
     
+    // Filter by report type
+    if (args.reportType) {
+      filtered = filtered.filter(r => r.reportType === args.reportType);
+      console.log('[REPORTS LIST] After type filter:', filtered.length, 'results');
+    }
+    
+    // Filter by creator
     if (args.createdBy) {
       filtered = filtered.filter(r => r.createdBy === args.createdBy);
+      console.log('[REPORTS LIST] After creator filter:', filtered.length, 'results');
     }
     
     const mapped = filtered.map((r) => ({
