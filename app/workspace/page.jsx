@@ -391,8 +391,33 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     // Map notes
     const mappedNotes = convexMyNotes.map((n) => {
       const found = convexClients.find(c => c._id === n.clientId);
-      // Find the author user information
-      const authorUser = assignableUsers.find(u => u.clerkId === n.authorUserId || u._id === n.authorUserId);
+      
+      // Enhanced author resolution with multiple matching strategies
+      let authorUser = null;
+      if (assignableUsers && assignableUsers.length > 0) {
+        // Try multiple matching strategies
+        authorUser = assignableUsers.find(u => 
+          u.clerkId === n.authorUserId || 
+          u._id === n.authorUserId ||
+          u.id === n.authorUserId
+        );
+        
+        // If still not found, try case-insensitive email match
+        if (!authorUser && n.authorUserId && n.authorUserId.includes('@')) {
+          authorUser = assignableUsers.find(u => 
+            u.email && u.email.toLowerCase() === n.authorUserId.toLowerCase()
+          );
+        }
+      }
+      
+      // Debug logging for troubleshooting
+      if (!authorUser && n.authorUserId) {
+        console.log('🔍 Author not found for note:', {
+          noteId: n._id,
+          authorUserId: n.authorUserId,
+          availableUsers: assignableUsers?.map(u => ({ id: u._id, clerkId: u.clerkId, email: u.email, name: `${u.firstName || u.first_name} ${u.lastName || u.last_name}` }))
+        });
+      }
       
       return {
         id: n._id,
@@ -412,7 +437,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         author_user_id: n.authorUserId,
         author_name: authorUser ? 
           `${authorUser.firstName || authorUser.first_name || ''} ${authorUser.lastName || authorUser.last_name || ''}`.trim() :
-          'Unknown Author',
+          (n.authorUserId ? `User (${n.authorUserId.substring(0, 8)}...)` : 'Unknown Author'),
       };
     });
     
