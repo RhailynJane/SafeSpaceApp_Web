@@ -63,6 +63,7 @@ export const create = mutation({
   args: {
     clerkId: v.string(),
     clientId: v.string(),
+    authorUserId: v.optional(v.string()), // Optional: if provided, use this as the author instead of clerkId
     noteDate: v.string(), // YYYY-MM-DD
     sessionType: v.optional(v.string()),
     durationMinutes: v.optional(v.number()),
@@ -87,7 +88,7 @@ export const create = mutation({
     const now = Date.now();
     const id = await ctx.db.insert("notes", {
       clientId: args.clientId,
-      authorUserId: args.clerkId,
+      authorUserId: args.authorUserId || args.clerkId, // Use provided author or fallback to current user
       noteDate: sanitize(args.noteDate, 20)!,
       sessionType: sanitize(args.sessionType, 50),
       durationMinutes: args.durationMinutes,

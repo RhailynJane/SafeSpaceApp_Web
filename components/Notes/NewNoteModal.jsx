@@ -22,7 +22,7 @@ const COMMON_ACTIVITIES = [
   "Treatment Planning"
 ];
 
-export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) {
+export default function NewNoteModal({ isOpen, onClose, clients = [], assignableUsers = [], onSave }) {
   const today = new Date();
   const year = today.getFullYear();
   const month = String(today.getMonth() + 1).padStart(2, '0');
@@ -31,6 +31,7 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
 
   const [formData, setFormData] = useState({
     client_id: '',
+    author_id: '', // Selected staff member who created the note
     note_date: todayFormatted,
     summary: '',
     detailed_notes: '',
@@ -103,9 +104,9 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
         </DialogHeader>
         
         <div className="flex-1 overflow-y-auto pr-2 space-y-8 py-2">
-          {/* Client and Date */}
+          {/* Client, Staff, and Date */}
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className="font-medium text-sm">Client</Label>
                 <Select value={formData.client_id} onValueChange={(value) => setFormData(prev => ({...prev, client_id: value}))}>
@@ -116,6 +117,24 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
                     {clients.map(client => (
                       <SelectItem key={client.id} value={String(client.id)}>
                         {client.client_first_name} {client.client_last_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="font-medium text-sm">Created By (Staff)</Label>
+                <Select value={formData.author_id} onValueChange={(value) => setFormData(prev => ({...prev, author_id: value}))}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select staff member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assignableUsers
+                      .filter(user => user.roleId !== 'client') // Filter out clients
+                      .map(user => (
+                      <SelectItem key={user._id || user.id} value={user.clerkId || user._id || user.id}>
+                        {user.firstName || user.first_name} {user.lastName || user.last_name} 
+                        {user.roleId && ` (${user.roleId.replace('_', ' ')})`}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -317,7 +336,7 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], onSave }) 
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button 
             onClick={handleSave} 
-            disabled={!formData.client_id || !formData.summary}
+            disabled={!formData.client_id || !formData.author_id || !formData.summary}
             className="bg-teal-600 hover:bg-teal-700"
           >
             Save Case Notes
