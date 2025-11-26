@@ -53,7 +53,7 @@ import AuditLogTab from "../auditlogtab/page";
 
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
 
-function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
+function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab, isLoaded }) {
   const { mutate } = useSWRConfig();
   const [referrals, setReferrals] = useState([]);
   const [clients, setClients] = useState([]);
@@ -92,22 +92,50 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   // Now that recentStart/recentEnd exist, compute timestamps and query
   const startMs2 = recentStart ? new Date(recentStart + 'T00:00:00').getTime() : undefined;
   const endMs2 = recentEnd ? new Date(recentEnd + 'T23:59:59').getTime() : undefined;
+  const queryArgs = isUserReady
+    ? {
+        orgId: dbUserRec?.orgId,
+        reportType: recentFilterType === 'all' ? undefined : recentFilterType,
+        // Remove date filtering temporarily
+        // start: startMs2,
+        // end: endMs2,
+        limit: 20,
+        cursor: recentCursor,
+      }
+    : 'skip';
+  
+  console.log('[CLIENT] Recent Reports query args (simplified):', queryArgs);
+  console.log('[CLIENT] User ready status:', { isUserReady, orgId: dbUserRec?.orgId });
+  
   const recentResp = useQuery(
     api.reports.list,
-    isUserReady
-      ? {
-          orgId: dbUserRec?.orgId,
-          reportType: recentFilterType === 'all' ? undefined : recentFilterType,
-          start: startMs2,
-          end: endMs2,
-          limit: 20,
-          cursor: recentCursor,
-        }
-      : 'skip'
+    queryArgs
   );
+  
+  // Test query to check if any reports exist at all
+  const testAllReports = useQuery(
+    api.debugReports.listAllReports,
+    {}
+  );
+  
+  console.log('[CLIENT] Test - all reports in database:', testAllReports);
   const recentReports = recentResp || []; // Convex query returns array directly, not paginated
   
   // Debug logging for recent reports
+  console.log('[CLIENT] recentResp received:', recentResp);
+  console.log('[CLIENT] recentReports processed:', recentReports);
+  
+  // Simple debug to check query execution
+  useEffect(() => {
+    if (recentResp !== undefined) {
+      console.log('[CLIENT] Recent reports query result:', recentResp);
+      console.log('[CLIENT] Recent reports length:', recentResp?.length);
+      
+      if (recentResp && recentResp.length === 0) {
+        console.log('[CLIENT] No reports found - checking if query is working...');
+      }
+    }
+  }, [recentResp]);
   useEffect(() => {
     console.log('📊 Recent Reports Debug:', {
       isUserReady,
@@ -1968,6 +1996,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   <div className="text-center py-6">
                     <div className="text-sm text-muted-foreground mb-2">No reports found for the selected filters.</div>
                     <div className="text-xs text-muted-foreground">Generate a report above to populate this list, or adjust your date range and type filters.</div>
+                    <div className="text-xs text-red-500 mt-4 p-2 bg-red-50 rounded border">
+                      <div><strong>Debug Info:</strong></div>
+                      <div>Query Args: {JSON.stringify(queryArgs)}</div>
+                      <div>Reports Response: {recentResp ? JSON.stringify(recentResp) : 'undefined'}</div>
+                      <div>User Ready: {String(isUserReady)}</div>
+                      <div>OrgId: {dbUserRec?.orgId || 'none'}</div>
+                      <div>Test Reports: {testAllReports ? JSON.stringify(testAllReports) : 'loading...'}</div>
+                    </div>
                   </div>
                 )}
                 {recentReports
@@ -2108,7 +2144,7 @@ function InteractiveDashboard() {
   const userRole = normalized ? normalized.replace(/_/g, "-") : "support-worker";
   const userName = user?.fullName ?? "User";
 
-  return <InteractiveDashboardContent user={user} userRole={userRole} userName={userName} getToken={getToken} defaultTab={tab || 'Overview'} />;
+  return <InteractiveDashboardContent user={user} userRole={userRole} userName={userName} getToken={getToken} defaultTab={tab || 'Overview'} isLoaded={isLoaded} />;
 }
 
 export default function InteractiveDashboardPage() {

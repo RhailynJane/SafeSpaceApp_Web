@@ -54,7 +54,6 @@ export default defineSchema({
 		orgId: v.optional(v.string()), // Organization slug they belong to
 		lastLogin: v.optional(v.number()),
 		status: v.optional(v.string()), // 'active' | 'inactive' | 'suspended' | 'deleted' (default: 'active' if not set)
-		// Additional metadata (web-specific)
 		phoneNumber: v.optional(v.string()),
 		address: v.optional(v.string()),
 		emergencyContactName: v.optional(v.string()),
@@ -783,5 +782,27 @@ export default defineSchema({
 		updatedBy: v.optional(v.string()), // clerkId of admin who changed
 	})
 		.index("by_org", ["orgId"])
-		.index("by_org_and_feature", ["orgId", "featureKey"])
+		.index("by_org_and_feature", ["orgId", "featureKey"]),
+
+	// ============================================
+	// REPORTS (Generated analytics with optional stored files)
+	// ============================================
+
+	reports: defineTable({
+		title: v.string(),
+		reportType: v.string(), // e.g., 'client-summary' | 'caseload' | 'sessions' | 'outcomes' | 'crisis'
+		sizeBytes: v.optional(v.number()),
+		createdAt: v.number(),
+		createdBy: v.optional(v.string()), // clerkId of user
+		orgId: v.optional(v.string()),
+		// Structured data snapshot used to render charts/metrics
+		dataJson: v.optional(v.any()),
+		// Optional stored file (PDF/Excel/Word) in Convex storage
+		fileStorageId: v.optional(v.id("_storage")),
+		fileMimeType: v.optional(v.string()),
+		// Optional chart image snapshot stored separately
+		chartStorageId: v.optional(v.id("_storage")),
+		chartMimeType: v.optional(v.string()),
+	})
+		.index("by_org", ["orgId", "createdAt"]).index("by_createdAt", ["createdAt"]).index("by_type", ["reportType", "createdAt"]).index("by_creator", ["createdBy", "createdAt"]),
 });
