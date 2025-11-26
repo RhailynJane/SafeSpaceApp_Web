@@ -1563,15 +1563,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
           <div className="space-y-6">
             {/* Crisis Overview Stats */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <Card className="border-red-200 bg-red-50">
+              <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30">
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <div className="p-2 bg-red-100 rounded-full">
-                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-full">
+                      <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-red-800">Critical Risk</p>
-                      <p className="text-2xl font-bold text-red-900">
+                      <p className="text-sm font-medium text-red-800 dark:text-red-200">Critical Risk</p>
+                      <p className="text-2xl font-bold text-red-900 dark:text-red-100">
                         {clients.filter(c => c.risk_level === 'Critical' || c.risk_level === 'High').length}
                       </p>
                     </div>
@@ -1579,15 +1579,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 </CardContent>
               </Card>
               
-              <Card className="border-orange-200 bg-orange-50">
+              <Card className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30">
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <div className="p-2 bg-orange-100 rounded-full">
-                      <Users className="h-6 w-6 text-orange-600" />
+                    <div className="p-2 bg-orange-100 dark:bg-orange-900/50 rounded-full">
+                      <Users className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-orange-800">Medium Risk</p>
-                      <p className="text-2xl font-bold text-orange-900">
+                      <p className="text-sm font-medium text-orange-800 dark:text-orange-200">Medium Risk</p>
+                      <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
                         {clients.filter(c => c.risk_level === 'Medium').length}
                       </p>
                     </div>
@@ -1595,15 +1595,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 </CardContent>
               </Card>
               
-              <Card className="border-green-200 bg-green-50">
+              <Card className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
+                      <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-green-800">Low Risk</p>
-                      <p className="text-2xl font-bold text-green-900">
+                      <p className="text-sm font-medium text-green-800 dark:text-green-200">Low Risk</p>
+                      <p className="text-2xl font-bold text-green-900 dark:text-green-100">
                         {clients.filter(c => c.risk_level === 'Low' || !c.risk_level).length}
                       </p>
                     </div>
@@ -1611,15 +1611,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                 </CardContent>
               </Card>
               
-              <Card className="border-blue-200 bg-blue-50">
+              <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30">
                 <CardContent className="p-6">
                   <div className="flex items-center">
-                    <div className="p-2 bg-blue-100 rounded-full">
-                      <Calendar className="h-6 w-6 text-blue-600" />
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full">
+                      <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-blue-800">Crisis Events</p>
-                      <p className="text-2xl font-bold text-blue-900">{crisisEvents.length}</p>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Crisis Events</p>
+                      <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{crisisEvents.length}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -1627,10 +1627,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             </div>
 
             {/* Emergency Protocols */}
-            <Card className="border-red-200 bg-red-50">
+            <Card className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30">
               <CardHeader>
-                <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
-                <CardDescription className="text-red-700">
+                <CardTitle className="text-red-800 dark:text-red-200">Emergency Protocols</CardTitle>
+                <CardDescription className="text-red-700 dark:text-red-300">
                   Quick access to crisis intervention resources
                 </CardDescription>
               </CardHeader>
@@ -1643,7 +1643,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <div className="text-xs">911</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => window.open('tel:988')}>
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20" onClick={() => window.open('tel:988')}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Crisis Hotline</div>
@@ -1657,13 +1657,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             {/* Client Risk Categories */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* High Risk Clients */}
-              <Card className="border-red-200">
+              <Card className="border-red-200 dark:border-red-800">
                 <CardHeader>
-                  <CardTitle className="text-red-800 flex items-center gap-2">
+                  <CardTitle className="text-red-800 dark:text-red-200 flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5" />
                     Critical & High Risk Clients
                   </CardTitle>
-                  <CardDescription>Clients requiring immediate attention and monitoring</CardDescription>
+                  <CardDescription className="dark:text-gray-400">Clients requiring immediate attention and monitoring</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-96">
@@ -1671,22 +1671,22 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       {clients
                         .filter(c => c.risk_level === 'Critical' || c.risk_level === 'High')
                         .map((client) => (
-                          <div key={client.id} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                          <div key={client.id} className="border border-red-200 rounded-lg p-4 bg-red-50 dark:border-red-800 dark:bg-red-950/20">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium text-red-900">
+                              <h4 className="font-medium text-red-900 dark:text-red-100">
                                 {client.client_first_name} {client.client_last_name}
                               </h4>
                               <Badge variant="destructive">{client.risk_level || 'High'} Risk</Badge>
                             </div>
-                            <p className="text-sm text-red-700 mb-2">
+                            <p className="text-sm text-red-700 dark:text-red-300 mb-2">
                               Last Session: {client.last_session_date ? new Date(client.last_session_date).toLocaleDateString() : 'No recent session'}
                             </p>
                             <div className="flex gap-2 mt-3">
-                              <Button size="sm" className="bg-red-600 hover:bg-red-700">
+                              <Button size="sm" className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800">
                                 <Phone className="h-4 w-4 mr-1" />
                                 Contact
                               </Button>
-                              <Button variant="outline" size="sm" className="border-red-300">
+                              <Button variant="outline" size="sm" className="border-red-300 dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20">
                                 View Profile
                               </Button>
                             </div>
@@ -1694,8 +1694,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         ))
                       }
                       {clients.filter(c => c.risk_level === 'Critical' || c.risk_level === 'High').length === 0 && (
-                        <div className="text-center py-8 text-gray-500">
-                          <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                          <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500 dark:text-green-400" />
                           <p>No high-risk clients at this time</p>
                         </div>
                       )}
@@ -1705,13 +1705,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </Card>
 
               {/* Medium & Low Risk Clients */}
-              <Card className="border-orange-200">
+              <Card className="border-orange-200 dark:border-orange-800">
                 <CardHeader>
-                  <CardTitle className="text-orange-800 flex items-center gap-2">
+                  <CardTitle className="text-orange-800 dark:text-orange-200 flex items-center gap-2">
                     <Users className="h-5 w-5" />
                     Medium & Low Risk Clients
                   </CardTitle>
-                  <CardDescription>Stable clients with regular monitoring</CardDescription>
+                  <CardDescription className="dark:text-gray-400">Stable clients with regular monitoring</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ScrollArea className="h-96">
@@ -1720,18 +1720,18 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       {clients
                         .filter(c => c.risk_level === 'Medium')
                         .map((client) => (
-                          <div key={client.id} className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+                          <div key={client.id} className="border border-orange-200 rounded-lg p-4 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium text-orange-900">
+                              <h4 className="font-medium text-orange-900 dark:text-orange-100">
                                 {client.client_first_name} {client.client_last_name}
                               </h4>
-                              <Badge className="bg-orange-100 text-orange-800">Medium Risk</Badge>
+                              <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-200">Medium Risk</Badge>
                             </div>
-                            <p className="text-sm text-orange-700 mb-2">
+                            <p className="text-sm text-orange-700 dark:text-orange-300 mb-2">
                               Last Session: {client.last_session_date ? new Date(client.last_session_date).toLocaleDateString() : 'No recent session'}
                             </p>
                             <div className="flex gap-2 mt-3">
-                              <Button size="sm" variant="outline" className="border-orange-300">
+                              <Button size="sm" variant="outline" className="border-orange-300 dark:border-orange-700 dark:text-orange-200 dark:hover:bg-orange-900/20">
                                 <Phone className="h-4 w-4 mr-1" />
                                 Contact
                               </Button>
@@ -1745,14 +1745,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         .filter(c => c.risk_level === 'Low' || !c.risk_level)
                         .slice(0, 5)
                         .map((client) => (
-                          <div key={client.id} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                          <div key={client.id} className="border border-green-200 rounded-lg p-4 bg-green-50 dark:border-green-800 dark:bg-green-950/20">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium text-green-900">
+                              <h4 className="font-medium text-green-900 dark:text-green-100">
                                 {client.client_first_name} {client.client_last_name}
                               </h4>
-                              <Badge className="bg-green-100 text-green-800">Low Risk</Badge>
+                              <Badge className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200">Low Risk</Badge>
                             </div>
-                            <p className="text-sm text-green-700 mb-2">
+                            <p className="text-sm text-green-700 dark:text-green-300 mb-2">
                               Last Session: {client.last_session_date ? new Date(client.last_session_date).toLocaleDateString() : 'No recent session'}
                             </p>
                           </div>
@@ -1787,14 +1787,14 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     {crisisEvents.slice(0, 5).map((event) => {
                       const client = clients.find(c => c.id === event.client_id);
                       return (
-                        <div key={event.id} className="border rounded-lg p-4 bg-gray-50">
+                        <div key={event.id} className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium">{client ? `${client.client_first_name} ${client.client_last_name}` : "Unknown Client"}</h4>
+                            <h4 className="font-medium dark:text-gray-100">{client ? `${client.client_first_name} ${client.client_last_name}` : "Unknown Client"}</h4>
                             <Badge variant={event.risk_level_at_event === "High" ? "destructive" : "default"}>{event.risk_level_at_event} Risk</Badge>
                           </div>
-                          <p className="text-sm text-gray-600 mb-1">Event Type: {event.event_type}</p>
-                          <p className="text-sm text-gray-600 mb-1">Date: {new Date(event.event_date).toLocaleDateString()}</p>
-                          <p className="text-sm mb-2">{event.description}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Event Type: {event.event_type}</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Date: {new Date(event.event_date).toLocaleDateString()}</p>
+                          <p className="text-sm mb-2 dark:text-gray-300">{event.description}</p>
                           <div className="flex gap-2 mt-3">
                             <Button size="sm">Follow Up</Button>
                             <Button variant="outline" size="sm">View Details</Button>
