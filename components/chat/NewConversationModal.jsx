@@ -23,6 +23,8 @@ const NewConversationModal = ({ open, onClose, onConversationCreated }) => {
 
   const filteredUsers = users.filter(u => 
     u.clerkId !== user?.id && // Exclude current user
+    // Only show users with specific roles
+    ['support_worker', 'admin', 'team_leader'].includes(u.roleId) &&
     (u.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
      u.lastName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
      u.email?.toLowerCase().includes(searchTerm.toLowerCase()))
