@@ -25,6 +25,13 @@ export default function ViewCalendarModal({ schedule = [] }) {
   const [viewFilter, setViewFilter] = useState("month") // "day", "week", "month"
   const [open, setOpen] = useState(false)
 
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ]
+
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+
   // Debug: log all schedule data when modal opens
   if (open) {
     console.log('=== CALENDAR DEBUG ===');
@@ -80,13 +87,6 @@ export default function ViewCalendarModal({ schedule = [] }) {
     if (!day) return [];
     return appointmentsForMonth.filter(appt => appt.day === day);
   }
-
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ]
-
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
   const goToPreviousMonth = () => {
     if (month === 0) {
