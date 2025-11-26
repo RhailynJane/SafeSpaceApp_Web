@@ -159,6 +159,113 @@ export async function GET(req) {
       });
     }
 
+    if (type === 'supportWorkerAnalytics') {
+      // Fetch all users, clients, and notes for the org
+      let allUsers = [];
+      let allClients = [];
+      let allNotes = [];
+      
+      try {
+        allUsers = await client.query(api.users.list, { clerkId: userId, orgId });
+      } catch {}
+      
+      try {
+        allClients = await client.query(api.clients.listByOrg, { orgId });
+      } catch {}
+      
+      try {
+        allNotes = await client.query(api.notes.listByOrg, { orgId });
+      } catch {}
+
+      // Filter support workers
+      const supportWorkers = allUsers.filter(u => u.roleId === 'support_worker');
+      
+      // Calculate metrics for each support worker
+      const workerMetrics = supportWorkers.map(worker => {
+        // Get worker's clients
+        const workerClients = allClients.filter(c => c.supportWorkerId === worker.clerkId);
+        
+        // Get worker's notes
+        const workerNotes = allNotes.filter(n => n.supportWorkerId === worker.clerkId);
+        
+        // Calculate time tracking for different periods
+        const now = Date.now();
+        const oneDayAgo = now - 24 * 60 * 60 * 1000;
+        const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+        const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
+        
+        const calculateTimeForPeriod = (notes, startTime) => {
+          return notes
+            .filter(n => {
+              const noteDate = new Date(n.note_date || n._creationTime);
+              return noteDate.getTime() >= startTime;
+            })
+            .reduce((total, note) => {
+              // Sum up activities minutes or use duration_minutes
+              if (note.activities && Array.isArray(note.activities)) {
+                return total + note.activities.reduce((sum, act) => sum + (parseInt(act.minutes) || 0), 0);
+              }
+              return total + (parseInt(note.duration_minutes) || 0);
+            }, 0);
+        };
+        
+        const totalMinutesDay = calculateTimeForPeriod(workerNotes, oneDayAgo);
+        const totalMinutesWeek = calculateTimeForPeriod(workerNotes, oneWeekAgo);
+        const totalMinutesMonth = calculateTimeForPeriod(workerNotes, oneMonthAgo);
+        
+        // Case notes per client
+        const notesPerClient = {};
+        workerClients.forEach(client => {
+          const clientNotes = workerNotes.filter(n => n.client_id === client._id);
+          notesPerClient[`${client.firstName} ${client.lastName}`] = clientNotes.length;
+        });
+        
+        return {
+          workerId: worker.clerkId,
+          workerName: `${worker.firstName || ''} ${worker.lastName || ''}`.trim() || worker.email,
+          workerEmail: worker.email,
+          clientCount: workerClients.length,
+          totalNotes: workerNotes.length,
+          timeTracking: {
+            day: {
+              totalMinutes: totalMinutesDay,
+              hours: Math.floor(totalMinutesDay / 60),
+              minutes: totalMinutesDay % 60
+            },
+            week: {
+              totalMinutes: totalMinutesWeek,
+              hours: Math.floor(totalMinutesWeek / 60),
+              minutes: totalMinutesWeek % 60
+            },
+            month: {
+              totalMinutes: totalMinutesMonth,
+              hours: Math.floor(totalMinutesMonth / 60),
+              minutes: totalMinutesMonth % 60
+            }
+          },
+          notesPerClient,
+          clients: workerClients.map(c => ({
+            id: c._id,
+            name: `${c.firstName} ${c.lastName}`,
+            noteCount: workerNotes.filter(n => n.client_id === c._id).length
+          }))
+        };
+      });
+
+      return NextResponse.json({
+        type,
+        orgId,
+        filters: { startDate, endDate },
+        data: {
+          supportWorkers: workerMetrics,
+          totalSupportWorkers: supportWorkers.length,
+          totalClients: allClients.length,
+          totalNotes: allNotes.length
+        },
+        generatedAt: Date.now(),
+      });
+    }
+
     return NextResponse.json({ type, orgId, data: {}, generatedAt: Date.now() });
   } catch (error) {
     console.error('Error generating report:', error);

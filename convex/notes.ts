@@ -48,6 +48,17 @@ export const listByClient = query({
   },
 });
 
+export const listByOrg = query({
+  args: { orgId: v.string() },
+  handler: async (ctx, { orgId }) => {
+    const items = await ctx.db
+      .query("notes")
+      .filter((q) => q.eq(q.field("orgId"), orgId))
+      .collect();
+    return items;
+  },
+});
+
 export const create = mutation({
   args: {
     clerkId: v.string(),
@@ -59,6 +70,10 @@ export const create = mutation({
     detailedNotes: v.optional(v.string()),
     riskAssessment: v.optional(v.string()),
     nextSteps: v.optional(v.string()),
+    activities: v.optional(v.array(v.object({
+      type: v.string(),
+      minutes: v.union(v.number(), v.string())
+    }))),
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.clerkId, PERMISSIONS.MANAGE_NOTES);
@@ -80,6 +95,7 @@ export const create = mutation({
       detailedNotes: sanitize(args.detailedNotes, 8000),
       riskAssessment: sanitize(args.riskAssessment, 50),
       nextSteps: sanitize(args.nextSteps, 1000),
+      activities: args.activities,
       orgId: me.orgId,
       createdAt: now,
       updatedAt: now,
@@ -109,6 +125,10 @@ export const update = mutation({
     detailedNotes: v.optional(v.string()),
     riskAssessment: v.optional(v.string()),
     nextSteps: v.optional(v.string()),
+    activities: v.optional(v.array(v.object({
+      type: v.string(),
+      minutes: v.union(v.number(), v.string())
+    }))),
   },
   handler: async (ctx, { clerkId, noteId, ...updates }) => {
     await requirePermission(ctx, clerkId, PERMISSIONS.MANAGE_NOTES);
@@ -135,6 +155,7 @@ export const update = mutation({
     if (updates.detailedNotes !== undefined) patch.detailedNotes = sanitize(updates.detailedNotes, 8000);
     if (updates.riskAssessment !== undefined) patch.riskAssessment = sanitize(updates.riskAssessment, 50);
     if (updates.nextSteps !== undefined) patch.nextSteps = sanitize(updates.nextSteps, 1000);
+    if (updates.activities !== undefined) patch.activities = updates.activities;
 
     await ctx.db.patch(noteId, patch);
 

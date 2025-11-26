@@ -252,3 +252,14 @@ export const update = mutation({
     return await ctx.db.get(clientId);
   },
 });
+
+export const listByOrg = query({
+  args: { orgId: v.string() },
+  handler: async (ctx, { orgId }) => {
+    const items = await ctx.db
+      .query("clients")
+      .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+      .collect();
+    return items;
+  },
+});

@@ -25,6 +25,7 @@ import ReferralActions from "@/components/ReferralActions";
 import NewNoteModal from "@/components/Notes/NewNoteModal";
 import ViewNoteModal from "@/components/Notes/ViewNoteModal";
 import EditNoteModal from "@/components/Notes/EditNoteModal";
+import DeleteNoteModal from "@/components/Notes/DeleteNoteModal";
 import AddAppointmentModal from "@/components/schedule/AddAppointmentModal";
 import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal";
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
@@ -323,6 +324,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         detailed_notes: n.detailedNotes || "",
         risk_assessment: n.riskAssessment || "",
         next_steps: n.nextSteps || "",
+        activities: n.activities || [],
       };
     });
     
@@ -372,6 +374,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         detailedNotes: noteData.detailed_notes,
         riskAssessment: noteData.risk_assessment,
         nextSteps: noteData.next_steps,
+        activities: noteData.activities || [],
       });
       closeModal('newNote');
     } catch (error) {
@@ -390,17 +393,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         detailedNotes: noteData.detailed_notes,
         riskAssessment: noteData.risk_assessment,
         nextSteps: noteData.next_steps,
+        activities: noteData.activities || [],
       });
       closeModal('editNote');
     } catch (error) {
-    }
-  };
-
-  const handleDeleteNote = async (noteId) => {
-    if (confirm('Are you sure you want to delete this note?')) {
-      try {
-        await removeNote({ clerkId: user.id, noteId });
-      } catch (error) {}
     }
   };
 
@@ -412,6 +408,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     newNote: false,
     viewNote: false,
     editNote: false,
+    deleteNote: false,
   });
   const [selectedNote, setSelectedNote] = useState(null);
 
@@ -420,6 +417,20 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     setModals(prev => ({ ...prev, [modalName]: true }));
   };
   const closeModal = (modalName) => setModals(prev => ({ ...prev, [modalName]: false }));
+
+  const handleDeleteNote = async (noteId) => {
+    openModal('deleteNote', { _id: noteId });
+  };
+
+  const confirmDeleteNote = async () => {
+    if (!selectedNote?._id) return;
+    try {
+      await removeNote({ clerkId: user.id, noteId: selectedNote._id });
+      closeModal('deleteNote');
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+    }
+  };
 
   const generateReport = () => {
     if (reportType === "caseload") {
@@ -1049,6 +1060,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
             onClose={() => closeModal('editNote')}
             note={selectedNote}
             onSave={handleUpdateNote}
+          />
+
+          <DeleteNoteModal
+            isOpen={modals.deleteNote}
+            onClose={() => closeModal('deleteNote')}
+            onConfirm={confirmDeleteNote}
+            noteSummary={selectedNote?.summary}
           />
 
           <Card className="border-border bg-card">

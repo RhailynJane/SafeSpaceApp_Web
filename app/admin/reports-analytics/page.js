@@ -129,6 +129,20 @@ export default function ReportsAnalyticsPage() {
                 'Top Action': Object.entries(u.byAction || {}).sort((a,b)=>b[1]-a[1])[0]?.[0] || '',
                 'Action Count': Object.entries(u.byAction || {}).sort((a,b)=>b[1]-a[1])[0]?.[1] || 0
             }));
+        } else if (reportType === 'supportWorkerAnalytics') {
+            const workers = data.data?.supportWorkers || [];
+            sheetData = workers.map(w => ({
+                'Support Worker': w.workerName || 'Unknown',
+                'Email': w.workerEmail || '',
+                '# of Clients': w.clientCount || 0,
+                'Total Notes': w.totalNotes || 0,
+                'Hours (Day)': w.timeTracking?.day?.hours || 0,
+                'Minutes (Day)': w.timeTracking?.day?.minutes || 0,
+                'Hours (Week)': w.timeTracking?.week?.hours || 0,
+                'Minutes (Week)': w.timeTracking?.week?.minutes || 0,
+                'Hours (Month)': w.timeTracking?.month?.hours || 0,
+                'Minutes (Month)': w.timeTracking?.month?.minutes || 0
+            }));
         }
         
         const ws = utils.json_to_sheet(sheetData);
@@ -176,6 +190,18 @@ export default function ReportsAnalyticsPage() {
                 u.userEmail || '',
                 u.userRole || '',
                 u.totalActions || 0
+            ]);
+        } else if (reportType === 'supportWorkerAnalytics') {
+            const workers = data.data?.supportWorkers || [];
+            headers = ['Worker', 'Email', 'Clients', 'Notes', 'Hours (Day)', 'Hours (Week)', 'Hours (Month)'];
+            rows = workers.map(w => [
+                w.workerName || 'Unknown',
+                w.workerEmail || '',
+                w.clientCount || 0,
+                w.totalNotes || 0,
+                `${w.timeTracking?.day?.hours || 0}h ${w.timeTracking?.day?.minutes || 0}m`,
+                `${w.timeTracking?.week?.hours || 0}h ${w.timeTracking?.week?.minutes || 0}m`,
+                `${w.timeTracking?.month?.hours || 0}h ${w.timeTracking?.month?.minutes || 0}m`
             ]);
         }
         
@@ -236,6 +262,18 @@ export default function ReportsAnalyticsPage() {
                 u.userEmail || '',
                 u.userRole || '',
                 String(u.totalActions || 0)
+            ]);
+        } else if (reportType === 'supportWorkerAnalytics') {
+            const workers = data.data?.supportWorkers || [];
+            headers = ['Worker', 'Email', 'Clients', 'Notes', 'Hours (Day)', 'Hours (Week)', 'Hours (Month)'];
+            rows = workers.map(w => [
+                w.workerName || 'Unknown',
+                w.workerEmail || '',
+                String(w.clientCount || 0),
+                String(w.totalNotes || 0),
+                `${w.timeTracking?.day?.hours || 0}h ${w.timeTracking?.day?.minutes || 0}m`,
+                `${w.timeTracking?.week?.hours || 0}h ${w.timeTracking?.week?.minutes || 0}m`,
+                `${w.timeTracking?.month?.hours || 0}h ${w.timeTracking?.month?.minutes || 0}m`
             ]);
         }
 
@@ -332,6 +370,7 @@ export default function ReportsAnalyticsPage() {
                         <SelectItem value="userManagement">User Management</SelectItem>
                         <SelectItem value="audits">Audits</SelectItem>
                         <SelectItem value="performance">Performance (TL/SW)</SelectItem>
+                        <SelectItem value="supportWorkerAnalytics">Support Worker Analytics</SelectItem>
                     </SelectContent>
                 </Select>
                 <Select value={dateRange} onValueChange={setDateRange}>
@@ -426,6 +465,102 @@ export default function ReportsAnalyticsPage() {
                                     </div>
                                 </CardContent>
                             </Card>
+                        </div>
+                    )}
+
+                    {reportType === 'supportWorkerAnalytics' && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <AnalyticsCard title="Total Support Workers" value={data.data?.totalSupportWorkers || 0} subtitle="In organization" valueColor="text-teal-600"/>
+                                <AnalyticsCard title="Total Clients" value={data.data?.totalClients || 0} subtitle="All clients" valueColor="text-blue-600"/>
+                                <AnalyticsCard title="Total Case Notes" value={data.data?.totalNotes || 0} subtitle="All notes created" valueColor="text-purple-600"/>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <Card>
+                                    <CardHeader><CardTitle>Support Workers - Client Count</CardTitle></CardHeader>
+                                    <CardContent>
+                                        <SimpleBar items={(data.data?.supportWorkers || []).map(w=>({ label: w.workerName, count: w.clientCount }))} labelKey="label" valueKey="count"/>
+                                    </CardContent>
+                                </Card>
+                                <Card>
+                                    <CardHeader><CardTitle>Support Workers - Total Notes</CardTitle></CardHeader>
+                                    <CardContent>
+                                        <SimpleBar items={(data.data?.supportWorkers || []).map(w=>({ label: w.workerName, count: w.totalNotes }))} labelKey="label" valueKey="count"/>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {(data.data?.supportWorkers || []).map((worker, idx) => (
+                                <Card key={worker.workerId || idx} className="border-2 border-teal-100">
+                                    <CardHeader className="bg-teal-50">
+                                        <CardTitle className="text-teal-800">{worker.workerName}</CardTitle>
+                                        <p className="text-sm text-gray-600">{worker.workerEmail}</p>
+                                    </CardHeader>
+                                    <CardContent className="pt-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                            <div className="bg-blue-50 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600 mb-1">Clients</p>
+                                                <p className="text-2xl font-bold text-blue-700">{worker.clientCount}</p>
+                                            </div>
+                                            <div className="bg-purple-50 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600 mb-1">Total Notes</p>
+                                                <p className="text-2xl font-bold text-purple-700">{worker.totalNotes}</p>
+                                            </div>
+                                            <div className="bg-green-50 p-4 rounded-lg">
+                                                <p className="text-sm text-gray-600 mb-1">Avg Notes/Client</p>
+                                                <p className="text-2xl font-bold text-green-700">
+                                                    {worker.clientCount > 0 ? (worker.totalNotes / worker.clientCount).toFixed(1) : '0'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                            <div className="bg-gray-50 p-4 rounded-lg border">
+                                                <p className="text-sm font-semibold text-gray-700 mb-2">Time (Last 24 Hours)</p>
+                                                <p className="text-xl font-bold text-gray-900">
+                                                    {worker.timeTracking?.day?.hours || 0}h {worker.timeTracking?.day?.minutes || 0}m
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {worker.timeTracking?.day?.totalMinutes || 0} total minutes
+                                                </p>
+                                            </div>
+                                            <div className="bg-gray-50 p-4 rounded-lg border">
+                                                <p className="text-sm font-semibold text-gray-700 mb-2">Time (Last 7 Days)</p>
+                                                <p className="text-xl font-bold text-gray-900">
+                                                    {worker.timeTracking?.week?.hours || 0}h {worker.timeTracking?.week?.minutes || 0}m
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {worker.timeTracking?.week?.totalMinutes || 0} total minutes
+                                                </p>
+                                            </div>
+                                            <div className="bg-gray-50 p-4 rounded-lg border">
+                                                <p className="text-sm font-semibold text-gray-700 mb-2">Time (Last 30 Days)</p>
+                                                <p className="text-xl font-bold text-gray-900">
+                                                    {worker.timeTracking?.month?.hours || 0}h {worker.timeTracking?.month?.minutes || 0}m
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    {worker.timeTracking?.month?.totalMinutes || 0} total minutes
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {worker.clients && worker.clients.length > 0 && (
+                                            <div>
+                                                <h4 className="font-semibold text-gray-800 mb-3">Notes per Client</h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    {worker.clients.map(client => (
+                                                        <div key={client.id} className="flex justify-between items-center p-3 bg-white border rounded-lg">
+                                                            <span className="text-sm text-gray-700">{client.name}</span>
+                                                            <span className="text-sm font-semibold text-teal-600">{client.noteCount} notes</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            ))}
                         </div>
                     )}
                 </div>

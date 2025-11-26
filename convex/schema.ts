@@ -173,6 +173,10 @@ export default defineSchema({
 		detailedNotes: v.optional(v.string()),
 		riskAssessment: v.optional(v.string()),
 		nextSteps: v.optional(v.string()),
+		activities: v.optional(v.array(v.object({
+			type: v.string(),
+			minutes: v.union(v.number(), v.string())
+		}))),
 		orgId: v.optional(v.string()),
 		createdAt: v.number(),
 		updatedAt: v.number(),
