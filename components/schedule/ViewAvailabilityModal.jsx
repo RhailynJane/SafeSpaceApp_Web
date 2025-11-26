@@ -11,36 +11,35 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Clock, Edit, Save, Loader2 } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function ViewAvailabilityModal({ availability = [], onSelect, isOpen, onOpenChange, onSaveSuccess }) {
+export default function ViewAvailabilityModal({ availability = [], onSelect, isOpen, onOpenChange }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editableAvailability, setEditableAvailability] = useState([]);
-  const [isSaving, setIsSaving] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  useEffect(() => {
-    if (isOpen) {
-      const availabilityMap = new Map(availability.map(a => [a.day, a.time]));
-      const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      const fullSchedule = allDays.map(day => ({ day, time: availabilityMap.get(day) || '' }));
-      setEditableAvailability(fullSchedule);
-    } else {
-      setIsEditing(false);
-    }
-  }, [isOpen, availability]);
+  // Prepare full weekly availability based on backend data
+  const editableAvailability = useMemo(() => {
+    const availabilityMap = new Map(availability.map(a => [a.day, a.time]));
+    const allDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    return allDays.map(day => ({
+      day,
+      time: availabilityMap.get(day) || null
+    }));
+  }, [availability]);
 
+  // Generate upcoming slots for the current week
   const upcomingSlots = useMemo(() => {
     const slots = [];
-    const today = new Date();
-    const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const startOfWeek = new Date(currentDate);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Sunday
+
+    const daysOfWeek = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
     for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+
       const dayName = daysOfWeek[date.getDay()];
       const dayAvailability = editableAvailability.find(a => a.day === dayName);
 
@@ -48,66 +47,49 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
         const [startTimeStr, endTimeStr] = dayAvailability.time.split(' - ');
 
         const parseTime = (timeStr) => {
-          if (!timeStr) return null; // Add this safety check
-          const match = timeStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i);
-          if (!match) return null;
-          let [_, hour, minute, meridiem] = match;
-          hour = parseInt(hour, 10);
-          if (meridiem.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-          if (meridiem.toUpperCase() === 'AM' && hour === 12) hour = 0;
-          return hour;
+          if (!timeStr) return null;
+          const [hourMin, meridiem] = timeStr.split(' ');
+          const [hour, minute] = hourMin.split(':').map(Number);
+          let h = hour;
+          if (meridiem.toUpperCase() === 'PM' && hour !== 12) h += 12;
+          if (meridiem.toUpperCase() === 'AM' && hour === 12) h = 0;
+          return { hour: h, minute };
         };
 
-        const startHour = parseTime(startTimeStr);
-        const endHour = parseTime(endTimeStr);
+        const start = parseTime(startTimeStr);
+        const end = parseTime(endTimeStr);
 
-        if (startHour === null || endHour === null) continue;
+        if (!start || !end) continue;
 
-        for (let h = startHour; h < endHour; h++) {
-          const slotDate = new Date(date);
-          slotDate.setHours(h, 0, 0, 0);
-          if (slotDate > new Date()) { // Only show future slots
-            slots.push(slotDate);
+        const slotDate = new Date(date);
+        slotDate.setHours(start.hour, start.minute, 0, 0);
+
+        while (slotDate.getHours() < end.hour || (slotDate.getHours() === end.hour && slotDate.getMinutes() < end.minute)) {
+          if (slotDate > new Date()) {
+            slots.push(new Date(slotDate));
           }
+          slotDate.setMinutes(slotDate.getMinutes() + 30); // 30 min slots
         }
       }
     }
-    return slots;
-  }, [editableAvailability]);
+
+    return slots.sort((a,b) => a-b);
+  }, [editableAvailability, currentDate]);
+
+  const goPrevWeek = () => setCurrentDate(prev => new Date(prev.setDate(prev.getDate() - 7)));
+  const goNextWeek = () => setCurrentDate(prev => new Date(prev.setDate(prev.getDate() + 7)));
 
   const handleSelectSlot = (slot) => setSelectedSlot(slot);
 
   const handleConfirm = () => {
-    if (selectedSlot && onSelect) {
-      const startTime = selectedSlot.toTimeString().substring(0, 5);
-      const endTime = new Date(selectedSlot.getTime() + 60 * 60 * 1000).toTimeString().substring(0, 5);
-      onSelect({
-        date: selectedSlot.toISOString().split("T")[0],
-        time: startTime,
-        displayTime: `${selectedSlot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${new Date(selectedSlot.getTime() + 60 * 60 * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-      });
-      setSelectedSlot(null);
-    }
-  };
-
-  const handleSaveAvailability = async () => {
-    setIsSaving(true);
-    const res = await fetch('/api/availability', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editableAvailability.filter(a => a.time)),
+    if (!selectedSlot || !onSelect) return;
+    const startTimeStr = selectedSlot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const endTimeStr = new Date(selectedSlot.getTime() + 30*60*1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    onSelect({
+      date: selectedSlot.toISOString().split('T')[0],
+      displayTime: `${startTimeStr} - ${endTimeStr}`
     });
-
-    if (res.ok) {
-      alert('Availability saved!');
-      // Instead of waiting for the parent to refetch, we can just tell it to.
-      // The UI will update instantly because `editableAvailability` is already correct.
-      if (onSaveSuccess) onSaveSuccess(); 
-      setIsEditing(false);
-    } else {
-      alert('Failed to save availability.');
-    }
-    setIsSaving(false);
+    setSelectedSlot(null);
   };
 
   return (
@@ -117,76 +99,65 @@ export default function ViewAvailabilityModal({ availability = [], onSelect, isO
           <Clock className="h-4 w-4 mr-2" /> View Availability
         </Button>
       </DialogTrigger>
+
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit My Availability" : "Select a Time Slot"}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? "Set your weekly working hours." : "Choose an available slot below to book an appointment."}
-          </DialogDescription>
+          <DialogTitle>Available Slots</DialogTitle>
+          <DialogDescription>Choose a date and time to book an appointment.</DialogDescription>
         </DialogHeader>
 
-        {isEditing ? (
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            {editableAvailability.map(({ day, time }) => (
-              <div key={day} className="grid grid-cols-3 items-center gap-4">
-                <Label className="text-right">{day}</Label>
-                <Input
-                  className="col-span-2"
-                  placeholder="e.g., 9:00 AM - 5:00 PM"
-                  value={time}
-                  onChange={(e) => {
-                    setEditableAvailability(prev =>
-                      prev.map(a => a.day === day ? { ...a, time: e.target.value } : a)
-                    );
-                  }}
-                />
+        {/* Week Navigation */}
+        <div className="flex items-center justify-between mb-4">
+          <Button variant="outline" size="icon" onClick={goPrevWeek}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          {(() => {
+            const startOfWeek = new Date(currentDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(endOfWeek.getDate() + 6);
+            return (
+              <div className="font-medium text-center">
+                {startOfWeek.toLocaleDateString()} - {endOfWeek.toLocaleDateString()}
               </div>
-            ))}
+            );
+          })()}
+
+          <Button variant="outline" size="icon" onClick={goNextWeek}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Slots Grid */}
+        {upcomingSlots.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No available slots this week.
           </div>
         ) : (
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {upcomingSlots.map((slot, index) => (
-                <Button
-                  key={index}
-                  variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
-                  className={cn("h-auto flex-col py-2", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
-                  onClick={() => handleSelectSlot(slot)}
-                >
-                  <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</div>
-                  <div className="text-sm">{`${slot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${new Date(slot.getTime() + 60 * 60 * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}</div>
-                </Button>
-              ))}
-            </div>
-            {upcomingSlots.length === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                <h3 className="font-semibold text-lg mb-4">No upcoming slots found.</h3>
-                <p className="text-sm mb-2">Click "Edit Schedule" to set your weekly availability.</p>
-              </div>
-            )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {upcomingSlots.map((slot, index) => (
+              <Button
+                key={index}
+                variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
+                className={cn("flex-col py-2 h-auto", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
+                onClick={() => handleSelectSlot(slot)}
+              >
+                <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                <div className="text-sm">{slot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - {new Date(slot.getTime() + 30*60*1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+              </Button>
+            ))}
           </div>
         )}
 
-        <DialogFooter className="flex-shrink-0 mt-4">
-          {isEditing ? (
-            <>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-              <Button onClick={handleSaveAvailability} disabled={isSaving}>
-                {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                Save Availability
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="ghost" className="mr-auto" onClick={() => setIsEditing(true)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Schedule
-              </Button>
-              <Button onClick={handleConfirm} disabled={!selectedSlot} className="bg-teal-600 hover:bg-teal-700">
-                Confirm Slot
-              </Button>
-            </>
-          )}
+        <DialogFooter className="mt-4">
+          <Button
+            className="bg-teal-600 hover:bg-teal-700"
+            onClick={handleConfirm}
+            disabled={!selectedSlot}
+          >
+            Confirm Slot
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

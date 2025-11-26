@@ -5,94 +5,101 @@ import { NextResponse } from "next/server";
 /**
  * GET /api/availability
  * Fetches the availability for the currently authenticated user.
+ * Returns an array of objects with day and time range.
+ * Example response:
+ * [
+ *   { day: "Monday", time: "09:00 AM - 05:00 PM" },
+ *   { day: "Tuesday", time: "10:00 AM - 04:00 PM" }
+ * ]
  */
 export async function GET(request) {
   try {
     const { userId } = await auth();
-
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Find the internal user associated with the Clerk user ID
-    const user = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-    });
-
+    const user = await prisma.user.findUnique({ where: { clerk_user_id: userId } });
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Fetch the availability for the found user
     const availability = await prisma.availability.findMany({
-      where: {
-        userId: user.id,
-      },
-      select: {
-        day: true,
-        startTime: true,
-        endTime: true,
-      },
+      where: { userId: user.id },
+      select: { day: true, startTime: true, endTime: true },
+      orderBy: { day: "asc" },
     });
 
-    return NextResponse.json(availability.map(a => ({ day: a.day, time: `${a.startTime} - ${a.endTime}` })), { status: 200 });
+    // Map database results to frontend-friendly format
+    const formattedAvailability = availability.map(a => ({
+      day: a.day,
+      time: `${a.startTime} - ${a.endTime}`
+    }));
+
+    return NextResponse.json(formattedAvailability, { status: 200 });
   } catch (error) {
     console.error("Error fetching availability:", error);
-    return NextResponse.json({ message: "Error fetching availability", error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { message: "Error fetching availability", error: error.message },
+      { status: 500 }
+    );
   }
 }
 
 /**
  * POST /api/availability
- * Creates or updates the availability for the currently authenticated user.
+ * Creates or updates availability for the currently authenticated user.
+ * Expects body to be an array of objects like:
+ * [
+ *   { "day": "Monday", "time": "09:00 AM - 05:00 PM" },
+ *   { "day": "Tuesday", "time": "10:00 AM - 04:00 PM" }
+ * ]
  */
 export async function POST(request) {
   try {
     const { userId } = await auth();
-
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-    });
-
+    const user = await prisma.user.findUnique({ where: { clerk_user_id: userId } });
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const newAvailability = await request.json();
 
-    // Transaction to delete old availability and create new ones
-    await prisma.$transaction(async (tx) => {
-      await tx.availability.deleteMany({
-        where: { userId: user.id },
-      });
+    if (!Array.isArray(newAvailability)) {
+      return NextResponse.json({ error: "Invalid payload format" }, { status: 400 });
+    }
 
-      // Use a loop with upsert for each day to handle unique constraints gracefully
+    // Transaction: delete old availability and insert new
+    await prisma.$transaction(async (tx) => {
+      // Remove existing availability for this user
+      await tx.availability.deleteMany({ where: { userId: user.id } });
+
       for (const avail of newAvailability) {
-        if (avail.time) {
-          const [startTime, endTime] = avail.time.split(' - ');
-          if (startTime && endTime) {
-            await tx.availability.upsert({
-              where: { userId_day: { userId: user.id, day: avail.day } },
-              update: { startTime, endTime },
-              create: {
-                userId: user.id,
-                day: avail.day,
-                startTime,
-                endTime,
-              },
-            });
-          }
-        }
+        if (!avail.day || !avail.time) continue;
+
+        const [startTime, endTime] = avail.time.split(" - ").map(t => t.trim());
+
+        // Basic validation: check start and end time exist
+        if (!startTime || !endTime) continue;
+
+        await tx.availability.upsert({
+          where: { userId_day: { userId: user.id, day: avail.day } },
+          update: { startTime, endTime },
+          create: { userId: user.id, day: avail.day, startTime, endTime },
+        });
       }
     });
 
     return NextResponse.json({ message: "Availability updated successfully" }, { status: 200 });
   } catch (error) {
     console.error("Error updating availability:", error);
-    return NextResponse.json({ message: "Error updating availability", error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { message: "Error updating availability", error: error.message },
+      { status: 500 }
+    );
   }
 }
