@@ -120,7 +120,7 @@ export default function ViewCalendarModal({ schedule = [] }) {
 
   // Get current week range
   const getCurrentWeekDays = () => {
-    const today = new Date(year, month, selectedDay);
+    const today = new Date();
     const dayOfWeek = today.getDay();
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - dayOfWeek);
