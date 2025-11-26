@@ -1,112 +1,147 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button"
-import { Clock, Loader2 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Clock, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function ViewAvailabilityModal({ availability: initialAvailability, onSelect, isOpen, onOpenChange }) {
+export default function ViewAvailabilityModal({
+  availability: initialAvailability,
+  existingAppointments = [],
+  onSelect,
+  isOpen,
+  onOpenChange
+}) {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [availability, setAvailability] = useState(initialAvailability || []);
   const [loading, setLoading] = useState(!initialAvailability);
   const [error, setError] = useState(null);
   const [fetched, setFetched] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
+  // ----------------------------
+  // FETCH AVAILABILITY
+  // ----------------------------
   useEffect(() => {
-    if (isOpen && !initialAvailability) {
-      const fetchAvailability = async () => {
-        setLoading(true);
-        setFetched(false);
-        setError(null);
-        try {
-          const response = await fetch('/api/user/availability');
-          if (!response.ok) {
-            throw new Error('Failed to fetch availability');
-          }
-          const data = await response.json();
-          setAvailability(data);
-        } catch (err) {
-          setError(err.message);
-        } finally {
-          setLoading(false);
-          setFetched(true);
-        }
-      };
-      fetchAvailability();
-    } else if (initialAvailability) {
-      setAvailability(initialAvailability);
-      setFetched(true);
-    }
-  }, [isOpen, initialAvailability]);
+    async function loadAvailability() {
+      if (isOpen && !initialAvailability) {
+        if (!fetched) {
+          setLoading(true);
+          setError(null);
 
-  const upcomingSlots = useMemo(() => {
+          try {
+            const response = await fetch("/api/user/availability");
+            if (!response.ok) {
+              throw new Error("Failed to fetch availability");
+            }
+
+            const data = await response.json();
+            setAvailability(data);
+          } catch (err) {
+            setError(err.message);
+          } finally {
+            setLoading(false);
+            setFetched(true);
+          }
+        }
+      } else if (initialAvailability) {
+        setAvailability(initialAvailability);
+        setFetched(true);
+        setLoading(false);
+      }
+
+      if (!isOpen) {
+        setCurrentDate(new Date());
+      }
+    }
+
+    loadAvailability();
+  }, [isOpen, initialAvailability, fetched]);
+
+  // ----------------------------
+  // WEEK RANGE
+  // ----------------------------
+  const startOfWeek = useMemo(() => {
+    const d = new Date(currentDate);
+    d.setDate(d.getDate() - d.getDay());
+    return d;
+  }, [currentDate]);
+
+  const endOfWeek = new Date(startOfWeek.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+  // ----------------------------
+  // GENERATE AVAILABLE SLOTS
+  // ----------------------------
+  const availableSlots = useMemo(() => {
+    if (!availability || !Array.isArray(availability)) return [];
+
     const slots = [];
-    const today = new Date();
-    const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const now = new Date();
 
     for (let i = 0; i < 7; i++) {
-      const date = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + i));
-      
-      const dayName = daysOfWeek[date.getUTCDay()];
-      const dayAvailability = availability.find(a => a.day_of_week === dayName);
+      const date = new Date(startOfWeek);
+      date.setDate(date.getDate() + i);
 
-      if (dayAvailability) {
-        const startTime = new Date(dayAvailability.start_time);
-        const endTime = new Date(dayAvailability.end_time);
-        const startHour = startTime.getUTCHours();
-        const endHour = endTime.getUTCHours();
+      const dayName = days[date.getDay()];
 
-        for (let h = startHour; h < endHour; h++) {
-          for (let m = 0; m < 60; m += 30) {
-            const slotDate = new Date(date);
-            slotDate.setUTCHours(h, m, 0, 0);
+      const dayData = availability.find((a) => a.day === dayName);
+      if (!dayData) continue;
 
-            if (slotDate.getTime() > now.getTime()) {
-              slots.push(slotDate);
-            }
-          }
+      const [startStr, endStr] = dayData.time.split(" - ");
+      const [startHour, startMin] = startStr.split(":").map(Number);
+      const [endHour, endMin] = endStr.split(":").map(Number);
+
+      const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), startHour, startMin);
+      const end = new Date(date.getFullYear(), date.getMonth(), date.getDate(), endHour, endMin);
+
+      for (let time = start; time < end; time = new Date(time.getTime() + 30 * 60000)) {
+        if (time > now) {
+          slots.push(new Date(time));
         }
       }
     }
-    return slots;
-  }, [editableAvailability]);
+
+    // Remove booked
+    const bookedTimes = new Set(
+      existingAppointments.map((appt) => {
+        const d = new Date(appt.appointment_date);
+        const [h, m] = appt.appointment_time.split(":");
+        d.setHours(h, m, 0, 0);
+        return d.getTime();
+      })
+    );
+
+    return slots.filter((s) => !bookedTimes.has(s.getTime()));
+  }, [availability, startOfWeek, existingAppointments]);
+
+  const goPrevWeek = () => setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() - 7));
+  const goNextWeek = () => setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth(), prev.getDate() + 7));
 
   const handleSelectSlot = (slot) => setSelectedSlot(slot);
 
   const handleConfirm = () => {
     if (selectedSlot && onSelect) {
       const startTime = selectedSlot.toTimeString().substring(0, 5);
-      const endTime = new Date(selectedSlot.getTime() + 60 * 60 * 1000).toTimeString().substring(0, 5);
+
       onSelect({
         date: selectedSlot.toISOString().split("T")[0],
         time: startTime,
-        displayTime: `${selectedSlot.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${new Date(selectedSlot.getTime() + 60 * 60 * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+        appointment_date: selectedSlot,
+        appointment_time: startTime,
       });
+
       setSelectedSlot(null);
       onOpenChange(false);
     }
-  };
-
-  const handleSaveAvailability = async () => {
-    setIsSaving(true);
-    const res = await fetch('/api/availability', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editableAvailability.filter(a => a.time)),
-    });
-
-    if (res.ok) {
-      alert('Availability saved!');
-      // Instead of waiting for the parent to refetch, we can just tell it to.
-      // The UI will update instantly because `editableAvailability` is already correct.
-      if (onSaveSuccess) onSaveSuccess(); 
-      setIsEditing(false);
-    } else {
-      alert('Failed to save availability.');
-    }
-    setIsSaving(false);
   };
 
   return (
@@ -116,46 +151,64 @@ export default function ViewAvailabilityModal({ availability: initialAvailabilit
           <Clock className="h-4 w-4 mr-2" /> View Availability
         </Button>
       </DialogTrigger>
+
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isEditing ? "Edit My Availability" : "Select a Time Slot"}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? "Set your weekly working hours." : "Choose an available slot below to book an appointment."}
-          </DialogDescription>
+          <DialogTitle>Select a Time Slot</DialogTitle>
+          <DialogDescription>Choose a date and time to book an appointment.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          {loading ? (
-            <div className="flex justify-center items-center h-40">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : error ? (
-            <p className="text-center text-red-500 py-8">{error}</p>
-          ) : (
-            <div className="max-h-[60vh] overflow-y-auto pr-2">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {upcomingSlots.map((slot, index) => (
-                  <Button
-                    key={index}
-                    variant={selectedSlot?.getTime() === slot.getTime() ? "default" : "outline"}
-                    className={cn("h-auto flex-col py-2", selectedSlot?.getTime() === slot.getTime() && "bg-teal-600 hover:bg-teal-700")}
-                    onClick={() => handleSelectSlot(slot)}
-                  >
-                    <div className="font-semibold">{slot.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                    <div className="text-sm">{slot.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                  </Button>
-                ))}
-              </div>
-              {fetched && upcomingSlots.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">No available slots in the next 7 days.</p>
-              )}
-            </div>
-          )}
-          <div className="flex justify-end pt-4">
-            <Button onClick={handleConfirm} disabled={!selectedSlot} className="bg-teal-600 hover:bg-teal-700">
-              Confirm Slot
-            </Button>
+
+        {/* Week Selector */}
+        <div className="flex items-center justify-between p-2 border rounded-lg bg-muted/30">
+          <Button variant="outline" size="icon" onClick={goPrevWeek}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          <div className="font-medium">
+            {startOfWeek.toLocaleDateString()} - {endOfWeek.toLocaleDateString()}
           </div>
+
+          <Button variant="outline" size="icon" onClick={goNextWeek}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
+
+        {/* Loading */}
+        {loading && (
+          <div className="flex justify-center items-center h-40">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {/* Error */}
+        {error && <p className="text-red-500 text-center">{error}</p>}
+
+        {/* No Slots */}
+        {!loading && availableSlots.length === 0 && (
+          <p className="text-center text-muted-foreground py-6">No available slots this week.</p>
+        )}
+
+        {/* Slots */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-64 overflow-y-auto">
+          {availableSlots.map((slot) => (
+            <button
+              key={slot.getTime()}
+              onClick={() => handleSelectSlot(slot)}
+              className={cn(
+                "border p-2 rounded-lg text-center text-sm hover:bg-primary/10",
+                selectedSlot?.getTime() === slot.getTime() && "bg-primary/20 border-primary"
+              )}
+            >
+              <div>{slot.toDateString()}</div>
+              <div className="font-semibold">{slot.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Confirm Button */}
+        <Button className="w-full mt-4" disabled={!selectedSlot} onClick={handleConfirm}>
+          Confirm Slot
+        </Button>
       </DialogContent>
     </Dialog>
   );

@@ -95,27 +95,9 @@ export default function ViewCalendarModal({ schedule = [] }) {
 
         <div className="mt-4">
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {dayNames.map((dayName) => (
-              <div
-                key={index}
-                className={`h-12 flex flex-col items-center justify-center rounded-md border text-sm relative ${
-                  day === null
-                    ? "border-transparent"
-                    : isAppointmentDay(day)
-                    ? "bg-blue-500 text-white font-semibold hover:bg-blue-600"
-                    : "bg-gray-50 hover:bg-gray-100 border-gray-200"
-                } ${day ? "cursor-pointer" : ""}`}
-              >
-                {day && (
-                  <>
-                    <span>{day}</span>
-                    {appointmentCount > 0 && (
-                      <span className="text-xs opacity-75">
-                        {appointmentCount} {appointmentCount > 1 ? "appts" : "appt"}
-                      </span>
-                    )}
-                  </>
-                )}
+            {dayNames.map((dayName, index) => (
+              <div key={index} className="text-center text-sm font-medium text-gray-500">
+                {dayName}
               </div>
             ))}
           </div>
