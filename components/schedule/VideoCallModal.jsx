@@ -16,192 +16,143 @@ import {
 import { Button } from "@/components/ui/button";
 
 // Import icons from lucide-react library
-import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2, AlertCircle } from "lucide-react";
-
-// Define a variable for the SendBirdCall SDK
-let SendBirdCall = null;
-// Dynamically import SendBirdCall only when 'window' (the browser environment) is available.
-// This prevents errors during Next.js server-side rendering (SSR).
-if (typeof window !== 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  SendBirdCall = require('sendbird-calls');
-}
+import { Video, Mic, MicOff, VideoOff, PhoneOff, Loader2, AlertCircle, Copy, Check } from "lucide-react";
 
 /**
  * VideoCallModal Component
  *
- * A modal component to handle the initiation, ongoing state, and termination
- * of a video call using the SendBird Calls SDK.
+ * A modal component to handle video calls using Daily.co (HIPAA-compliant video platform).
+ * Daily.co provides secure, high-quality video calls perfect for therapy/healthcare sessions.
  *
  * @param {Object} props - The component props.
  * @param {Object} props.appointment - Data about the appointment (e.g., client_name).
  * @param {boolean} props.open - State to control the visibility of the modal.
  * @param {function(boolean): void} props.onOpenChange - Callback to change the modal's open state.
- * @param {string} props.currentUserId - The ID of the currently logged-in user (the caller).
- * @param {string} props.recipientUserId - The ID of the user to call (the client/therapist).
+ * @param {string} props.currentUserId - The ID of the currently logged-in user.
+ * @param {string} props.recipientUserId - The ID of the user to call.
  * @returns {JSX.Element} The Video Call Modal component.
  */
 export default function VideoCallModal({ appointment, open, onOpenChange, currentUserId, recipientUserId }) {
-  // State to hold the active call object returned by SendBird
-  const [call, setCall] = useState(null);
+  // State for Daily call frame instance
+  const [callFrame, setCallFrame] = useState(null);
   // State for toggling microphone mute status
   const [isMuted, setIsMuted] = useState(false);
   // State for toggling local video status
   const [isVideoOff, setIsVideoOff] = useState(false);
-  // State for call connection status: "idle", "connecting", "connected", "error"
+  // State for call connection status: "idle", "creating", "ready", "joining", "joined", "error"
   const [callStatus, setCallStatus] = useState("idle");
   // State to store and display error messages
   const [error, setError] = useState("");
-  // State to check if the video call feature is correctly configured
-  const [isEnabled, setIsEnabled] = useState(false);
+  // State for the Daily room URL
+  const [roomUrl, setRoomUrl] = useState("");
+  // State to check if copied
+  const [copied, setCopied] = useState(false);
 
-  // useRef is used to directly reference DOM elements (video tags)
-  const localVideoRef = useRef(null); // Reference for the current user's video feed
-  const remoteVideoRef = useRef(null); // Reference for the other user's video feed
-  const callRef = useRef(null); // A stable reference to the call object for cleanup functions
-
-  /**
-   * EFFECT: Configuration Check
-   * Runs once on component mount to verify if the Sendbird App ID is set.
-   */
-  useEffect(() => {
-    const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
-    if (!appId || appId === 'placeholder_disable_video_calls') {
-      setIsEnabled(false);
-      setError("Video call feature is not configured. Contact administrator to enable this feature.");
-    } else {
-      setIsEnabled(true);
-    }
-  }, []); // Empty dependency array means it runs only once
+  // Ref for the container where Daily will embed the video
+  const callContainerRef = useRef(null);
 
   /**
-   * EFFECT: Call Initiation and Connection
-   * Runs whenever the modal opens, the appointment data changes, or user IDs change.
-   * Handles Sendbird initialization, authentication, dialing, and setting up listeners.
+   * EFFECT: Create Daily Room and Initialize Call
+   * Runs when the modal opens
    */
   useEffect(() => {
-    // Exit early if the modal is closed, data is missing, feature is disabled, or SDK is not loaded
-    if (!open || !appointment || !isEnabled || !SendBirdCall) return;
+    if (!open || !appointment) return;
 
-    const initSendbird = async () => {
+    const initializeCall = async () => {
       try {
-        setCallStatus("connecting"); // Show loading indicator
-        setError(""); // Clear previous errors
+        setCallStatus("creating");
+        setError("");
 
-        const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
-
-        if (!appId) {
-          throw new Error("Sendbird App ID is not configured");
-        }
-
-        // 1. Initialize SDK
-        if (!SendBirdCall.isInitialized) {
-          SendBirdCall.init(appId);
-        }
-
-        // 2. Authenticate User
-        const authOption = {
-          userId: currentUserId || `user-${Date.now()}`, // Fallback ID if currentUserId is missing
-          accessToken: null, // Placeholder for access token if required by Sendbird security
-        };
-
-        await SendBirdCall.authenticate(authOption);
-
-        // 3. Connect WebSocket (required for real-time signaling)
-        await SendBirdCall.connectWebSocket();
-
-        // 4. Set up Global Call Listeners (e.g., for receiving incoming calls - though this component only dials)
-        SendBirdCall.addListener('call-listener', {
-          onEstablished: (call) => {
-            console.log('Call established');
-            setCallStatus("connected");
-          },
-          onEnded: (call) => {
-            console.log('Call ended');
-            handleEndCall(); // Automatically end the call if the remote party hangs up
-          },
-          // ... other listeners ...
+        // Create a Daily room via your backend API
+        const response = await fetch('/api/daily/create-room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appointmentId: appointment.id || appointment._id,
+            participants: [currentUserId, recipientUserId],
+          }),
         });
 
-        // 5. Request Media Permissions (Camera and Microphone access from the browser)
-        await SendBirdCall.useMedia({
-          audio: true,
-          video: true,
-        });
+        if (!response.ok) {
+          throw new Error('Failed to create video room');
+        }
 
-        // 6. Dial the Call
-        const dialParams = {
-          userId: recipientUserId || "user-2", // The ID of the person being called
-          isVideoCall: true, // Specify a video call
-          callOption: {
-            localMediaView: localVideoRef.current, // Link the local video element to the SDK
-            remoteMediaView: remoteVideoRef.current, // Link the remote video element to the SDK
-            audioEnabled: true,
-            videoEnabled: true,
-          },
-        };
-
-        const newCall = await SendBirdCall.dial(dialParams);
-        setCall(newCall);
-        callRef.current = newCall; // Store call object in ref for cleanup
-
-        // 7. Set up Call-Specific Listeners (redundant but good practice)
-        newCall.onEstablished = (call) => {
-          setCallStatus("connected");
-          console.log('Call established');
-        };
-
-        newCall.onEnded = (call) => {
-          console.log('Call ended');
-          handleEndCall();
-        };
-
-        // ... other call listeners ...
+        const { roomUrl } = await response.json();
+        setRoomUrl(roomUrl);
+        setCallStatus("ready");
 
       } catch (err) {
-        // Handle errors during initialization, authentication, or dialing
-        console.error("Error initializing Sendbird:", err);
-        setError(err.message || "Failed to start video call. Please try again.");
+        console.error("Error creating room:", err);
+        setError(err.message || "Failed to create video call. Please try again.");
         setCallStatus("error");
       }
     };
 
-    initSendbird();
-
-    // Cleanup function: Runs when the component unmounts or before the effect runs again
-    return () => {
-      // 1. End the active call if it exists
-      if (callRef.current) {
-        try {
-          callRef.current.end();
-        } catch (e) {
-          console.error("Error ending call:", e);
-        }
-      }
-      // 2. Clean up Sendbird listeners and session
-      if (SendBirdCall?.isInitialized) {
-        try {
-          SendBirdCall.removeListener('call-listener');
-          SendBirdCall.deauthenticate(); // Disconnect the user session
-        } catch (e) {
-          console.error("Error deauthenticating:", e);
-        }
-      }
-    };
-  }, [open, appointment, currentUserId, recipientUserId, isEnabled]); // Dependencies
+    initializeCall();
+  }, [open, appointment, currentUserId, recipientUserId]);
 
   /**
-   * Handler to toggle the microphone on/off.
+   * Join the Daily call
    */
-  const handleToggleMute = () => {
-    if (call) {
+  const joinCall = async () => {
+    if (!roomUrl) return;
+
+    try {
+      setCallStatus("joining");
+
+      // Dynamically import Daily only in browser
+      const DailyIframe = (await import('@daily-co/daily-js')).default;
+
+      // Create Daily call frame
+      const frame = DailyIframe.createFrame(callContainerRef.current, {
+        iframeStyle: {
+          width: '100%',
+          height: '100%',
+          border: '0',
+          borderRadius: '8px',
+        },
+        showLeaveButton: false,
+        showFullscreenButton: true,
+      });
+
+      // Set up event listeners
+      frame.on('joined-meeting', () => {
+        setCallStatus("joined");
+        console.log('Joined meeting');
+      });
+
+      frame.on('left-meeting', () => {
+        handleEndCall();
+      });
+
+      frame.on('error', (error) => {
+        console.error('Daily error:', error);
+        setError('An error occurred during the call');
+      });
+
+      // Join the room
+      await frame.join({ 
+        url: roomUrl,
+        userName: currentUserId || 'User',
+      });
+
+      setCallFrame(frame);
+
+    } catch (err) {
+      console.error("Error joining call:", err);
+      setError(err.message || "Failed to join video call. Please try again.");
+      setCallStatus("error");
+    }
+  };
+
+  /**
+   * Handler to toggle the microphone on/off
+   */
+  const handleToggleMute = async () => {
+    if (callFrame) {
       try {
-        if (isMuted) {
-          call.unmuteMicrophone();
-        } else {
-          call.muteMicrophone();
-        }
-        setIsMuted(!isMuted); // Toggle the local state
+        await callFrame.setLocalAudio(!isMuted);
+        setIsMuted(!isMuted);
       } catch (err) {
         console.error("Error toggling mute:", err);
       }
@@ -209,17 +160,13 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
   };
 
   /**
-   * Handler to toggle the local video stream on/off.
+   * Handler to toggle the local video stream on/off
    */
-  const handleToggleVideo = () => {
-    if (call) {
+  const handleToggleVideo = async () => {
+    if (callFrame) {
       try {
-        if (isVideoOff) {
-          call.startVideo();
-        } else {
-          call.stopVideo();
-        }
-        setIsVideoOff(!isVideoOff); // Toggle the local state
+        await callFrame.setLocalVideo(!isVideoOff);
+        setIsVideoOff(!isVideoOff);
       } catch (err) {
         console.error("Error toggling video:", err);
       }
@@ -227,154 +174,179 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
   };
 
   /**
-   * Handler to terminate the call and close the modal.
-   * Called manually by the user or by the call's 'onEnded' listener.
+   * Handler to terminate the call and close the modal
    */
-  const handleEndCall = () => {
-    // Attempt to end the call via the SDK
-    if (callRef.current) {
+  const handleEndCall = async () => {
+    if (callFrame) {
       try {
-        callRef.current.end();
+        await callFrame.leave();
+        await callFrame.destroy();
       } catch (e) {
         console.error("Error ending call:", e);
       }
     }
-    // Reset all local states and close the modal
-    setCall(null);
-    callRef.current = null;
+    
+    // Reset all states
+    setCallFrame(null);
     setCallStatus("idle");
     setIsMuted(false);
     setIsVideoOff(false);
+    setRoomUrl("");
     onOpenChange(false);
   };
 
-  // RENDER: Configuration Disabled State
-  // If the feature is not configured, display a simple error modal instead of the call UI.
-  if (!isEnabled) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent size="md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
-              <AlertCircle className="h-5 w-5" />
-              Video Call Unavailable
-            </DialogTitle>
-            <DialogDescription>
-              The video call feature is currently not configured.
-            </DialogDescription>
-          </DialogHeader>
-          {/* Note: Alert component is missing import, assuming it exists */}
-          {/* <Alert variant="destructive">
-             <AlertCircle className="h-4 w-4" />
-             <AlertDescription>
-               {error || "Video calling is not enabled. Please contact your system administrator."}
-             </AlertDescription>
-           </Alert> */}
-          <div className="flex justify-end pt-4">
-            <Button onClick={() => onOpenChange(false)} variant="outline">
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+  /**
+   * Copy room URL to clipboard
+   */
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(roomUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-  // RENDER: Main Call UI
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (callFrame) {
+        callFrame.destroy();
+      }
+    };
+  }, [callFrame]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="xl" className="max-w-4xl">
+      <DialogContent className="max-w-4xl dark:bg-gray-900 dark:border-gray-800">
         <DialogHeader>
-          <DialogTitle>Video Call with {appointment?.client_name || "Client"}</DialogTitle>
-          <DialogDescription>
-            {/* Conditional status messages */}
-            {callStatus === "connecting" && "Connecting to call..."}
-            {callStatus === "connected" && "Call in progress"}
+          <DialogTitle className="dark:text-gray-100">
+            Video Call with {appointment?.client_name || appointment?.client?.client_first_name || "Client"}
+          </DialogTitle>
+          <DialogDescription className="dark:text-gray-400">
+            {callStatus === "creating" && "Creating secure video room..."}
+            {callStatus === "ready" && "Room ready - Click 'Join Call' to start"}
+            {callStatus === "joining" && "Joining call..."}
+            {callStatus === "joined" && "Call in progress"}
             {callStatus === "error" && "Call failed"}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Error message display (Assuming Alert component exists) */}
-        {/* {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )} */}
-
-        {/* Video Display Area */}
-        <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
-          {/* Remote video (other person) */}
-          <video
-            ref={remoteVideoRef} // Link the video element to the remoteVideoRef
-            autoPlay // Start playing immediately
-            playsInline // Important for mobile devices
-            className="w-full h-full object-cover bg-gray-800"
-          />
-
-          {/* Local video (you) - Picture-in-picture style */}
-          <div className="absolute bottom-4 right-4 w-48 h-36 rounded-lg overflow-hidden border-2 border-white shadow-lg">
-            <video
-              ref={localVideoRef} // Link the video element to the localVideoRef
-              autoPlay
-              playsInline
-              muted // Mute local video to prevent echo for the user
-              className="w-full h-full object-cover bg-gray-700"
-            />
+        {/* Error message display */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <p className="text-sm">{error}</p>
           </div>
+        )}
 
-          {/* Connecting overlay - shows a spinner while establishing connection */}
-          {callStatus === "connecting" && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+        {/* Video Container or Pre-join Screen */}
+        <div className="relative bg-gray-900 dark:bg-gray-950 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9', minHeight: '400px' }}>
+          {callStatus === "ready" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
+              <Video className="h-16 w-16 text-blue-500 mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">Ready to Join</h3>
+              <p className="text-gray-300 mb-6 text-center">
+                Your secure video room is ready. Share the link below with your client or click Join Call to start.
+              </p>
+              
+              {/* Room URL Display */}
+              <div className="w-full max-w-md mb-4">
+                <div className="flex items-center gap-2 bg-gray-800 dark:bg-gray-900 rounded-lg p-3">
+                  <input
+                    type="text"
+                    value={roomUrl}
+                    readOnly
+                    className="flex-1 bg-transparent text-white text-sm outline-none"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCopyUrl}
+                    className="dark:border-gray-700 dark:hover:bg-gray-800"
+                  >
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2 text-center">
+                  Share this link with your client to join the call
+                </p>
+              </div>
+
+              <Button
+                onClick={joinCall}
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8"
+              >
+                <Video className="h-5 w-5 mr-2" />
+                Join Call
+              </Button>
+            </div>
+          )}
+
+          {(callStatus === "creating" || callStatus === "joining") && (
+            <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center text-white">
                 <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4" />
-                <p className="text-lg font-medium">Connecting...</p>
+                <p className="text-lg font-medium">
+                  {callStatus === "creating" ? "Creating room..." : "Joining call..."}
+                </p>
               </div>
             </div>
           )}
 
-          {/* Call status indicator corner badge */}
-          <div className="absolute top-4 left-4 bg-black/60 text-white px-3 py-2 rounded-full text-sm font-medium">
-            {callStatus === "connecting" && "Connecting..."}
-            {callStatus === "connected" && "Connected"}
-            {callStatus === "error" && "Failed"}
+          {/* Daily.co iframe container */}
+          <div ref={callContainerRef} className={`w-full h-full ${callStatus === "joined" ? "block" : "hidden"}`} />
+
+          {/* Call status indicator */}
+          {callStatus === "joined" && (
+            <div className="absolute top-4 left-4 bg-green-600 text-white px-3 py-2 rounded-full text-sm font-medium flex items-center gap-2">
+              <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+              Connected
+            </div>
+          )}
+        </div>
+
+        {/* Call Controls */}
+        {callStatus === "joined" && (
+          <div className="flex justify-center gap-4 pt-4">
+            {/* Mute Button */}
+            <Button
+              onClick={handleToggleMute}
+              variant={isMuted ? "destructive" : "outline"}
+              size="lg"
+              className="rounded-full h-14 w-14 p-0 dark:border-gray-700"
+            >
+              {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+            </Button>
+
+            {/* Video Toggle Button */}
+            <Button
+              onClick={handleToggleVideo}
+              variant={isVideoOff ? "destructive" : "outline"}
+              size="lg"
+              className="rounded-full h-14 w-14 p-0 dark:border-gray-700"
+            >
+              {isVideoOff ? <VideoOff className="h-6 w-6" /> : <Video className="h-6 w-6" />}
+            </Button>
+
+            {/* End Call Button */}
+            <Button
+              onClick={handleEndCall}
+              variant="destructive"
+              size="lg"
+              className="rounded-full h-14 w-14 p-0 bg-red-600 hover:bg-red-700"
+            >
+              <PhoneOff className="h-6 w-6" />
+            </Button>
           </div>
-        </div>
+        )}
 
-        {/* Call Controls (Buttons) */}
-        <div className="flex justify-center gap-4 pt-4">
-          {/* Mute Button */}
-          <Button
-            onClick={handleToggleMute}
-            variant={isMuted ? "destructive" : "outline"} // Change color based on state
-            size="lg"
-            className="rounded-full h-14 w-14 p-0"
-            disabled={callStatus !== "connected"} // Only active when call is fully connected
-          >
-            {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-          </Button>
-
-          {/* Video Toggle Button */}
-          <Button
-            onClick={handleToggleVideo}
-            variant={isVideoOff ? "destructive" : "outline"} // Change color based on state
-            size="lg"
-            className="rounded-full h-14 w-14 p-0"
-            disabled={callStatus !== "connected"}
-          >
-            {isVideoOff ? <VideoOff className="h-6 w-6" /> : <Video className="h-6 w-6" />}
-          </Button>
-
-          {/* End Call Button */}
-          <Button
-            onClick={handleEndCall}
-            variant="destructive"
-            size="lg"
-            className="rounded-full h-14 w-14 p-0 bg-red-600 hover:bg-red-700"
-          >
-            <PhoneOff className="h-6 w-6" />
-          </Button>
-        </div>
+        {/* Close button for pre-join or error states */}
+        {(callStatus === "ready" || callStatus === "error") && callStatus !== "joined" && (
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => onOpenChange(false)} variant="outline" className="dark:border-gray-700">
+              Close
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
