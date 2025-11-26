@@ -6,6 +6,7 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useSWRConfig } from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Info, Phone, Mail, MapPin, User, FileText, BarChart3, Search, MoreVertical, AlertTriangle, Users, Calendar } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
@@ -52,7 +53,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, ArcElement, BarElement, ChartTitle, Tooltip, Legend);
 import AuditLogTab from "../auditlogtab/page";
 
-import VoiceCallModal from "@/components/crisis/VoiceCallModal";
+
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab, isLoaded }) {
   const { mutate } = useSWRConfig();
@@ -1560,7 +1561,72 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         {/* Crisis Events Tab */}
         {defaultTab === "Crisis" && (
           <div className="space-y-6">
-          <div className="grid gap-6">
+            {/* Crisis Overview Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <Card className="border-red-200 bg-red-50">
+                <CardContent className="p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-red-100 rounded-full">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-red-800">Critical Risk</p>
+                      <p className="text-2xl font-bold text-red-900">
+                        {clients.filter(c => c.risk_level === 'Critical' || c.risk_level === 'High').length}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-orange-200 bg-orange-50">
+                <CardContent className="p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-orange-100 rounded-full">
+                      <Users className="h-6 w-6 text-orange-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-orange-800">Medium Risk</p>
+                      <p className="text-2xl font-bold text-orange-900">
+                        {clients.filter(c => c.risk_level === 'Medium').length}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-green-200 bg-green-50">
+                <CardContent className="p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-green-800">Low Risk</p>
+                      <p className="text-2xl font-bold text-green-900">
+                        {clients.filter(c => c.risk_level === 'Low' || !c.risk_level).length}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-blue-200 bg-blue-50">
+                <CardContent className="p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-blue-100 rounded-full">
+                      <Calendar className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-blue-800">Crisis Events</p>
+                      <p className="text-2xl font-bold text-blue-900">{crisisEvents.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Emergency Protocols */}
             <Card className="border-red-200 bg-red-50">
               <CardHeader>
                 <CardTitle className="text-red-800">Emergency Protocols</CardTitle>
@@ -1570,56 +1636,183 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Button className="bg-red-600 hover:bg-red-700 h-16">
+                  <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => window.open('tel:911')}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Emergency Services</div>
                       <div className="text-xs">911</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent">
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => window.open('tel:988')}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Crisis Hotline</div>
                       <div className="text-xs">988</div>
                     </div>
                   </Button>
-                  {supervisor && (
-                    <VoiceCallModal user={user} supervisor={supervisor} onCallEnd={handleCallEnd} />
-                  )}
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent" onClick={() => alert('Contact supervisor: ' + (supervisor?.name || 'No supervisor assigned'))}>
+                    <div className="text-center">
+                      <Phone className="h-6 w-6 mx-auto mb-1" />
+                      <div className="text-sm">Call Supervisor</div>
+                      <div className="text-xs">{supervisor?.name || 'Not Available'}</div>
+                    </div>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>High-Risk Clients</CardTitle>
-                <CardDescription>Monitor clients requiring immediate attention</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {crisisEvents.map((event) => {
-                    const client = clients.find(c => c.id === event.client_id);
-                    return (
-                      <div key={event.id} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium">{client ? `${client.client_first_name} ${client.client_last_name}` : "Unknown Client"}</h4>
-                          <Badge variant={event.risk_level_at_event === "High" ? "destructive" : "default"}>{event.risk_level_at_event} Risk</Badge>
+            {/* Client Risk Categories */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* High Risk Clients */}
+              <Card className="border-red-200">
+                <CardHeader>
+                  <CardTitle className="text-red-800 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Critical & High Risk Clients
+                  </CardTitle>
+                  <CardDescription>Clients requiring immediate attention and monitoring</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-96">
+                    <div className="space-y-3">
+                      {clients
+                        .filter(c => c.risk_level === 'Critical' || c.risk_level === 'High')
+                        .map((client) => (
+                          <div key={client.id} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-red-900">
+                                {client.client_first_name} {client.client_last_name}
+                              </h4>
+                              <Badge variant="destructive">{client.risk_level || 'High'} Risk</Badge>
+                            </div>
+                            <p className="text-sm text-red-700 mb-2">
+                              Last Session: {client.last_session_date ? new Date(client.last_session_date).toLocaleDateString() : 'No recent session'}
+                            </p>
+                            <div className="flex gap-2 mt-3">
+                              <Button size="sm" className="bg-red-600 hover:bg-red-700">
+                                <Phone className="h-4 w-4 mr-1" />
+                                Contact
+                              </Button>
+                              <Button variant="outline" size="sm" className="border-red-300">
+                                View Profile
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      }
+                      {clients.filter(c => c.risk_level === 'Critical' || c.risk_level === 'High').length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500" />
+                          <p>No high-risk clients at this time</p>
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">Event Type: {event.event_type}</p>
-                        <p className="text-sm text-gray-600 mb-1">Date: {new Date(event.event_date).toLocaleDateString()}</p>
-                        <p className="text-sm mb-2">{event.description}</p>
-                        <div className="flex gap-2 mt-3">
-                          <Button size="sm">Contact Now</Button>
-                          <Button variant="outline" size="sm">Update Status</Button>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Medium & Low Risk Clients */}
+              <Card className="border-orange-200">
+                <CardHeader>
+                  <CardTitle className="text-orange-800 flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Medium & Low Risk Clients
+                  </CardTitle>
+                  <CardDescription>Stable clients with regular monitoring</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-96">
+                    <div className="space-y-3">
+                      {/* Medium Risk */}
+                      {clients
+                        .filter(c => c.risk_level === 'Medium')
+                        .map((client) => (
+                          <div key={client.id} className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-orange-900">
+                                {client.client_first_name} {client.client_last_name}
+                              </h4>
+                              <Badge className="bg-orange-100 text-orange-800">Medium Risk</Badge>
+                            </div>
+                            <p className="text-sm text-orange-700 mb-2">
+                              Last Session: {client.last_session_date ? new Date(client.last_session_date).toLocaleDateString() : 'No recent session'}
+                            </p>
+                            <div className="flex gap-2 mt-3">
+                              <Button size="sm" variant="outline" className="border-orange-300">
+                                <Phone className="h-4 w-4 mr-1" />
+                                Contact
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      }
+                      
+                      {/* Low Risk */}
+                      {clients
+                        .filter(c => c.risk_level === 'Low' || !c.risk_level)
+                        .slice(0, 5)
+                        .map((client) => (
+                          <div key={client.id} className="border border-green-200 rounded-lg p-4 bg-green-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-medium text-green-900">
+                                {client.client_first_name} {client.client_last_name}
+                              </h4>
+                              <Badge className="bg-green-100 text-green-800">Low Risk</Badge>
+                            </div>
+                            <p className="text-sm text-green-700 mb-2">
+                              Last Session: {client.last_session_date ? new Date(client.last_session_date).toLocaleDateString() : 'No recent session'}
+                            </p>
+                          </div>
+                        ))
+                      }
+                      
+                      {clients.filter(c => c.risk_level === 'Low' || !c.risk_level).length > 5 && (
+                        <div className="text-center py-4">
+                          <Button variant="outline" size="sm">
+                            View {clients.filter(c => c.risk_level === 'Low' || !c.risk_level).length - 5} more low-risk clients
+                          </Button>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
             </div>
+
+            {/* Recent Crisis Events */}
+            {crisisEvents.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Recent Crisis Events
+                  </CardTitle>
+                  <CardDescription>Latest crisis interventions and incidents</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {crisisEvents.slice(0, 5).map((event) => {
+                      const client = clients.find(c => c.id === event.client_id);
+                      return (
+                        <div key={event.id} className="border rounded-lg p-4 bg-gray-50">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium">{client ? `${client.client_first_name} ${client.client_last_name}` : "Unknown Client"}</h4>
+                            <Badge variant={event.risk_level_at_event === "High" ? "destructive" : "default"}>{event.risk_level_at_event} Risk</Badge>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-1">Event Type: {event.event_type}</p>
+                          <p className="text-sm text-gray-600 mb-1">Date: {new Date(event.event_date).toLocaleDateString()}</p>
+                          <p className="text-sm mb-2">{event.description}</p>
+                          <div className="flex gap-2 mt-3">
+                            <Button size="sm">Follow Up</Button>
+                            <Button variant="outline" size="sm">View Details</Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
