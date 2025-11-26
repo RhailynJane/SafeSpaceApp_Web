@@ -29,13 +29,18 @@ export default function ViewCalendarModal({ schedule = [] }) {
     return schedule
       .map(appt => {
         if (!appt?.appointment_date) return null;
-        const d = new Date(appt.appointment_date);
+        // Parse date as local date (YYYY-MM-DD)
+        const dateStr = String(appt.appointment_date);
+        const [yearStr, monthStr, dayStr] = dateStr.split('T')[0].split('-');
+        const apptYear = parseInt(yearStr, 10);
+        const apptMonth = parseInt(monthStr, 10) - 1; // 0-indexed
+        const apptDay = parseInt(dayStr, 10);
+        
         return {
           ...appt,
-          year: d.getUTCFullYear(),
-          month: d.getUTCMonth(),
-          day: d.getUTCDate(),
-          dateObj: d
+          year: apptYear,
+          month: apptMonth,
+          day: apptDay,
         };
       })
       .filter(Boolean)
@@ -97,6 +102,11 @@ export default function ViewCalendarModal({ schedule = [] }) {
            year === today.getFullYear();
   }
 
+  // Debug: log appointments
+  if (open && appointmentsForMonth.length > 0) {
+    console.log('Calendar appointments for', monthNames[month], year, ':', appointmentsForMonth);
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -148,7 +158,7 @@ export default function ViewCalendarModal({ schedule = [] }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="dark:border-gray-700 dark:hover:bg-gray-800">
                   <Filter className="h-4 w-4 mr-2" />
-                  {viewFilter === "all" ? "Month" : viewFilter === "day" ? "Day" : viewFilter === "week" ? "Week" : "Split view"}
+                  {viewFilter === "day" ? "Day" : viewFilter === "week" ? "Week" : "Month"}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="dark:bg-gray-800 dark:border-gray-700">
@@ -219,17 +229,18 @@ export default function ViewCalendarModal({ schedule = [] }) {
                           const clientName = appt.client 
                             ? `${appt.client.client_first_name || ''} ${appt.client.client_last_name || ''}`.trim()
                             : 'Client';
+                          const timeStr = appt.appointment_time || appt.appointmentTime || '';
                           
                           return (
                             <div
                               key={idx}
                               className="text-xs p-1.5 rounded bg-blue-100 dark:bg-blue-900/30 border-l-2 border-blue-500 dark:border-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 cursor-pointer transition-colors"
-                              title={`${appt.appointment_time} - ${clientName} (${appt.type})`}
+                              title={`${timeStr} - ${clientName} (${appt.type})`}
                             >
                               <div className="flex items-center gap-1 text-blue-900 dark:text-blue-300">
                                 <Clock className="h-3 w-3 flex-shrink-0" />
                                 <span className="font-medium truncate">
-                                  {appt.appointment_time?.substring(0, 5)}
+                                  {timeStr?.substring(0, 5) || 'Time'}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 text-blue-800 dark:text-blue-400 mt-0.5">
