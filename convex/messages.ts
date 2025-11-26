@@ -60,7 +60,11 @@ export const send = mutation({
   args: {
     conversationId: v.id("conversations"),
     body: v.string(),
-    messageType: v.optional(v.string())
+    messageType: v.optional(v.string()),
+    attachmentUrl: v.optional(v.string()),
+    fileName: v.optional(v.string()),
+    fileSize: v.optional(v.number()),
+    storageId: v.optional(v.id("_storage"))
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -85,6 +89,10 @@ export const send = mutation({
       senderId: identity.subject,
       body: args.body,
       messageType: args.messageType || "text",
+      attachmentUrl: args.attachmentUrl,
+      fileName: args.fileName,
+      fileSize: args.fileSize,
+      storageId: args.storageId,
       createdAt: Date.now(),
       updatedAt: Date.now()
     });

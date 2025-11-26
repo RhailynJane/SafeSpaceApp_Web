@@ -5,7 +5,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Send, Plus, Search, MoreVertical, Phone, Video } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Send, Plus, Search, MoreVertical, Trash2, Smile, Paperclip } from 'lucide-react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useUser } from '@clerk/nextjs';
@@ -28,6 +29,7 @@ const ChatInterface = () => {
   );
   const sendMessage = useMutation(api.messages.send);
   const markAsRead = useMutation(api.conversations.markAsRead);
+  const deleteConversation = useMutation(api.conversations.deleteConversation);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -99,6 +101,45 @@ const ChatInterface = () => {
     if (conversation) {
       setSelectedConversation(conversation);
     }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedConversation) return;
+    
+    const conversationTitle = getConversationTitle(selectedConversation);
+    if (window.confirm(`Are you sure you want to delete the conversation "${conversationTitle}"? This action cannot be undone.`)) {
+      try {
+        await deleteConversation({ conversationId: selectedConversation._id });
+        setSelectedConversation(null);
+      } catch (error) {
+        console.error('Failed to delete conversation:', error);
+        alert('Failed to delete conversation. You may not have permission to delete this conversation.');
+      }
+    }
+  };
+
+  const handleEmojiClick = () => {
+    // TODO: Implement emoji picker
+    console.log('Open emoji picker');
+    // For now, just add a simple emoji to the input
+    setMessageInput(prev => prev + '😊');
+  };
+
+  const handleFileUpload = () => {
+    // TODO: Implement file upload
+    console.log('Open file picker');
+    // Create a hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*,application/pdf,.doc,.docx,.txt';
+    fileInput.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        console.log('Selected file:', file.name, file.type, file.size);
+        // TODO: Upload file and send as message
+      }
+    };
+    fileInput.click();
   };
 
   return (
@@ -222,15 +263,22 @@ const ChatInterface = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                    <Phone className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                    <Video className="h-4 w-4" />
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteConversation()}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete Conversation
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -265,9 +313,28 @@ const ChatInterface = () => {
                             ? 'bg-primary text-primary-foreground rounded-br-md'
                             : 'bg-muted text-foreground rounded-bl-md'
                         }`}>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                            {message.body}
-                          </p>
+                          {message.messageType === 'file' && message.fileName ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 p-2 bg-background/10 rounded-lg">
+                                <Paperclip className="h-4 w-4" />
+                                <span className="text-sm font-medium">{message.fileName}</span>
+                                {message.fileSize && (
+                                  <span className="text-xs opacity-70">
+                                    ({(message.fileSize / 1024 / 1024).toFixed(1)} MB)
+                                  </span>
+                                )}
+                              </div>
+                              {message.body && (
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                                  {message.body}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                              {message.body}
+                            </p>
+                          )}
                         </div>
                         <p className={`text-xs text-muted-foreground px-1 ${
                           message.senderId === user?.id ? 'text-right' : 'text-left'
@@ -284,7 +351,25 @@ const ChatInterface = () => {
 
             {/* Message Input */}
             <form onSubmit={handleSendMessage} className="p-4 border-t border-border bg-card">
-              <div className="flex items-end gap-3">
+              <div className="flex items-end gap-2">
+                <Button 
+                  type="button"
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => handleEmojiClick()}
+                  className="h-[44px] px-3 rounded-lg"
+                >
+                  <Smile className="h-4 w-4" />
+                </Button>
+                <Button 
+                  type="button"
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => handleFileUpload()}
+                  className="h-[44px] px-3 rounded-lg"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <div className="flex-1">
                   <Input
                     placeholder="Type a message..."

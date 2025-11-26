@@ -159,3 +159,52 @@ export const markAsRead = mutation({
     }
   },
 });
+
+// Delete conversation (only creator or admin can delete)
+export const deleteConversation = mutation({
+  args: {
+    conversationId: v.id("conversations")
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if conversation exists and user has permission to delete it
+    const conversation = await ctx.db.get(args.conversationId);
+    if (!conversation) {
+      throw new Error("Conversation not found");
+    }
+
+    // Only the creator can delete the conversation for now
+    if (conversation.createdBy !== identity.subject) {
+      throw new Error("Only the conversation creator can delete it");
+    }
+
+    // Delete all messages in the conversation
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+
+    for (const message of messages) {
+      await ctx.db.delete(message._id);
+    }
+
+    // Delete all participants
+    const participants = await ctx.db
+      .query("conversationParticipants")
+      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .collect();
+
+    for (const participant of participants) {
+      await ctx.db.delete(participant._id);
+    }
+
+    // Finally, delete the conversation itself
+    await ctx.db.delete(args.conversationId);
+
+    return { success: true };
+  },
+});
