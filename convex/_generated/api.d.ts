@@ -19,6 +19,7 @@ import type * as conversations from "../conversations.js";
 import type * as debugAuditLogs from "../debugAuditLogs.js";
 import type * as debugReports from "../debugReports.js";
 import type * as featurePermissions from "../featurePermissions.js";
+import type * as files from "../files.js";
 import type * as fixNoteAuthors from "../fixNoteAuthors.js";
 import type * as helpers from "../helpers.js";
 import type * as messages from "../messages.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   debugAuditLogs: typeof debugAuditLogs;
   debugReports: typeof debugReports;
   featurePermissions: typeof featurePermissions;
+  files: typeof files;
   fixNoteAuthors: typeof fixNoteAuthors;
   helpers: typeof helpers;
   messages: typeof messages;

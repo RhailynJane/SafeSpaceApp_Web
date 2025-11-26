@@ -12,6 +12,7 @@ import { api } from '@/convex/_generated/api';
 import { useUser } from '@clerk/nextjs';
 import { formatDistanceToNow } from 'date-fns';
 import NewConversationModal from './NewConversationModal';
+import FileAttachment from './FileAttachment';
 
 const ChatInterface = () => {
   const { user } = useUser();
@@ -19,6 +20,7 @@ const ChatInterface = () => {
   const [messageInput, setMessageInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Convex queries and mutations
@@ -30,6 +32,7 @@ const ChatInterface = () => {
   const sendMessage = useMutation(api.messages.send);
   const markAsRead = useMutation(api.conversations.markAsRead);
   const deleteConversation = useMutation(api.conversations.deleteConversation);
+  const generateUploadUrl = useMutation(api.files.generateUploadUrl);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -125,20 +128,62 @@ const ChatInterface = () => {
     setMessageInput(prev => prev + '😊');
   };
 
-  const handleFileUpload = () => {
-    // TODO: Implement file upload
-    console.log('Open file picker');
+  const handleFileUpload = async () => {
+    if (!selectedConversation || isUploading) return;
+    
     // Create a hidden file input
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = 'image/*,application/pdf,.doc,.docx,.txt';
-    fileInput.onchange = (e) => {
+    fileInput.accept = 'image/*,application/pdf,.doc,.docx,.txt,.csv,.xlsx';
+    fileInput.multiple = false;
+    
+    fileInput.onchange = async (e) => {
       const file = e.target.files?.[0];
-      if (file) {
-        console.log('Selected file:', file.name, file.type, file.size);
-        // TODO: Upload file and send as message
+      if (!file) return;
+
+      // Check file size (limit to 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+
+      setIsUploading(true);
+      
+      try {
+        // Generate upload URL
+        const uploadUrl = await generateUploadUrl();
+        
+        // Upload file to Convex storage
+        const result = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type },
+          body: file,
+        });
+
+        if (!result.ok) {
+          throw new Error('Failed to upload file');
+        }
+
+        const { storageId } = await result.json();
+
+        // Send message with file attachment
+        await sendMessage({
+          conversationId: selectedConversation._id,
+          body: `Sent a file: ${file.name}`,
+          messageType: 'file',
+          fileName: file.name,
+          fileSize: file.size,
+          storageId: storageId
+        });
+
+      } catch (error) {
+        console.error('File upload failed:', error);
+        alert('Failed to upload file. Please try again.');
+      } finally {
+        setIsUploading(false);
       }
     };
+    
     fileInput.click();
   };
 
@@ -308,34 +353,35 @@ const ChatInterface = () => {
                       <div className={`flex flex-col max-w-[75%] space-y-1 ${
                         message.senderId === user?.id ? 'items-end' : 'items-start'
                       }`}>
-                        <div className={`px-4 py-3 rounded-2xl shadow-sm ${
-                          message.senderId === user?.id
-                            ? 'bg-primary text-primary-foreground rounded-br-md'
-                            : 'bg-muted text-foreground rounded-bl-md'
-                        }`}>
-                          {message.messageType === 'file' && message.fileName ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 p-2 bg-background/10 rounded-lg">
-                                <Paperclip className="h-4 w-4" />
-                                <span className="text-sm font-medium">{message.fileName}</span>
-                                {message.fileSize && (
-                                  <span className="text-xs opacity-70">
-                                    ({(message.fileSize / 1024 / 1024).toFixed(1)} MB)
-                                  </span>
-                                )}
-                              </div>
-                              {message.body && (
+                        {message.messageType === 'file' && message.fileName ? (
+                          <div className="space-y-3">
+                            <FileAttachment 
+                              message={message} 
+                              isOwn={message.senderId === user?.id} 
+                            />
+                            {message.body && message.body !== `Sent a file: ${message.fileName}` && (
+                              <div className={`px-4 py-3 rounded-2xl shadow-sm ${
+                                message.senderId === user?.id
+                                  ? 'bg-primary text-primary-foreground rounded-br-md'
+                                  : 'bg-muted text-foreground rounded-bl-md'
+                              }`}>
                                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                                   {message.body}
                                 </p>
-                              )}
-                            </div>
-                          ) : (
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className={`px-4 py-3 rounded-2xl shadow-sm ${
+                            message.senderId === user?.id
+                              ? 'bg-primary text-primary-foreground rounded-br-md'
+                              : 'bg-muted text-foreground rounded-bl-md'
+                          }`}>
                             <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                               {message.body}
                             </p>
-                          )}
-                        </div>
+                          </div>
+                        )}
                         <p className={`text-xs text-muted-foreground px-1 ${
                           message.senderId === user?.id ? 'text-right' : 'text-left'
                         }`}>
@@ -366,9 +412,14 @@ const ChatInterface = () => {
                   size="sm" 
                   variant="outline"
                   onClick={() => handleFileUpload()}
+                  disabled={isUploading || !selectedConversation}
                   className="h-[44px] px-3 rounded-lg"
                 >
-                  <Paperclip className="h-4 w-4" />
+                  {isUploading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                  ) : (
+                    <Paperclip className="h-4 w-4" />
+                  )}
                 </Button>
                 <div className="flex-1">
                   <Input
