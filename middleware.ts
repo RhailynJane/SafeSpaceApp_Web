@@ -35,20 +35,20 @@ export default clerkMiddleware(async (auth, req) => {
   response.headers.set('X-Content-Type-Options', 'nosniff'); // Prevent MIME sniffing
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin'); // Control referrer info
   
-  // Permissions Policy - Allow camera and microphone for Daily.co video calling
-  response.headers.set('Permissions-Policy', 'camera=(self "https://*.daily.co"), microphone=(self "https://*.daily.co"), display-capture=(self "https://*.daily.co")');
+  // Permissions Policy - Allow camera and microphone for Jitsi Meet video calling
+  response.headers.set('Permissions-Policy', 'camera=(self "https://meet.jit.si"), microphone=(self "https://meet.jit.si"), display-capture=(self "https://meet.jit.si")');
   
   // Content Security Policy (CSP) - Adjust based on your needs
   const cspDirectives = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://convex.cloud https://*.convex.cloud",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://*.clerk.accounts.dev https://convex.cloud https://*.convex.cloud https://meet.jit.si",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://*.clerk.accounts.dev https://clerk-telemetry.com https://convex.cloud https://*.convex.cloud wss://*.convex.cloud https://*.sendbird.com wss://*.sendbird.com https://*.daily.co wss://*.daily.co https://*.sentry.io",
+    "connect-src 'self' https://*.clerk.accounts.dev https://clerk-telemetry.com https://convex.cloud https://*.convex.cloud wss://*.convex.cloud https://*.sendbird.com wss://*.sendbird.com https://meet.jit.si wss://meet.jit.si",
     "worker-src 'self' blob:",
-    "frame-src 'self' https://*.daily.co",
-    "media-src 'self' blob: https://*.daily.co",
+    "frame-src 'self' https://meet.jit.si",
+    "media-src 'self' blob: https://meet.jit.si",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
