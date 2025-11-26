@@ -70,6 +70,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [chatChannelName, setChatChannelName] = useState("Chat");
   const [selectedClientId, setSelectedClientId] = useState("");
 
+  const [trackingData, setTrackingData] = useState({});
   const [isUpdateRiskModalOpen, setIsUpdateRiskModalOpen] = useState(false);
   const [selectedCrisisEvent, setSelectedCrisisEvent] = useState(null);
   const [isVideoCallModalOpen, setIsVideoCallModalOpen] = useState(false);
@@ -127,12 +128,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       }
 
       // Always fetch clients and notes
-      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes] = await Promise.all([
+      const [clientRes, noteRes, crisisRes, appointmentRes, auditRes, trackingRes] = await Promise.all([
         fetch("/api/clients"),
         fetch("/api/notes"),
         fetch("/api/crisis-events"),
         fetch("/api/appointments"),
         fetch("/api/audit-logs"),
+        fetch("/api/tracking"), // Fetch tracking data
       ]);
 
       if (clientRes.ok) {
@@ -162,6 +164,12 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       if (auditRes.ok) {
         const auditData = await auditRes.json();
         setAuditLogs(Array.isArray(auditData) ? auditData : []);
+      } else {
+      }
+
+      if (trackingRes.ok) {
+        const trackingData = await trackingRes.json();
+        setTrackingData(trackingData);
       } else {
       }
 
@@ -301,15 +309,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         crisisReferrals: referrals.filter(r => r.priority === "High" && r.status === "pending")
       });
     }
-
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-
-    
-    setReportData(generatedData); // Show the generated data 
   };
 
   const reopenReferral = async (id) => {
