@@ -50,48 +50,50 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
   // Filter and sort logs
   const filteredLogs = useMemo(() => {
     let filtered = auditLogs.filter(log => {
-      const matchesSearch = 
+      // Search filtering - only apply if search term exists
+      const matchesSearch = !searchTerm || 
         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.entity_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.details?.toLowerCase().includes(searchTerm.toLowerCase());
+        (log.details && typeof log.details === 'string' && log.details.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (log.details && typeof log.details === 'object' && JSON.stringify(log.details).toLowerCase().includes(searchTerm.toLowerCase()));
       
+      // Entity type filtering
       const matchesFilter = filterType === 'all' || log.entity_type === filterType;
       
-      // Date filtering
-      const logDate = new Date(log.created_at);
+      // Date filtering with improved timezone handling
       let matchesDate = true;
       
-      if (dateFilter === 'today') {
-        const today = new Date();
-        matchesDate = logDate.toDateString() === today.toDateString();
-      } else if (dateFilter === 'week') {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        matchesDate = logDate >= weekAgo;
-      } else if (dateFilter === 'month') {
-        const monthAgo = new Date();
-        monthAgo.setMonth(monthAgo.getMonth() - 1);
-        matchesDate = logDate >= monthAgo;
-      } else if (dateFilter === 'custom') {
-        if (customDateFrom && customDateTo) {
-          // Validate date range
-          if (customDateFrom > customDateTo) {
-            matchesDate = false; // Invalid range, show no results
-          } else {
-            // Create dates in local timezone and compare dates only
-            const logDateStr = logDate.toISOString().split('T')[0];
-            matchesDate = logDateStr >= customDateFrom && logDateStr <= customDateTo;
+      if (dateFilter !== 'all') {
+        const logDate = new Date(log.created_at);
+        
+        // Get date in YYYY-MM-DD format in local timezone
+        const logDateStr = new Date(logDate.getTime() - (logDate.getTimezoneOffset() * 60000))
+          .toISOString().split('T')[0];
+        
+        if (dateFilter === 'today') {
+          const todayStr = new Date().toISOString().split('T')[0];
+          matchesDate = logDateStr === todayStr;
+        } else if (dateFilter === 'week') {
+          const weekAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          matchesDate = logDateStr >= weekAgoStr;
+        } else if (dateFilter === 'month') {
+          const monthAgoStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          matchesDate = logDateStr >= monthAgoStr;
+        } else if (dateFilter === 'custom') {
+          if (customDateFrom && customDateTo) {
+            // Validate date range
+            if (customDateFrom > customDateTo) {
+              matchesDate = false; // Invalid range, show no results
+            } else {
+              matchesDate = logDateStr >= customDateFrom && logDateStr <= customDateTo;
+            }
+          } else if (customDateFrom && !customDateTo) {
+            matchesDate = logDateStr >= customDateFrom;
+          } else if (!customDateFrom && customDateTo) {
+            matchesDate = logDateStr <= customDateTo;
           }
-        } else if (customDateFrom && !customDateTo) {
-          // Compare date strings to avoid timezone issues
-          const logDateStr = logDate.toISOString().split('T')[0];
-          matchesDate = logDateStr >= customDateFrom;
-        } else if (!customDateFrom && customDateTo) {
-          // Compare date strings to avoid timezone issues
-          const logDateStr = logDate.toISOString().split('T')[0];
-          matchesDate = logDateStr <= customDateTo;
+          // If both are empty, show all (matchesDate stays true)
         }
-        // If both are empty, show all (matchesDate stays true)
       }
       
       return matchesSearch && matchesFilter && matchesDate;
