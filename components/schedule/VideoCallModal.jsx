@@ -82,7 +82,10 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
    * Initialize Jitsi Meet API
    */
   const initializeJitsi = () => {
-    if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) return;
+    if (!window.JitsiMeetExternalAPI || !jitsiContainerRef.current) {
+      console.error('Jitsi API not available or container not ready');
+      return;
+    }
 
     const domain = 'meet.jit.si'; // Free Jitsi server
     const options = {
@@ -100,37 +103,49 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
       interfaceConfigOverwrite: {
         TOOLBAR_BUTTONS: [
           'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-          'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-          'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-          'videoquality', 'filmstrip', 'feedback', 'stats', 'shortcuts',
-          'tileview', 'download', 'help', 'mute-everyone',
+          'fodeviceselection', 'hangup', 'chat', 'raisehand',
+          'videoquality', 'filmstrip', 'tileview', 'settings',
         ],
         SHOW_JITSI_WATERMARK: false,
         SHOW_WATERMARK_FOR_GUESTS: false,
+        SHOW_BRAND_WATERMARK: false,
+        DEFAULT_BACKGROUND: '#1a1a1a',
+        DISABLE_VIDEO_BACKGROUND: false,
+        FILM_STRIP_MAX_HEIGHT: 120,
       },
       userInfo: {
-        displayName: currentUserId || 'User',
+        displayName: currentUserId || 'Therapist',
       },
     };
 
-    const api = new window.JitsiMeetExternalAPI(domain, options);
+    try {
+      const api = new window.JitsiMeetExternalAPI(domain, options);
 
-    // Event listeners
-    api.addEventListener('videoConferenceJoined', () => {
-      console.log('Joined Jitsi meeting');
-      setCallStatus('joined');
-    });
+      // Event listeners
+      api.addEventListener('videoConferenceJoined', () => {
+        console.log('✅ Joined Jitsi meeting successfully');
+        setCallStatus('joined');
+      });
 
-    api.addEventListener('videoConferenceLeft', () => {
-      console.log('Left Jitsi meeting');
-      handleEndCall();
-    });
+      api.addEventListener('videoConferenceLeft', () => {
+        console.log('Left Jitsi meeting');
+        handleEndCall();
+      });
 
-    api.addEventListener('readyToClose', () => {
-      handleEndCall();
-    });
+      api.addEventListener('readyToClose', () => {
+        console.log('Ready to close');
+        handleEndCall();
+      });
 
-    setJitsiApi(api);
+      api.addEventListener('participantJoined', (participant) => {
+        console.log('Participant joined:', participant.displayName);
+      });
+
+      setJitsiApi(api);
+    } catch (error) {
+      console.error('Error initializing Jitsi:', error);
+      setCallStatus('ready');
+    }
   };
 
   /**
@@ -181,62 +196,68 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl dark:bg-gray-900 dark:border-gray-800">
-        <DialogHeader>
-          <DialogTitle className="dark:text-gray-100">
+      <DialogContent className="max-w-6xl h-[90vh] flex flex-col dark:bg-gray-900 dark:border-gray-800">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="dark:text-gray-100 text-lg font-semibold">
             Video Call with {appointment?.client_name || appointment?.client?.client_first_name || "Client"}
           </DialogTitle>
-          <DialogDescription className="dark:text-gray-400">
+          <DialogDescription className="dark:text-gray-400 text-sm">
             {callStatus === "idle" && "Initializing video call..."}
-            {callStatus === "ready" && "Ready to join - Share the link or click 'Join Call'"}
+            {callStatus === "ready" && "Share the meeting link with your client or join the call"}
             {callStatus === "loading" && "Loading Jitsi Meet..."}
-            {callStatus === "joined" && "Call in progress - Use controls to manage audio/video"}
+            {callStatus === "joined" && "Connected - Use the controls in the video window"}
             {callStatus === "ended" && "Call ended"}
           </DialogDescription>
         </DialogHeader>
 
         {/* Pre-join Screen */}
         {callStatus === "ready" && (
-          <div className="space-y-4">
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6">
-              <div className="flex items-start gap-3 mb-4">
-                <Video className="h-6 w-6 text-blue-500 flex-shrink-0 mt-1" />
+          <div className="flex-1 flex flex-col gap-4 overflow-auto py-4">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-xl p-6 border border-blue-100 dark:border-gray-700">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="p-3 bg-blue-600 rounded-lg">
+                  <Video className="h-6 w-6 text-white" />
+                </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 text-lg mb-1">
                     Secure Video Meeting
                   </h3>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Powered by Jitsi Meet - 100% free, open-source, and secure
+                    Powered by Jitsi Meet - Free, open-source, and secure video conferencing
                   </p>
                 </div>
               </div>
 
               {/* Meeting URL */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Share this link with your client:
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block">
+                  📋 Share this meeting link with your client:
                 </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={meetingUrl}
                     readOnly
-                    className="flex-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onClick={(e) => e.target.select()}
+                    className="flex-1 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-sm text-gray-900 dark:text-gray-100 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <Button
                     size="sm"
-                    variant="outline"
                     onClick={handleCopyUrl}
-                    className="dark:border-gray-700 dark:hover:bg-gray-800"
+                    className={`${
+                      copied 
+                        ? 'bg-green-600 hover:bg-green-700' 
+                        : 'bg-blue-600 hover:bg-blue-700'
+                    } text-white px-4 py-3`}
                   >
                     {copied ? (
                       <>
-                        <Check className="h-4 w-4 mr-1" />
-                        Copied
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied!
                       </>
                     ) : (
                       <>
-                        <Copy className="h-4 w-4 mr-1" />
+                        <Copy className="h-4 w-4 mr-2" />
                         Copy
                       </>
                     )}
@@ -245,26 +266,36 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
                     size="sm"
                     variant="outline"
                     onClick={openInNewTab}
-                    className="dark:border-gray-700 dark:hover:bg-gray-800"
+                    className="dark:border-gray-600 dark:hover:bg-gray-800 px-4 py-3"
+                    title="Open in new tab"
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Your client can join by clicking this link in any browser - no account needed
+                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <span className="text-green-600 dark:text-green-400">✓</span>
+                  No account needed - Your client can join directly from any browser
                 </p>
               </div>
             </div>
 
-            {/* Join Button */}
-            <div className="flex justify-center">
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-3 pt-2">
               <Button
                 onClick={joinCall}
                 size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
               >
                 <Video className="h-5 w-5 mr-2" />
                 Join Video Call
+              </Button>
+              <Button
+                onClick={() => onOpenChange(false)}
+                variant="outline"
+                size="lg"
+                className="dark:border-gray-600 dark:hover:bg-gray-800 px-6"
+              >
+                Cancel
               </Button>
             </div>
           </div>
@@ -272,43 +303,35 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
 
         {/* Loading State */}
         {callStatus === "loading" && (
-          <div className="flex items-center justify-center py-20">
+          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-950 rounded-lg">
             <div className="text-center">
-              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-400">Loading video call...</p>
+              <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400 font-medium">Loading video call...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">This may take a few seconds</p>
             </div>
           </div>
         )}
 
         {/* Jitsi Meet Container */}
-        <div 
-          ref={jitsiContainerRef} 
-          className={`w-full ${callStatus === "joined" ? "block" : "hidden"}`}
-          style={{ height: '500px' }}
-        />
-
-        {/* Footer Buttons */}
-        <div className="flex justify-end gap-2 pt-2">
-          {callStatus === "joined" && (
-            <Button
-              onClick={handleEndCall}
-              variant="destructive"
-              className="bg-red-600 hover:bg-red-700"
-            >
-              <PhoneOff className="h-4 w-4 mr-2" />
-              End Call
-            </Button>
-          )}
-          {(callStatus === "ready" || callStatus === "loading") && (
-            <Button
-              onClick={() => onOpenChange(false)}
-              variant="outline"
-              className="dark:border-gray-700"
-            >
-              Cancel
-            </Button>
-          )}
-        </div>
+        {callStatus === "joined" && (
+          <div className="flex-1 flex flex-col min-h-0">
+            <div 
+              ref={jitsiContainerRef} 
+              className="flex-1 rounded-lg overflow-hidden bg-gray-900"
+            />
+            <div className="flex justify-center gap-3 pt-4 flex-shrink-0">
+              <Button
+                onClick={handleEndCall}
+                variant="destructive"
+                size="lg"
+                className="bg-red-600 hover:bg-red-700 text-white px-8"
+              >
+                <PhoneOff className="h-5 w-5 mr-2" />
+                End Call & Close
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
