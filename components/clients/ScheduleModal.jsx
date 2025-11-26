@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Calendar, Clock, FileText, User } from "lucide-react"
 
 export default function ScheduleModal({ open, onOpenChange, client, schedule = [] }) {
@@ -19,7 +19,14 @@ export default function ScheduleModal({ open, onOpenChange, client, schedule = [
         return { ...appt, combinedDateTime: null };
       }
       // Create a combined, sortable date object
-      const combinedDateTime = new Date(`${appt.appointment_date.substring(0, 10)}T${appt.appointment_time.substring(11, 19)}`);
+      // appointment_date is YYYY-MM-DD, appointment_time is HH:mm
+      const dateStr = String(appt.appointment_date).includes('T') 
+        ? appt.appointment_date.substring(0, 10) 
+        : appt.appointment_date;
+      const timeStr = String(appt.appointment_time).includes(':') && String(appt.appointment_time).length <= 5
+        ? appt.appointment_time
+        : appt.appointment_time.substring(11, 16);
+      const combinedDateTime = new Date(`${dateStr}T${timeStr}:00`);
       return { ...appt, combinedDateTime };
     })
     .filter(appt => appt.combinedDateTime) // Ensure no nulls
@@ -44,6 +51,9 @@ export default function ScheduleModal({ open, onOpenChange, client, schedule = [
             <User className="h-5 w-5 text-primary" />
             Appointments for {clientName}
           </DialogTitle>
+          <DialogDescription>
+            View all scheduled appointments for this client
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto pr-2">
