@@ -59,6 +59,13 @@ export default defineSchema({
 		address: v.optional(v.string()),
 		emergencyContactName: v.optional(v.string()),
 		emergencyContactPhone: v.optional(v.string()),
+		// Weekly availability for scheduling
+		availability: v.optional(v.array(v.object({
+			day: v.string(), // 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'
+			startTime: v.string(), // HH:mm format (e.g., '09:00')
+			endTime: v.string(), // HH:mm format (e.g., '17:00')
+			enabled: v.boolean(), // whether this day is available
+		}))),
 		createdAt: v.number(),
 		updatedAt: v.number(),
 	})

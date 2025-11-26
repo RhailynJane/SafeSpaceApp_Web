@@ -828,3 +828,48 @@ export const syncSelf = mutation({
     }
   },
 });
+
+/**
+ * Update user availability schedule
+ */
+export const updateAvailability = mutation({
+  args: {
+    clerkId: v.string(),
+    availability: v.array(v.object({
+      day: v.string(),
+      startTime: v.string(),
+      endTime: v.string(),
+      enabled: v.boolean(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Validate availability entries
+    const validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    for (const slot of args.availability) {
+      if (!validDays.includes(slot.day.toLowerCase())) {
+        throw new Error(`Invalid day: ${slot.day}`);
+      }
+      // Basic time format validation (HH:mm)
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      if (!timeRegex.test(slot.startTime) || !timeRegex.test(slot.endTime)) {
+        throw new Error(`Invalid time format for ${slot.day}`);
+      }
+    }
+
+    await ctx.db.patch(user._id, {
+      availability: args.availability,
+      updatedAt: Date.now(),
+    });
+
+    return user._id;
+  },
+});

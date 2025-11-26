@@ -16,7 +16,7 @@
 'use client';
 
 // Import necessary React hook for managing state
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -70,6 +70,13 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
     api.appointments.listByDate,
     isLoaded && user?.id ? { clerkId: user.id, date: new Date().toISOString().split('T')[0] } : 'skip'
   );
+  
+  // Fetch user's availability settings
+  const currentUser = useQuery(
+    api.users.getByClerkId,
+    isLoaded && user?.id ? { clerkId: user.id } : 'skip'
+  );
+  
   const createAppt = useMutation(api.appointments.create);
   const toast = useToast();
 
@@ -97,6 +104,63 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
   const [error, setError] = useState("");
 
   /**
+   * Check if selected time is within user's availability settings
+   */
+  const isTimeAvailable = useMemo(() => {
+    if (!appointment_date || !appointment_time || !currentUser?.availability) {
+      return true; // If no availability set, allow all times
+    }
+
+    const selectedDate = new Date(appointment_date);
+    const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    
+    const dayAvailability = currentUser.availability.find(
+      slot => slot.day.toLowerCase() === dayOfWeek
+    );
+
+    if (!dayAvailability || !dayAvailability.enabled) {
+      return false; // Day is disabled
+    }
+
+    // Check if time is within available range
+    const [selectedHour, selectedMinute] = appointment_time.split(':').map(Number);
+    const [startHour, startMinute] = dayAvailability.startTime.split(':').map(Number);
+    const [endHour, endMinute] = dayAvailability.endTime.split(':').map(Number);
+
+    const selectedMinutes = selectedHour * 60 + selectedMinute;
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = endHour * 60 + endMinute;
+
+    return selectedMinutes >= startMinutes && selectedMinutes < endMinutes;
+  }, [appointment_date, appointment_time, currentUser?.availability]);
+
+  /**
+   * Get availability message for selected date/time
+   */
+  const availabilityMessage = useMemo(() => {
+    if (!appointment_date || !currentUser?.availability) {
+      return null;
+    }
+
+    const selectedDate = new Date(appointment_date);
+    const dayOfWeek = selectedDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    
+    const dayAvailability = currentUser.availability.find(
+      slot => slot.day.toLowerCase() === dayOfWeek
+    );
+
+    if (!dayAvailability || !dayAvailability.enabled) {
+      return `You are not available on ${selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}s. Update your availability in your profile settings.`;
+    }
+
+    if (appointment_time && !isTimeAvailable) {
+      return `Selected time is outside your available hours (${dayAvailability.startTime} - ${dayAvailability.endTime}). Please choose a time within your availability.`;
+    }
+
+    return null;
+  }, [appointment_date, appointment_time, currentUser?.availability, isTimeAvailable]);
+
+  /**
    * Handles the form submission logic.
    * Prevents default form submission, validates required fields,
    * sends data to the API, and manages success/error states.
@@ -112,6 +176,12 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
     if (!client_id || !appointment_time || !appointment_date) {
       setError("Please fill all required fields.");
       return; // Stop the function if validation fails
+    }
+
+    // Check availability
+    if (!isTimeAvailable) {
+      setError(availabilityMessage || "Selected time is outside your available hours.");
+      return;
     }
 
     const selectedDateTime = new Date(`${appointment_date}T${appointment_time}`);
@@ -358,6 +428,13 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
               className="resize-none"
             />
           </div>
+
+          {/* Availability warning */}
+          {availabilityMessage && (
+            <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-3">
+              <p className="text-yellow-700 dark:text-yellow-400 text-sm font-medium">{availabilityMessage}</p>
+            </div>
+          )}
 
           {/* Error message display */}
           {error && (

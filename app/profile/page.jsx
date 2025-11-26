@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/contexts/ToastContext";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import AvailabilitySettings from "@/components/profile/AvailabilitySettings";
 
 function getInitials(name) {
   if (!name) return "SS";
@@ -489,6 +490,13 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Weekly Availability */}
+        {user?.id && (
+          <div className="mt-8">
+            <AvailabilitySettings clerkId={user.id} />
+          </div>
+        )}
       </div>
     </div>
   );
