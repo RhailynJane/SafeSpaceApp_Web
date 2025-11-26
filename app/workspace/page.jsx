@@ -976,64 +976,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   const handleCallEnd = () => {};
 
-  const openChat = async (client) => {
-    try {
-      console.log('Opening chat for client:', client);
-      
-      // Find the user account for this client by email
-      const clientEmail = client.email;
-      const clientFirstName = client.firstName || client.client_first_name;
-      const clientLastName = client.lastName || client.client_last_name;
-      
-      console.log('Client details:', { clientEmail, clientFirstName, clientLastName });
-      
-      if (!clientEmail) {
-        alert('This client does not have an email address and cannot be messaged.');
-        return;
-      }
 
-      // Query Convex to find the user with this email and roleId 'client'
-      const clientUser = await fetch('/api/find-client-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: clientEmail })
-      });
-
-      console.log('API response status:', clientUser.status);
-      
-      if (!clientUser.ok) {
-        const errorData = await clientUser.json();
-        console.log('API error:', errorData);
-        alert(`This client does not have a user account and cannot be messaged. Error: ${errorData.error}`);
-        return;
-      }
-
-      const userData = await clientUser.json();
-      console.log('User data received:', userData);
-      
-      if (!userData.clerkId) {
-        alert('This client does not have a user account and cannot be messaged.');
-        return;
-      }
-
-      console.log('Navigating to Messages with client user ID:', userData.clerkId);
-
-      // Navigate to Messages tab with client user info
-      const url = new URL(window.location);
-      url.searchParams.set('tab', 'Messages');
-      url.searchParams.set('clientUserId', userData.clerkId);
-      url.searchParams.set('clientName', `${clientFirstName} ${clientLastName}`);
-      
-      // Use router.push or window.location to navigate
-      window.history.pushState({}, '', url.toString());
-      
-      // Trigger a page refresh to load the Messages tab
-      window.location.reload();
-    } catch (error) {
-      console.error('Error opening chat:', error);
-      alert('Error opening chat. Please try again.');
-    }
-  };
 
   return (
     <main className="p-6 space-y-6">
@@ -1434,7 +1377,6 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <div className="mt-4">
                         <ClientActionButtons 
                           client={client} 
-                          onMessage={() => openChat(client)} 
                           schedule={schedule}
                         />
                       </div>
