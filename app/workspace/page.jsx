@@ -597,9 +597,12 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         totalMinutes: filteredNotes.reduce((acc, n) => acc + (n.duration_minutes || 30), 0),
         averageSessionLength: 30,
         // Detailed views
-        byClient: filteredSessions.reduce((acc, s) => {
-          const key = s.client_id || s.clientId || 'unknown';
-          acc[key] = (acc[key] || 0) + 1;
+        byClient: filteredNotes.reduce((acc, n) => {
+          // Use client name from the mapped note data
+          const clientName = n.client ? 
+            `${n.client.client_first_name} ${n.client.client_last_name}`.trim() : 
+            'Unknown Client';
+          acc[clientName] = (acc[clientName] || 0) + 1;
           return acc;
         }, {}),
         byActivity: filteredNotes.reduce((acc, n) => {
