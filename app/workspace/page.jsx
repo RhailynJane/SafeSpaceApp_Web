@@ -81,7 +81,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   // Ensure user is initialized before queries (avoid name clashes)
   const isUserReady = typeof isLoaded !== 'undefined' && isLoaded && !!user;
   const dbUserRec = useQuery(api.users.getByClerkId, isUserReady ? { clerkId: user?.id } : 'skip') || null;
-  const [recentCursor, setRecentCursor] = useState(null);
+  const [recentCursor, setRecentCursor] = useState(undefined);
   const [cursorStack, setCursorStack] = useState([]);
   // Pagination state for Recent Reports
   const [recentFilterType, setRecentFilterType] = useState('all');
@@ -99,7 +99,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         start: startMs2,
         end: endMs2,
         limit: 20,
-        cursor: recentCursor,
+        ...(recentCursor && { cursor: recentCursor }), // Only include cursor if it's not null/undefined
       }
     : 'skip';
   
@@ -1999,7 +1999,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       const stack = [...cursorStack];
                       const prev = stack.pop();
                       setCursorStack(stack);
-                      setRecentCursor(prev || null);
+                      setRecentCursor(prev || undefined);
                     }}
                   >Prev</Button>
                   <Button
@@ -2013,7 +2013,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                     }}
                     disabled={!recentResp?.continueCursor}
                   >Next</Button>
-                  <Button variant="outline" size="sm" onClick={() => { setCursorStack([]); setRecentCursor(null); }}>Reset</Button>
+                  <Button variant="outline" size="sm" onClick={() => { setCursorStack([]); setRecentCursor(undefined); }}>Reset</Button>
                 </div>
               </CardContent>
             </Card>

@@ -16,18 +16,12 @@ export const list = query({
     cursor: v.optional(v.id("reports")),
   },
   handler: async (ctx, args) => {
-    console.log('[REPORTS LIST] Query args:', args);
-    
     // Start with a simple query to get all reports
     let results = await ctx.db.query("reports").order("desc").take(args.limit || 100);
-    
-    console.log('[REPORTS LIST] Raw results count:', results.length);
-    console.log('[REPORTS LIST] First few results:', results.slice(0, 3).map(r => ({ id: r._id, type: r.reportType, orgId: r.orgId, createdAt: new Date(r.createdAt) })));
     
     // Apply orgId filter if specified
     if (args.orgId) {
       results = results.filter(r => r.orgId === args.orgId);
-      console.log('[REPORTS LIST] After orgId filter:', results.length, 'results');
     }
     
     // Apply filters in memory
@@ -38,19 +32,16 @@ export const list = query({
       const start = args.start ?? 0;
       const end = args.end ?? Number.MAX_SAFE_INTEGER;
       filtered = filtered.filter(r => r.createdAt >= start && r.createdAt <= end);
-      console.log('[REPORTS LIST] After date filter:', filtered.length, 'results');
     }
     
     // Filter by report type
     if (args.reportType) {
       filtered = filtered.filter(r => r.reportType === args.reportType);
-      console.log('[REPORTS LIST] After type filter:', filtered.length, 'results');
     }
     
     // Filter by creator
     if (args.createdBy) {
       filtered = filtered.filter(r => r.createdBy === args.createdBy);
-      console.log('[REPORTS LIST] After creator filter:', filtered.length, 'results');
     }
     
     const mapped = filtered.map((r) => ({
@@ -66,8 +57,8 @@ export const list = query({
       hasChartImage: !!r.chartStorageId,
       chartMimeType: r.chartMimeType,
       dataJson: r.dataJson,
-    }));
-    console.log('[REPORTS LIST] Returning', mapped.length, 'reports:', mapped.map(r => ({ title: r.title, type: r.reportType, createdAt: new Date(r.createdAt) })));
+    });
+    
     return mapped;
   },
 });
