@@ -977,32 +977,62 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const handleCallEnd = () => {};
 
   const openChat = async (client) => {
-    if (!client.user_id) {
-      alert('This client does not have a user account and cannot be messaged.');
-      return;
+    try {
+      console.log('Opening chat for client:', client);
+      
+      // Find the user account for this client by email
+      const clientEmail = client.email;
+      const clientFirstName = client.firstName || client.client_first_name;
+      const clientLastName = client.lastName || client.client_last_name;
+      
+      console.log('Client details:', { clientEmail, clientFirstName, clientLastName });
+      
+      if (!clientEmail) {
+        alert('This client does not have an email address and cannot be messaged.');
+        return;
+      }
+
+      // Query Convex to find the user with this email and roleId 'client'
+      const clientUser = await fetch('/api/find-client-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: clientEmail })
+      });
+
+      console.log('API response status:', clientUser.status);
+      
+      if (!clientUser.ok) {
+        const errorData = await clientUser.json();
+        console.log('API error:', errorData);
+        alert(`This client does not have a user account and cannot be messaged. Error: ${errorData.error}`);
+        return;
+      }
+
+      const userData = await clientUser.json();
+      console.log('User data received:', userData);
+      
+      if (!userData.clerkId) {
+        alert('This client does not have a user account and cannot be messaged.');
+        return;
+      }
+
+      console.log('Navigating to Messages with client user ID:', userData.clerkId);
+
+      // Navigate to Messages tab with client user info
+      const url = new URL(window.location);
+      url.searchParams.set('tab', 'Messages');
+      url.searchParams.set('clientUserId', userData.clerkId);
+      url.searchParams.set('clientName', `${clientFirstName} ${clientLastName}`);
+      
+      // Use router.push or window.location to navigate
+      window.history.pushState({}, '', url.toString());
+      
+      // Trigger a page refresh to load the Messages tab
+      window.location.reload();
+    } catch (error) {
+      console.error('Error opening chat:', error);
+      alert('Error opening chat. Please try again.');
     }
-
-    // Navigate to Messages tab with client user info
-    const clientInfo = {
-      userId: client.user_id,
-      firstName: client.firstName || client.client_first_name,
-      lastName: client.lastName || client.client_last_name,
-      email: client.email
-    };
-
-    // Update URL to Messages tab with client user ID
-    const url = new URL(window.location);
-    url.searchParams.set('tab', 'Messages');
-    url.searchParams.set('clientUserId', client.user_id);
-    url.searchParams.set('clientName', `${clientInfo.firstName} ${clientInfo.lastName}`);
-    
-    // Use router.push or window.location to navigate
-    window.history.pushState({}, '', url.toString());
-    
-    // Trigger a page refresh to load the Messages tab
-    window.location.reload();
-    setChannelUrl(data.channelUrl);
-    setShowChat(true);
   };
 
   return (
