@@ -33,6 +33,7 @@ const ChatInterface = () => {
   const markAsRead = useMutation(api.conversations.markAsRead);
   const deleteConversation = useMutation(api.conversations.deleteConversation);
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+  const getOrCreateConversation = useMutation(api.conversations.getOrCreate);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -47,6 +48,77 @@ const ChatInterface = () => {
       markAsRead({ conversationId: selectedConversation._id });
     }
   }, [selectedConversation, markAsRead]);
+
+  // Auto-open conversation when client user ID is in URL
+  useEffect(() => {
+    const checkForClientChat = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const clientUserId = urlParams.get('clientUserId');
+      const clientName = urlParams.get('clientName');
+      
+      if (clientUserId && user && conversations) {
+        try {
+          // Find existing conversation with this client user
+          const existingConversation = conversations.find(conv => 
+            conv.participants.some(p => p.userId === clientUserId)
+          );
+
+          if (existingConversation) {
+            setSelectedConversation(existingConversation);
+            // Clear URL parameters after opening chat
+            const url = new URL(window.location);
+            url.searchParams.delete('clientUserId');
+            url.searchParams.delete('clientName');
+            window.history.replaceState({}, '', url.toString());
+          } else if (!selectedConversation) {
+            // Store client user ID for later selection
+            sessionStorage.setItem('pendingClientChat', clientUserId);
+            
+            // Create new conversation with this client user
+            const conversationId = await getOrCreateConversation({
+              participantIds: [clientUserId],
+              title: `Chat with ${clientName || 'Client'}`
+            });
+            
+            // Clear URL parameters immediately after creating
+            const url = new URL(window.location);
+            url.searchParams.delete('clientUserId');
+            url.searchParams.delete('clientName');
+            window.history.replaceState({}, '', url.toString());
+          }
+        } catch (error) {
+          console.error('Error opening client chat:', error);
+          // Clear URL parameters even on error
+          const url = new URL(window.location);
+          url.searchParams.delete('clientUserId');
+          url.searchParams.delete('clientName');
+          window.history.replaceState({}, '', url.toString());
+        }
+      }
+    };
+
+    checkForClientChat();
+  }, [user, conversations, selectedConversation, getOrCreateConversation]);
+
+  // Select the newly created conversation
+  useEffect(() => {
+    if (conversations && !selectedConversation) {
+      // Check if we just created a conversation (after URL params were cleared)
+      const urlParams = new URLSearchParams(window.location.search);
+      const hadClientUserId = sessionStorage.getItem('pendingClientChat');
+      
+      if (hadClientUserId) {
+        const targetConversation = conversations.find(conv => 
+          conv.participants.some(p => p.userId === hadClientUserId)
+        );
+        
+        if (targetConversation) {
+          setSelectedConversation(targetConversation);
+          sessionStorage.removeItem('pendingClientChat');
+        }
+      }
+    }
+  }, [conversations, selectedConversation]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();

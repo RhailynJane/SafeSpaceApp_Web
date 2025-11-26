@@ -976,83 +976,31 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   const handleCallEnd = () => {};
 
-  const openChat = async (otherUser, channelName) => {
-    let otherUserId = null;
-    let dynamicChannelName = channelName;
-
-    if (typeof otherUser === 'object' && otherUser !== null) {
-      dynamicChannelName = `${otherUser.client_first_name} ${otherUser.client_last_name}`;
-      
-      if (otherUser.user && otherUser.user.clerk_user_id) {
-        otherUserId = otherUser.user.clerk_user_id;
-      } else if (otherUser.id) {
-        otherUserId = otherUser.id;
-      } else if (otherUser.email) {
-        try {
-          const response = await fetch(`/api/users/${otherUser.email}`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.userId) {
-              otherUserId = data.userId;
-            }
-                  }
-                } catch (error) {
-                  }
-                }
-      if (!otherUserId) {
-        alert('This client does not have a user account and cannot be messaged.');
-        return;
-      }
-    } else if (String(otherUser).includes('@')) {
-      try {
-        const response = await fetch(`/api/users/${otherUser}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.userId) {
-            otherUserId = data.userId;
-          }
-        }
-      } catch (error) {
-      }
-      if (!otherUserId) {
-        return;
-      }
-    } else {
-      otherUserId = otherUser;
-    }
-
-    setChatChannelName(dynamicChannelName || "Chat");
-
-    // Create a deterministic channel URL by sorting user IDs
-    const channelUrl = `client_chat_${[user.id, otherUserId].sort().join('_')}`;
-
-    console.log('Opening chat with:', { 
-      currentUser: user.id, 
-      otherUserId, 
-      channelUrl,
-      name: dynamicChannelName 
-    });
-
-    const response = await fetch('/api/sendbird', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        userIds: [user.id, otherUserId],
-        name: dynamicChannelName,
-        channel_url: channelUrl
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Sendbird error:', errorData);
-      alert(`Failed to create chat channel: ${errorData.error || 'Unknown error'}`);
+  const openChat = async (client) => {
+    if (!client.user_id) {
+      alert('This client does not have a user account and cannot be messaged.');
       return;
     }
 
-    const data = await response.json();
+    // Navigate to Messages tab with client user info
+    const clientInfo = {
+      userId: client.user_id,
+      firstName: client.firstName || client.client_first_name,
+      lastName: client.lastName || client.client_last_name,
+      email: client.email
+    };
+
+    // Update URL to Messages tab with client user ID
+    const url = new URL(window.location);
+    url.searchParams.set('tab', 'Messages');
+    url.searchParams.set('clientUserId', client.user_id);
+    url.searchParams.set('clientName', `${clientInfo.firstName} ${clientInfo.lastName}`);
+    
+    // Use router.push or window.location to navigate
+    window.history.pushState({}, '', url.toString());
+    
+    // Trigger a page refresh to load the Messages tab
+    window.location.reload();
     setChannelUrl(data.channelUrl);
     setShowChat(true);
   };
