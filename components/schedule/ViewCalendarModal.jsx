@@ -26,8 +26,11 @@ export default function ViewCalendarModal({ schedule = [] }) {
   const [open, setOpen] = useState(false)
 
   // Debug: log all schedule data when modal opens
-  if (open && schedule.length > 0) {
-    console.log('All schedule data:', schedule);
+  if (open) {
+    console.log('=== CALENDAR DEBUG ===');
+    console.log('Total schedule items:', schedule.length);
+    console.log('Current view month/year:', monthNames[month], year);
+    console.log('Sample schedule items:', schedule.slice(0, 3));
   }
 
   // Get appointments for the current month with details
@@ -35,19 +38,15 @@ export default function ViewCalendarModal({ schedule = [] }) {
     const result = schedule
       .map(appt => {
         if (!appt?.appointment_date && !appt?.appointmentDate) {
-          console.log('Skipping appointment - no date:', appt);
           return null;
         }
         // Parse date as local date (YYYY-MM-DD)
         const dateStr = String(appt.appointment_date || appt.appointmentDate);
-        console.log('Processing appointment date:', dateStr, 'Full appt:', appt);
         const datePart = dateStr.split('T')[0];
         const [yearStr, monthStr, dayStr] = datePart.split('-');
         const apptYear = parseInt(yearStr, 10);
         const apptMonth = parseInt(monthStr, 10) - 1; // 0-indexed
         const apptDay = parseInt(dayStr, 10);
-        
-        console.log('Parsed:', { year: apptYear, month: apptMonth, day: apptDay }, 'Looking for:', { year, month });
         
         return {
           ...appt,
@@ -59,9 +58,12 @@ export default function ViewCalendarModal({ schedule = [] }) {
       .filter(Boolean)
       .filter(appt => appt.year === year && appt.month === month);
     
-    console.log('Filtered appointments for', month, year, ':', result);
+    if (open) {
+      console.log('Filtered appointments for', monthNames[month], year, ':', result);
+      console.log('Appointment dates:', result.map(a => `${a.month + 1}/${a.day}/${a.year}`));
+    }
     return result;
-  }, [schedule, month, year]);
+  }, [schedule, month, year, open]);
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfMonth = new Date(year, month, 1).getDay()
