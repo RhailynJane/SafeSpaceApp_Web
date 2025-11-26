@@ -45,7 +45,7 @@ export default clerkMiddleware(async (auth, req) => {
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
-    "connect-src 'self' https://*.clerk.accounts.dev https://clerk-telemetry.com https://convex.cloud https://*.convex.cloud wss://*.convex.cloud https://*.sendbird.com wss://*.sendbird.com https://*.daily.co wss://*.daily.co",
+    "connect-src 'self' https://*.clerk.accounts.dev https://clerk-telemetry.com https://convex.cloud https://*.convex.cloud wss://*.convex.cloud https://*.sendbird.com wss://*.sendbird.com https://*.daily.co wss://*.daily.co https://*.sentry.io",
     "worker-src 'self' blob:",
     "frame-src 'self' https://*.daily.co",
     "media-src 'self' blob: https://*.daily.co",
