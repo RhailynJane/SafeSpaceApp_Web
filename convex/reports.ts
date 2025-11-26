@@ -18,19 +18,17 @@ export const list = query({
   handler: async (ctx, args) => {
     console.log('[REPORTS LIST] Query args:', args);
     
-    // Start with a simple query and apply filters
-    let q = ctx.db.query("reports");
-    
-    // Use org index if orgId provided
-    if (args.orgId) {
-      q = ctx.db.query("reports").withIndex("by_org", (idx) => idx.eq("orgId", args.orgId as any));
-    }
-    
-    // Get all results first, then filter
-    let results = await q.order("desc").take(args.limit || 100);
+    // Start with a simple query to get all reports
+    let results = await ctx.db.query("reports").order("desc").take(args.limit || 100);
     
     console.log('[REPORTS LIST] Raw results count:', results.length);
     console.log('[REPORTS LIST] First few results:', results.slice(0, 3).map(r => ({ id: r._id, type: r.reportType, orgId: r.orgId, createdAt: new Date(r.createdAt) })));
+    
+    // Apply orgId filter if specified
+    if (args.orgId) {
+      results = results.filter(r => r.orgId === args.orgId);
+      console.log('[REPORTS LIST] After orgId filter:', results.length, 'results');
+    }
     
     // Apply filters in memory
     let filtered = results;

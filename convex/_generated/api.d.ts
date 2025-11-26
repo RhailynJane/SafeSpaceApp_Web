@@ -21,6 +21,7 @@ import type * as featurePermissions from "../featurePermissions.js";
 import type * as fixNoteAuthors from "../fixNoteAuthors.js";
 import type * as helpers from "../helpers.js";
 import type * as metrics from "../metrics.js";
+import type * as migrateReports from "../migrateReports.js";
 import type * as notes from "../notes.js";
 import type * as notifications from "../notifications.js";
 import type * as organizations from "../organizations.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   fixNoteAuthors: typeof fixNoteAuthors;
   helpers: typeof helpers;
   metrics: typeof metrics;
+  migrateReports: typeof migrateReports;
   notes: typeof notes;
   notifications: typeof notifications;
   organizations: typeof organizations;
