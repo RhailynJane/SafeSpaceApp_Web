@@ -15,6 +15,7 @@ export function DashboardOverview({ userRole }) {
   const { user, isLoaded } = useUser();
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [todaySchedule, setTodaySchedule] = useState([]);
 
   // Fetch dashboard data from API
   useEffect(() => {
@@ -38,9 +39,6 @@ export function DashboardOverview({ userRole }) {
   }, [isLoaded, user]);
 
   const metrics = dashboardData ? getMetricsForRole(userRole, dashboardData.metrics) : getMetricsForRole(userRole, {});
-
-  const todayStr = new Date().toLocaleDateString('en-CA');
-  const todaySchedule = schedule.filter(appointment => appointment.date === todayStr);
 
   // Load today's schedule via Convex
   const today = new Date().toISOString().split("T")[0];

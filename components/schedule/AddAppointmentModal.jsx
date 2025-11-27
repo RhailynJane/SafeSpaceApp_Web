@@ -275,7 +275,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="default" size="default" className="font-medium">
           Add Appointment

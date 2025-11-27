@@ -188,6 +188,11 @@ export default function SiteHeader() {
     }
   };
 
+  // Derived counts
+  const unreadCount = Array.isArray(notifications)
+    ? notifications.filter(n => !n.is_read).length
+    : 0;
+
   // ---- Render placeholder during hydration ----
   if (!mounted) {
     return (
@@ -227,7 +232,7 @@ export default function SiteHeader() {
             >
               {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </Button>
-            {isAuthenticated ? (
+            {isAuthenticated && (
               <>
                 {/* Notification Bell with Popover */}
                 <Popover open={notificationModal} onOpenChange={setNotificationModal}>

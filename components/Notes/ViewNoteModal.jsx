@@ -30,10 +30,6 @@ export default function ViewNoteModal({ isOpen, onClose, onEdit, note }) {
     onEdit(note)
   }
 
-  const totalMinutes = note.activities 
-    ? note.activities.reduce((sum, activity) => sum + (parseInt(activity.minutes) || 0), 0)
-    : note.total_minutes || 0;
-
   const getRiskColor = (risk) => {
     const colors = {
       low: "bg-green-100 text-green-800 border-green-200",
