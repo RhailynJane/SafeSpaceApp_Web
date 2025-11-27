@@ -219,9 +219,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     api.appointments.list,
     isUserLoaded && dbUserRec?.orgId ? { clerkId: user.id, orgId: dbUserRec.orgId } : 'skip'
   ) || [];
-  const convexMyNotes = useQuery(
-    api.notes.listForUser,
-    isUserLoaded ? { clerkId: user.id } : 'skip'
+  // Fetch org-wide notes so newly created notes (even by other authors) appear
+  const convexNotes = useQuery(
+    api.notes.listByOrg,
+    isUserLoaded && dbUserRec?.orgId ? { orgId: dbUserRec.orgId } : 'skip'
   ) || [];
 
   // Map Convex data into the legacy UI shapes used in this view
@@ -273,58 +274,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     });
   }, [convexClients]);
 
-  useEffect(() => {
-    if (!convexTodaysAppts || !convexClients) return;
-    
-    // Map appointments
-    const appts = convexTodaysAppts.map((a) => {
-      const found = convexClients.find(c => c._id === a.clientId);
-      let first = "";
-      let last = "";
-      if (found) {
-        first = found.firstName || "";
-        last = found.lastName || "";
-      } else if (a.clientName) {
-        const parts = String(a.clientName).trim().split(" ");
-        first = parts[0] || "";
-        last = parts.slice(1).join(" ") || "";
-      }
-      return {
-        id: a._id,
-        _id: a._id,
-        client_id: a.clientId,
-        clientId: a.clientId,
-        appointment_date: a.appointmentDate,
-        appointment_time: a.appointmentTime || "",
-        type: a.type || "",
-        duration: a.duration ? `${a.duration} min` : "",
-        details: a.notes || "",
-        client: { client_first_name: first, client_last_name: last },
-      };
-    });
-    
-    // Merge with any optimistic items already in schedule for the selected date
-    setSchedule(prev => {
-      const prevForDate = prev.filter(p => p.appointment_date === selectedDate);
-      const mergedForDate = [...appts, ...prevForDate].reduce((acc, item) => {
-        const key = String(item.id || `${item.appointment_date}_${item.appointment_time}_${item.type}`);
-        if (!acc.find(x => String(x.id || `${x.appointment_date}_${x.appointment_time}_${x.type}`) === key)) {
-          acc.push(item);
-        }
-        return acc;
-      }, []);
-      const others = prev.filter(p => p.appointment_date !== selectedDate);
-      const next = [...others, ...mergedForDate];
-      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
-      return next;
-    });
-  }, [convexTodaysAppts, convexClients, selectedDate]);
-
-  // Populate schedule with all appointments for ScheduleModal
+  // Consolidated effect to handle all appointments data
   useEffect(() => {
     if (!convexAllAppts || !convexClients) return;
     
-    // Map all appointments
+    console.log("📅 Convex appointments received:", convexAllAppts.length);
+    
+    // Map all appointments from Convex
     const allAppts = convexAllAppts.map((a) => {
       const found = convexClients.find(c => c._id === a.clientId);
       let first = "";
@@ -351,25 +307,19 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       };
     });
     
-    // Merge with any optimistic items across all dates
-    setSchedule(prev => {
-      const merged = [...allAppts, ...prev].reduce((acc, item) => {
-        const key = String(item.id || `${item.appointment_date}_${item.appointment_time}_${item.type}`);
-        if (!acc.find(x => String(x.id || `${x.appointment_date}_${x.appointment_time}_${x.type}`) === key)) {
-          acc.push(item);
-        }
-        return acc;
-      }, []);
-      if (JSON.stringify(prev) === JSON.stringify(merged)) return prev;
-      return merged;
-    });
+    console.log("📅 Mapped appointments:", allAppts);
+    
+    // Update schedule state with all appointments from Convex
+    setSchedule(allAppts);
   }, [convexAllAppts, convexClients]);
 
   useEffect(() => {
-    if (!convexMyNotes || !convexClients) return;
+    if (!convexNotes || !convexClients) return;
+    
+    console.log("📝 Convex notes received:", convexNotes.length);
     
     // Map notes
-    const mappedNotes = convexMyNotes.map((n) => {
+    const mappedNotes = convexNotes.map((n) => {
       const found = convexClients.find(c => c._id === n.clientId);
       
       // Enhanced author resolution with multiple matching strategies
@@ -421,36 +371,20 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       };
     });
     
-    // Only update if data actually changed
-    setNotes(prev => {
-      if (JSON.stringify(prev) === JSON.stringify(mappedNotes)) return prev;
-      return mappedNotes;
-    });
-  }, [convexMyNotes, convexClients]);
+    console.log("📝 Mapped notes:", mappedNotes);
+    
+    // Always update notes with fresh data from Convex
+    setNotes(mappedNotes);
+  }, [convexNotes, convexClients, assignableUsers]);
 
   const handleAddAppointment = (newAppointment) => {
-    // Optimistically add in legacy shape; Convex query will refresh shortly
-    const optim = {
-      id: newAppointment._id || newAppointment.id || Math.random().toString(36).slice(2),
-      _id: newAppointment._id || newAppointment.id,
-      client_id: newAppointment.clientId || newAppointment.client_id,
-      clientId: newAppointment.clientId || newAppointment.client_id,
-      appointment_date: newAppointment.appointmentDate || newAppointment.appointment_date || todayStr,
-      appointment_time: newAppointment.appointmentTime || newAppointment.appointment_time || "",
-      type: newAppointment.type || "",
-      duration: typeof newAppointment.duration === 'number' ? `${newAppointment.duration} min` : (newAppointment.duration || ""),
-      details: newAppointment.details || newAppointment.notes || "",
-      client: newAppointment.client || { 
-        client_first_name: newAppointment.client?.client_first_name || "", 
-        client_last_name: newAppointment.client?.client_last_name || "" 
-      },
-    };
-    setSchedule((prev) => [...prev, optim]);
+    console.log("✅ Appointment added successfully:", newAppointment);
+    // Convex query will automatically refresh and show the new appointment
     // Ensure the schedule view switches to the newly added appointment's date
-    if (optim.appointment_date && optim.appointment_date !== selectedDate) {
-      setSelectedDate(optim.appointment_date);
+    const apptDate = newAppointment.appointmentDate || newAppointment.appointment_date;
+    if (apptDate && apptDate !== selectedDate) {
+      setSelectedDate(apptDate);
     }
-    mutate("/api/dashboard");
   };
   const handleDeleteAppointment = (id) => setSchedule(prev => prev.filter(a => a.id !== id));
 
@@ -976,6 +910,42 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   };
 
   const handleCallEnd = () => {};
+
+  const openChat = async (referral) => {
+    try {
+      if (!referral || !user?.id) {
+        console.error("Invalid referral or user");
+        return;
+      }
+
+      // Create a channel for the referral
+      const channelUrlSlug = `referral_${referral._id}`;
+      const userIds = [user.id]; // Add other participant IDs if needed
+      const channelName = `${referral.client_first_name} ${referral.client_last_name} - Referral`;
+
+      const response = await fetch("/api/sendbird", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userIds,
+          name: channelName,
+          channel_url: channelUrlSlug,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create/get chat channel");
+      }
+
+      const data = await response.json();
+      setChannelUrl(data.channelUrl);
+      setChatChannelName(channelName);
+      setShowChat(true);
+    } catch (error) {
+      console.error("Error opening chat:", error);
+      alert("Failed to open chat. Please try again.");
+    }
+  };
 
 
 
