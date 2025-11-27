@@ -57,6 +57,17 @@ export default function EditNoteModal({ isOpen, onClose, note, onSave }) {
         next_steps: note.next_steps || '',
         activities: note.activities || []
       });
+
+      // Load existing activities or create default
+      if (note.activities && note.activities.length > 0) {
+        setActivities(note.activities.map((act, idx) => ({
+          id: idx + 1,
+          type: act.type || '',
+          minutes: act.minutes || 0
+        })));
+      } else {
+        setActivities([{ id: 1, type: '', minutes: 0 }]);
+      }
     }
   }, [note]);
 
@@ -308,6 +319,24 @@ export default function EditNoteModal({ isOpen, onClose, note, onSave }) {
               >
                 <SelectTrigger className="bg-white">
                   <SelectValue placeholder="Current risk level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low Risk</SelectItem>
+                  <SelectItem value="medium">Medium Risk</SelectItem>
+                  <SelectItem value="high">High Risk</SelectItem>
+                  <SelectItem value="critical">Critical Risk</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Risk Assessment</Label>
+              <Select 
+                value={formData.risk_assessment} 
+                onValueChange={(value) => setFormData(prev => ({...prev, risk_assessment: value}))}
+              >
+                <SelectTrigger className="bg-white">
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Low Risk</SelectItem>

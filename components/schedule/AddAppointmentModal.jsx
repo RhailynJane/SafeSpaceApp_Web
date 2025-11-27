@@ -1,18 +1,3 @@
- /* Comments added with claude.ai
- * Prompts : add proper comments and dcoumentation
- */
-
- /* Add Appointment Modal Component
- * 
- * This is a React component that displays a modal (popup) for creating new appointments.
- * It's a form with multiple fields that allows users to:
- * - Select a client
- * - Choose date and time
- * - Set session type and duration
- * - Add optional notes 
- */
-
-// 'use client' directive marks this component for client-side rendering in Next.js
 'use client';
 
 // Import necessary React hook for managing state
@@ -31,7 +16,7 @@ import {
   DialogDescription,
   DialogClose,
 } from '@/components/ui/dialog';
-// Import Button, Input, Label, Select, and Textarea components
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,7 +30,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/contexts/ToastContext';
 
-// Import icons from lucide-react library
 import { Loader2, Calendar, Clock, User, FileText } from 'lucide-react';
 
 /**
@@ -98,10 +82,8 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
   // State for optional appointment details/notes
   const [details, setDetails] = useState("");
 
-  // State to manage the loading status during form submission
   const [loading, setLoading] = useState(false);
-  // State to store and display any error messages
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
 
   /**
    * Check if selected time is within user's availability settings
@@ -167,12 +149,9 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
    * @param {Event} e - The form submission event.
    */
   const handleSubmit = async (e) => {
-    // 1. Prevent the default browser form submission (which causes a page reload)
     e.preventDefault();
-    // Clear any previous error messages
-    setError("");
+    setError('');
 
-    // 2. Client-side validation: Check if required fields are filled
     if (!client_id || !appointment_time || !appointment_date) {
       setError("Please fill all required fields.");
       return; // Stop the function if validation fails
@@ -233,10 +212,8 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
     }
 
     try {
-      // 3. Start loading state
       setLoading(true);
 
-      // 4. Prepare the data payload for the API
       const formData = {
         client_id,
         appointment_date,
@@ -290,21 +267,15 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
       setDetails("");
       setOpen(false); // Close the modal
     } catch (err) {
-      // 10. Handle network/API errors
-      console.error("Add appointment error:", err);
-      // Display the error message to the user
-      setError(err.message || "Something went wrong");
+      console.error('Add appointment error:', err);
+      setError(err.message || 'Something went wrong');
     } finally {
-      // 11. End loading state, regardless of success or failure
       setLoading(false);
     }
   };
 
-  // 12. Component Render
   return (
-    // Dialog component controls the modal's display
-    <Dialog open={open} onOpenChange={setOpen}>
-      {/* DialogTrigger wraps the button that opens the modal */}
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="default" size="default" className="font-medium">
           Add Appointment
@@ -329,7 +300,6 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
               <User className="h-4 w-4 text-muted-foreground" />
               Client
             </Label>
-            {/* Select component for client ID, maps over the 'clients' prop */}
             <Select onValueChange={setClientId} value={client_id}>
               <SelectTrigger id="client" className="h-11">
                 <SelectValue placeholder="Select a client" />
@@ -352,17 +322,16 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
                 Date
               </Label>
               <Input
-                id="date"
                 type="date"
+                id="date"
                 value={appointment_date}
                 min={todayStr}
                 // Update state when the input changes
                 onChange={(e) => setAppointmentDate(e.target.value)}
-                required // HTML validation attribute
+                required
                 className="h-11"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="time" className="flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
@@ -372,9 +341,8 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
                 id="time"
                 type="time"
                 value={appointment_time}
-                // Update state when the input changes
                 onChange={(e) => setAppointmentTime(e.target.value)}
-                required // HTML validation attribute
+                required
                 className="h-11"
               />
             </div>
@@ -384,7 +352,6 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="type">Session Type</Label>
-              {/* Select component for appointment type */}
               <Select value={type} onValueChange={setType}>
                 <SelectTrigger id="type" className="h-11">
                   <SelectValue placeholder="Select session type" />
@@ -393,15 +360,15 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
                   <SelectItem value="Individual Session">
                     Individual Session
                   </SelectItem>
-                  <SelectItem value="Group Therapy">Group Therapy</SelectItem>
+                  <SelectItem value="Group Therapy">
+                    Group Therapy
+                  </SelectItem>
                   <SelectItem value="Assessment">Assessment</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="duration">Duration</Label>
-              {/* Simple Input for duration */}
               <Input
                 id="duration"
                 value={duration}
@@ -413,7 +380,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
             </div>
           </div>
 
-          {/* Details Textarea Field */}
+          {/* --- Details --- */}
           <div className="space-y-2">
             <Label htmlFor="details" className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
@@ -443,26 +410,27 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
             </div>
           )}
 
-          {/* Footer buttons (Cancel and Submit) */}
+          {/* Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            {/* DialogClose closes the modal when clicked */}
-            <DialogClose asChild>
-              <Button type="button" variant="outline" size="default">
-                Cancel
-              </Button>
-            </DialogClose>
-            
-            {/* Submit button with loading state */}
-            <Button type="submit" disabled={loading} size="default" className="bg-teal-800 hover:bg-teal-900">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              className="bg-teal-800 hover:bg-teal-900"
+            >
               {loading ? (
-                // Show spinner and "Saving..." text when loading
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Saving...
                 </>
               ) : (
-                // Show "Add Appointment" text when not loading
-                "Add Appointment"
+                'Add Appointment'
               )}
             </Button>
           </div>

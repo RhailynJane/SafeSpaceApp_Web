@@ -39,7 +39,8 @@ export function DashboardOverview({ userRole }) {
 
   const metrics = dashboardData ? getMetricsForRole(userRole, dashboardData.metrics) : getMetricsForRole(userRole, {});
 
-  const [todaySchedule, setTodaySchedule] = useState([]);
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const todaySchedule = schedule.filter(appointment => appointment.date === todayStr);
 
   // Load today's schedule via Convex
   const today = new Date().toISOString().split("T")[0];

@@ -30,7 +30,7 @@ export async function GET(req) {
 
     return NextResponse.json(mappedLogs);
   } catch (error) {
-    console.error('Error fetching audit logs:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error("Error fetching audit logs:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

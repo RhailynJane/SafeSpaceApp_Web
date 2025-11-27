@@ -150,6 +150,21 @@ export default function NewNoteModal({ isOpen, onClose, clients = [], assignable
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Risk Assessment</Label>
+              <Select value={formData.risk_assessment} onValueChange={(value) => setFormData(prev => ({...prev, risk_assessment: value}))}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Current risk level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low Risk</SelectItem>
+                  <SelectItem value="medium">Medium Risk</SelectItem>
+                  <SelectItem value="high">High Risk</SelectItem>
+                  <SelectItem value="critical">Critical Risk</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Case Notes Section */}

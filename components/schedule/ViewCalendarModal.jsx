@@ -1,8 +1,9 @@
-"use client"
+"use client";
 
 import { useState, useMemo } from "react"
 import {
   Dialog,
+  DialogTrigger,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -72,8 +73,8 @@ export default function ViewCalendarModal({ schedule = [] }) {
     return result;
   }, [schedule, month, year, open]);
 
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const firstDayOfMonth = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
   
   const days = []
   for (let i = 0; i < firstDayOfMonth; i++) {
@@ -439,5 +440,5 @@ export default function ViewCalendarModal({ schedule = [] }) {
         )}
       </DialogContent>
     </Dialog>
-  )
+  );
 }

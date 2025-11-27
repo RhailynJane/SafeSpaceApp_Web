@@ -13,6 +13,7 @@ import Sendbird from 'sendbird';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
+/** Utility to get initials for avatar fallback */
 function getInitials(name) {
   if (!name) return "SS";
   const parts = name.trim().split(" ");
@@ -21,15 +22,48 @@ function getInitials(name) {
   return (first + last || first || "SS").toUpperCase();
 }
 
+/** Time formatter for notification timestamps */
+function timeAgo(date) {
+  const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes ago";
+  return Math.floor(seconds) + " seconds ago";
+}
+
+/** Get icon per notification type */
+function getNotificationIcon(type) {
+  switch (type) {
+    case "urgent":
+      return <AlertTriangle className="h-4 w-4 text-red-500" />;
+    case "referral":
+      return <User className="h-4 w-4 text-blue-500" />;
+    case "appointment":
+      return <Clock className="h-4 w-4 text-orange-500" />;
+    default:
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+  }
+}
+
 export default function SiteHeader() {
+  const router = useRouter();
+  const clerk = useClerk();
   const { isSignedIn } = useAuth();
   const { user } = useUser();
   const isAuthenticated = !!isSignedIn;
   const userName = user?.fullName ?? null;
+
+  // ---- State ----
+  const [mounted, setMounted] = useState(false);
   const [notificationModal, setNotificationModal] = useState(false);
-  const router = useRouter();
   const [signOutLoading, setSignOutLoading] = useState(false);
-  const clerk = useClerk();
   const [notifications, setNotifications] = useState([]);
   const [profileData, setProfileData] = useState(null);
   const { isDark, toggleDarkMode } = useTheme();
@@ -40,6 +74,10 @@ export default function SiteHeader() {
     isAuthenticated && user?.id ? { clerkId: user.id } : "skip"
   );
 
+  // ---- Mount check (prevents hydration mismatch) ----
+  useEffect(() => setMounted(true), []);
+
+  // ---- Fetch profile ----
   useEffect(() => {
     if (!convexSelf) return;
     setProfileData({
@@ -91,50 +129,19 @@ export default function SiteHeader() {
     setNotifications(mapped);
   }, [convexNotifications]);
 
+  // ---- Handle Sign Out ----
   const handleSignOutClick = async () => {
     setSignOutLoading(true);
-    console.debug("Sign out clicked: attempting clerk.signOut");
     try {
       if (clerk && typeof clerk.signOut === "function") {
-        // try to sign out via Clerk client which will also handle redirect
         await clerk.signOut({ redirectUrl: "/" });
-        console.debug("clerk.signOut completed");
         return;
-      } else {
-        console.debug("clerk.signOut not available on clerk client", clerk);
       }
     } catch (err) {
       console.error("clerk.signOut failed:", err);
     }
-
-    // Fallback: navigate to login page
-    console.debug("Falling back to router.push('/') for sign-out");
-    try {
-      router.push("/");
-    } catch (err) {
-      console.error("router.push failed during sign-out fallback:", err);
-    } finally {
-      setSignOutLoading(false);
-    }
-  };
-
-  const unreadCount = notifications.filter(n => !n.is_read).length;
-
-  const getNotificationIcon = (type) => {
-    switch (type) {
-      case "urgent":
-        return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case "referral":
-        return <User className="h-4 w-4 text-blue-500" />;
-      case "appointment":
-        return <Clock className="h-4 w-4 text-orange-500" />;
-      default:
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-    }
-  };
-
-  const handleProfileClick = () => {
-    router.push('/profile');
+    router.push("/");
+    setSignOutLoading(false);
   };
 
   const markAllAsReadMut = useMutation(api.notifications.markAllAsRead);
@@ -142,13 +149,12 @@ export default function SiteHeader() {
   const toggleReadMut = useMutation(api.notifications.toggleRead);
 
   const handleClearAll = async () => {
-    if (confirm('Are you sure you want to clear all notifications?')) {
+    if (confirm("Are you sure you want to clear all notifications?")) {
       try {
         if (user?.id) {
           await clearAllMut({ userId: user.id });
         }
         setNotifications([]);
-        setNotificationModal(false);
       } catch (error) {
         console.error("Error clearing notifications:", error);
       }
@@ -182,7 +188,19 @@ export default function SiteHeader() {
     }
   };
 
+  // ---- Render placeholder during hydration ----
+  if (!mounted) {
+    return (
+      <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur">
+        <div className="flex h-14 items-center justify-between px-4">
+          <div className="h-6 w-24 bg-gray-200 animate-pulse rounded"></div>
+          <div className="h-8 w-8 bg-gray-200 animate-pulse rounded-full"></div>
+        </div>
+      </header>
+    );
+  }
 
+  // ---- Render full header ----
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -194,12 +212,9 @@ export default function SiteHeader() {
               <span className="text-emerald-600">Safe</span>
               <span className="text-foreground">Space</span>
             </span>
-            <span className="sr-only">
-              SafeSpace - Mental Health Support Platform
-            </span>
           </div>
 
-          {/* Actions */}
+          {/* Right side buttons */}
           <div className="flex items-center gap-2">
             {/* Theme toggle always visible */}
             <Button
@@ -347,12 +362,12 @@ export default function SiteHeader() {
                   </PopoverContent>
                 </Popover>
 
-                {/* Avatar - clickable for profile */}
+                {/* Avatar */}
                 <Button
                   variant="ghost"
                   size="sm"
                   className="rounded-full p-0"
-                  onClick={handleProfileClick}
+                  onClick={() => router.push("/profile")}
                   aria-label="Open profile"
                 >
                   <Avatar className="h-8 w-8">
@@ -363,6 +378,7 @@ export default function SiteHeader() {
                   </Avatar>
                 </Button>
 
+                {/* Sign Out */}
                 <Button
                   variant="ghost"
                   className="gap-2"
@@ -374,12 +390,11 @@ export default function SiteHeader() {
                     {signOutLoading ? "Signing out..." : "Sign out"}
                   </span>
                 </Button>
-
-
               </>
-            ) : null}
+            )}
           </div>
         </div>
       </header>
     </>
-);}
+  );
+}

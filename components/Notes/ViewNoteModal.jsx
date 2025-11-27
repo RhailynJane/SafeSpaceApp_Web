@@ -30,6 +30,20 @@ export default function ViewNoteModal({ isOpen, onClose, onEdit, note }) {
     onEdit(note)
   }
 
+  const totalMinutes = note.activities 
+    ? note.activities.reduce((sum, activity) => sum + (parseInt(activity.minutes) || 0), 0)
+    : note.total_minutes || 0;
+
+  const getRiskColor = (risk) => {
+    const colors = {
+      low: "bg-green-100 text-green-800 border-green-200",
+      medium: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      high: "bg-orange-100 text-orange-800 border-orange-200",
+      critical: "bg-red-100 text-red-800 border-red-200"
+    }
+    return colors[risk?.toLowerCase()] || "bg-gray-100 text-gray-800 border-gray-200"
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
@@ -140,6 +154,16 @@ export default function ViewNoteModal({ isOpen, onClose, onEdit, note }) {
               </div>
             </div>
           </div>
+
+          {/* Session Summary (if exists) */}
+          {note.summary && (
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">Session Summary</Label>
+              <div className="text-sm bg-blue-50 border border-blue-200 rounded-lg p-4">
+                {note.summary}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex-shrink-0 mt-6 pt-4 border-t gap-2">

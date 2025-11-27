@@ -114,6 +114,23 @@ export default function DashboardPage() {
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
 
   const handleAddAppointment = async (newAppt) => {
+    if (onAdd) {
+      onAdd(newAppt);
+    }
+
+    const todayStr = new Date().toLocaleDateString('en-CA');
+    const isToday = newAppt.date === todayStr;
+
+    const newData = {
+      ...data,
+      upcomingAppointments: [...data.upcomingAppointments, newAppt].sort((a, b) => new Date(a.appointment_date) - new Date(b.appointment_date)),
+      metrics: {
+        ...data.metrics,
+        totalAppointments: data.metrics.totalAppointments + 1,
+        todaysSessions: isToday ? data.metrics.todaysSessions + 1 : data.metrics.todaysSessions,
+      }
+    };
+
     try {
       await mutate();
     } catch (err) {
@@ -136,7 +153,7 @@ export default function DashboardPage() {
       }
       const datePart = appt.date.substring(0, 10);
       const timePart = appt.appointment_time.substring(11, 19);
-      const dateStr = `${datePart}T${timePart}`;
+      const dateStr = `${datePart}T${timePart}Z`; // Append Z for UTC
       const combinedDateTime = new Date(dateStr);
       return { ...appt, combinedDateTime };
     })
@@ -144,11 +161,11 @@ export default function DashboardPage() {
       if (!appt.combinedDateTime) {
         return false;
       }
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      return appt.combinedDateTime >= today && appt.combinedDateTime < tomorrow;
+      const now = new Date();
+      const tomorrow = new Date();
+      tomorrow.setDate(now.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      return appt.combinedDateTime >= now && appt.combinedDateTime < tomorrow;
     })
         .sort((a, b) => {
       if (!a.combinedDateTime) return 1;
