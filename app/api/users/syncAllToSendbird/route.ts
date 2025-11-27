@@ -6,8 +6,8 @@ import { auth } from '@clerk/nextjs/server';
 export async function POST(req: Request) {
   try {
     // 1. Authenticate and authorize the user
-    const { sessionClaims } = auth();
-    const role = sessionClaims?.metadata?.role;
+    const { sessionClaims } = await auth();
+    const role = (sessionClaims as any)?.metadata?.role;
 
     if (role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       } else {
         const errorData = await sendbirdResponse.json();
         // Check if the error is because the user already exists
-        if (errorData.code === 400201) { // Sendbird's error code for "user already exists"
+        if ((errorData as any).code === 400201) { // Sendbird's error code for "user already exists"
           successCount++; // If user already exists, we can consider it a success for our purpose
         } else {
           errorCount++;

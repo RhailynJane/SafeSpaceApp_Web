@@ -643,13 +643,13 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
   // ==========================================
   
   return (
-    <div className="bg-gradient-to-b from-gray-50 to-white flex flex-col h-full">
+    <div className="bg-gradient-to-b from-background to-muted/30 flex flex-col h-full">
       
       {/* ========== MESSAGE CONTAINER ========== */}
       {/* Scrollable area containing all messages */}
       <div 
         ref={messageContainerRef}    // Attach ref for scrolling control
-        className="flex-1 overflow-y-auto p-6 space-y-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent"
+      className="flex-1 overflow-y-auto p-6 space-y-1 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent"
       >
         {/* Map over messages array to render each message */}
         {messages.map((msg, index) => {
@@ -674,7 +674,7 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
               {/* Shows "Today", "Yesterday", or specific date */}
               {showDateSeparator && (
                 <div className="flex items-center justify-center my-6">
-                  <div className="bg-gray-200 text-gray-600 text-xs font-medium px-4 py-1.5 rounded-full shadow-sm">
+                    <div className="bg-muted text-muted-foreground text-xs font-medium px-4 py-1.5 rounded-full shadow-sm">
                     {formatMessageDate(msg.createdAt)}
                   </div>
                 </div>
@@ -691,7 +691,7 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
                       <img 
                         src={msg.sender.profileUrl || '/images/logo.png'} 
                         alt="sender profile" 
-                        className="w-8 h-8 rounded-full object-cover ring-2 ring-gray-100" 
+                          className="w-8 h-8 rounded-full object-cover ring-2 ring-border" 
                       />
                     )}
                   </div>
@@ -702,7 +702,7 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
                   
                   {/* Sender name (only for other users, only when avatar shown) */}
                   {!isOwnMessage && showAvatar && (
-                    <span className="text-xs font-medium text-gray-700 mb-1 px-1">
+                    <span className="text-xs font-medium text-foreground mb-1 px-1">
                       {msg.sender.nickname}
                     </span>
                   )}
@@ -711,7 +711,7 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
                   <div className={`group relative rounded-2xl px-4 py-2.5 shadow-sm transition-all hover:shadow-md ${
                     isOwnMessage 
                       ? 'bg-gradient-to-br from-teal-600 to-teal-700 text-white rounded-br-md' 
-                      : 'bg-white text-gray-800 rounded-bl-md border border-gray-100'
+                        : 'bg-card text-card-foreground rounded-bl-md border border-border'
                   }`}>
                     {/* Render message content (text or file) */}
                     {renderMessageContent(msg)}
@@ -719,7 +719,7 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
                     {/* Timestamp and read receipt */}
                     <div className="flex items-center justify-end gap-1.5 mt-1">
                       {/* Format time as "2:30 PM" */}
-                      <p className={`text-[11px] ${isOwnMessage ? 'text-teal-100' : 'text-gray-500'}`}>
+                        <p className={`text-[11px] ${isOwnMessage ? 'text-teal-100' : 'text-muted-foreground'}`}>
                         {new Date(msg.createdAt).toLocaleTimeString([], { 
                           hour: '2-digit', 
                           minute: '2-digit' 
@@ -738,7 +738,7 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
                       <img 
                         src={user.profileUrl || '/images/logo.png'} 
                         alt="my profile" 
-                        className="w-8 h-8 rounded-full object-cover ring-2 ring-teal-100" 
+                          className="w-8 h-8 rounded-full object-cover ring-2 ring-teal-100 dark:ring-teal-900/50" 
                       />
                     )}
                   </div>
@@ -757,12 +757,12 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
             {/* Animated dots */}
             <div className="flex gap-1">
               {/* Three dots with staggered animation */}
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
             {/* Text showing who is typing */}
-            <span className="text-sm text-gray-500">
+              <span className="text-sm text-muted-foreground">
               {/* Join multiple usernames with commas */}
               {typingUsers.map((user) => user.nickname).join(', ')}{' '}
               {/* Proper grammar: "is" for singular, "are" for plural */}
@@ -773,14 +773,14 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
       </div>
 
       {/* ========== INPUT AREA ========== */}
-      <div className="p-4 bg-white border-t border-gray-200 relative flex-shrink-0">
+      <div className="p-4 bg-card border-t border-border relative flex-shrink-0">
         
         {/* ========== EMOJI PICKER POPUP ========== */}
         {/* Positioned absolutely above the input */}
         {showEmojiPicker && (
           <div
             ref={emojiPickerRef}    // Ref for click-outside detection
-            className="absolute bottom-[72px] right-2 z-40 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+              className="absolute bottom-[72px] right-2 z-40 bg-card rounded-lg shadow-lg border border-border overflow-hidden"
             style={{
               maxHeight: "260px",
               width: "300px",
@@ -790,14 +790,14 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
               onEmojiClick={handleEmojiClick}
               width="100%"
               height={350}
-              theme="light"
+                theme="auto"
             />
           </div>
         )}
 
         {/* ========== INPUT ROW ========== */}
         {/* Contains: file button, text input, emoji button, send button */}
-        <div className="flex items-center gap-2 bg-gray-50 rounded-full px-2 py-1 border border-gray-200 focus-within:border-teal-300 focus-within:ring-2 focus-within:ring-teal-100 transition-all">
+          <div className="flex items-center gap-2 bg-muted/30 rounded-full px-2 py-1 border border-border focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 transition-all">
           
           {/* Hidden file input (triggered by button click) */}
           <input
@@ -812,10 +812,10 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
           <Button 
             variant="ghost" 
             size="icon" 
-            className="hover:bg-gray-200 rounded-full h-9 w-9 flex-shrink-0"
+              className="hover:bg-muted rounded-full h-9 w-9 flex-shrink-0"
             onClick={() => fileInputRef.current?.click()}  // Trigger file input
           >
-            <Paperclip size={18} className="text-gray-500" />
+              <Paperclip size={18} className="text-muted-foreground" />
           </Button>
           
           {/* ========== MESSAGE TEXT INPUT ========== */}
@@ -854,24 +854,24 @@ const SendbirdChat = ({ channelUrl, onChannelReady }) => {
               }
             }}
             placeholder="Type a message..."
-            className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2"
+            className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-foreground placeholder:text-muted-foreground"
           />
           
           {/* ========== EMOJI PICKER BUTTON ========== */}
           <Button 
             variant="ghost" 
             size="icon" 
-            className="hover:bg-gray-200 rounded-full h-9 w-9 flex-shrink-0"
+              className="hover:bg-muted rounded-full h-9 w-9 flex-shrink-0"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}  // Toggle visibility
           >
-            <Smile size={18} className="text-gray-500" />
+              <Smile size={18} className="text-muted-foreground" />
           </Button>
           
           {/* ========== SEND BUTTON ========== */}
           <Button 
             onClick={sendMessage}
             disabled={!message.trim()}    // Disabled if message is empty
-            className="rounded-full h-9 w-9 p-0 bg-teal-600 hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all flex-shrink-0"
+              className="rounded-full h-9 w-9 p-0 bg-teal-600 hover:bg-teal-700 disabled:bg-muted disabled:cursor-not-allowed transition-all flex-shrink-0"
           >
             <Send size={16} className="text-white" />
           </Button>

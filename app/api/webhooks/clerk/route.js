@@ -1,6 +1,9 @@
 import { Webhook } from 'svix';
 import { headers } from 'next/headers';
-import { prisma } from '@/lib/prisma';
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL);
 
 export async function POST(req) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
@@ -59,13 +62,12 @@ export async function POST(req) {
     }
 
     try {
-      // Find the user in your database
-      const userInDb = await prisma.user.findUnique({
-        where: { clerk_user_id: id },
-        include: { role: true },
+      // Find the user in Convex database
+      const userInDb = await convex.query(api.users.getByClerkId, {
+        clerkId: id,
       });
 
-      let roleName = userInDb?.role?.role_name || 'support_worker'; // Default role
+      let roleName = userInDb?.roleId || 'support_worker'; // Default role
 
       if (userInDb) {
         // Update Clerk's public_metadata with the role from your database
@@ -81,18 +83,9 @@ export async function POST(req) {
             }),
           });
 
-        // Trigger a session refresh for the user
-        // This is a placeholder. Clerk's API for directly triggering a session refresh
-        // is not directly exposed via a simple PATCH on the user object.
-        // A common pattern is to update the user's metadata and then rely on
-        // Clerk's session token refresh mechanism, or to explicitly sign out/in
-        // the user if immediate refresh is critical (less user-friendly).
-        // For now, updating public_metadata should eventually propagate.
-        // If immediate propagation is needed, consider a client-side redirect
-        // to a /syncing page that forces a re-authentication or token refresh.
         console.log(`Clerk user ${id} public_metadata updated with role: ${roleName}`);
       } else {
-        console.warn(`User ${id} not found in local database after Clerk event ${eventType}. Skipping role sync.`);
+        console.warn(`User ${id} not found in Convex database after Clerk event ${eventType}. Skipping role sync.`);
       }
 
     } catch (error) {

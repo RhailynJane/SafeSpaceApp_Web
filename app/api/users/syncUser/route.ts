@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { clerkId, email, firstName, lastName, publicMetadata } = await req.json();
+    const { clerkId, email, firstName, lastName, publicMetadata } = await req.json() as any;
 
     if (!clerkId) {
       return NextResponse.json({ error: "Missing clerkId" }, { status: 400 });

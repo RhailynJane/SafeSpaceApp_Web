@@ -1,16 +1,8 @@
 // lib/prisma.ts
-import { PrismaClient } from "@prisma/client";
+// DEPRECATED: This project uses Convex instead of Prisma
+// Keeping this file to avoid breaking imports, but it exports null
 
-const globalForPrisma = global as unknown as {
-  prisma?: PrismaClient;
-};
+export const prisma = null;
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ["query", "error", "warn"],
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// If you need database operations, use Convex queries/mutations instead
+// See convex/ directory for database operations

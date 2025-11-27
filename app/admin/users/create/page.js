@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
+import { StatusModal } from '@/components/ui/modal';
 
 
 // REFERENCES: Gemini Code Assist Agent / Gemini-Pro-2 
@@ -29,6 +30,10 @@ export default function CreateUserPage() {
     const router = useRouter();
     const { user } = useUser();
 
+    // Get org name from user metadata to check if it's SAIT
+    const orgName = user?.publicMetadata?.orgName || user?.organizationMemberships?.[0]?.organization?.name || '';
+    const isSAIT = orgName.toLowerCase().includes('sait');
+
     /**
      * Handles changes in the form fields and updates the formData state.
      * Clears the form error when the user modifies an input.
@@ -55,12 +60,24 @@ export default function CreateUserPage() {
         e.preventDefault();
         setFormError(null); // Reset error state on new submission
 
+        // Get current user's org from Clerk metadata
+        const orgId = user?.publicMetadata?.orgId || user?.organizationMemberships?.[0]?.organization?.id;
+
+        if (!orgId) {
+            setFormError('Organization ID not found. Please ensure you are logged in correctly.');
+            return;
+        }
+
         const transformedFormData = {
-            ...formData,
-            role: formData.role.toLowerCase().replace(' ', '_'),
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            roleId: formData.role, // Already in correct format from select value
+            email: formData.email,
+            password: formData.password,
+            orgId: orgId,
         };
 
-                const res = await fetch('/api/admin/create-user', {
+        const res = await fetch('/api/admin/create-user', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -82,13 +99,15 @@ export default function CreateUserPage() {
     /**
      * Closes the success modal and navigates the user back to the main users list.
      */
-    const handleCloseModal = () => {
-        setShowSuccessModal(false);
-        router.push('/admin/users');
+    const handleCloseModal = (open) => {
+        setShowSuccessModal(open);
+        if (!open) {
+            router.push('/admin/users');
+        }
     };
 
     return (
-        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-lg max-w-4xl mx-auto">
             <h1 className="text-2xl font-bold text-gray-800 mb-8">Create New User Account</h1>
             
             {/* Display Form Error Message */}
@@ -117,11 +136,11 @@ export default function CreateUserPage() {
                     <label htmlFor="role" className="block text-sm font-medium text-gray-700">Role</label>
                     <select id="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500" required>
                         <option disabled>Select Role</option>
-                        <option>Support Worker</option>
-                        <option>Team Leader</option>
-                        <option>Therapist</option>
-                        <option>Admin</option>
-                        <option>Patient</option>
+                        <option value="client">Client</option>
+                        {isSAIT && <option value="peer_support">Peer Support</option>}
+                        <option value="support_worker">Support Worker</option>
+                        <option value="team_leader">Team Leader</option>
+                        <option value="admin">Administrator</option>
                     </select>
                 </div>
 
@@ -144,21 +163,14 @@ export default function CreateUserPage() {
                 </div>
             </form>
 
-            {/* Success Modal, conditionally rendered */}
-            {showSuccessModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
-                        <h2 className="text-xl font-bold text-gray-800 mb-4">User Created</h2>
-                        <p className="text-gray-600 mb-6">User created successfully.</p>
-                        <button 
-                            onClick={handleCloseModal} 
-                            className="w-full bg-teal-600 text-white font-semibold py-3 rounded-lg hover:bg-teal-700 transition-colors"
-                        >
-                            Close
-                        </button>
-                    </div>
-                </div>
-            )}
+            {/* Success Modal */}
+            <StatusModal
+                open={showSuccessModal}
+                onOpenChange={handleCloseModal}
+                status="success"
+                title="User Created"
+                message="User created successfully."
+            />
         </div>
     );
 }

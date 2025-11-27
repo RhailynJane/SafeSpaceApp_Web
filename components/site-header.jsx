@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useClerk, useAuth, useUser } from "@clerk/nextjs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User } from "lucide-react";
-import Sendbird from "sendbird";
+import { Bell, LogOut, AlertTriangle, Clock, CheckCircle, User, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import Sendbird from 'sendbird';
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 /** Utility to get initials for avatar fallback */
 function getInitials(name) {
@@ -63,83 +66,68 @@ export default function SiteHeader() {
   const [signOutLoading, setSignOutLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [profileData, setProfileData] = useState(null);
+  const { isDark, toggleDarkMode } = useTheme();
+
+  // Load profile from Convex
+  const convexSelf = useQuery(
+    api.users.getByClerkId,
+    isAuthenticated && user?.id ? { clerkId: user.id } : "skip"
+  );
 
   // ---- Mount check (prevents hydration mismatch) ----
   useEffect(() => setMounted(true), []);
 
   // ---- Fetch profile ----
   useEffect(() => {
-    if (!isAuthenticated) return;
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch("/api/profile");
-        if (res.ok) {
-          const data = await res.json();
-          setProfileData(data);
-        }
-      } catch (err) {
-        console.error("Profile fetch error:", err);
-      }
-    };
-    fetchProfile();
-  }, [isAuthenticated]);
-
-  // ---- Sendbird connection ----
-  useEffect(() => {
-    if (!mounted || !user) return;
-
-    const sb = new Sendbird({ appId: process.env.NEXT_PUBLIC_SENDBIRD_APP_ID });
-    sb.connect(user.id, (sbUser, error) => {
-      if (error) {
-        console.error("Sendbird connection error:", error);
-        return;
-      }
-      console.log("Sendbird connected:", sbUser.nickname);
-
-      const ChannelHandler = new sb.ChannelHandler();
-
-      ChannelHandler.onMessageReceived = (channel, message) => {
-        setNotifications((prev) => [
-          {
-            id: message.messageId,
-            message: message.message,
-            type: "referral",
-            created_at: message.createdAt,
-            is_read: false,
-          },
-          ...prev,
-        ]);
-      };
-
-      sb.addChannelHandler("siteHeaderHandler", ChannelHandler);
+    if (!convexSelf) return;
+    setProfileData({
+      profile_image_url: convexSelf.profileImageUrl || convexSelf.imageUrl || "",
     });
+  }, [convexSelf]);
 
-    return () => {
-      try {
-        sb.removeChannelHandler("siteHeaderHandler");
-        sb.disconnect();
-      } catch {
-        // ignore cleanup
-      }
-    };
-  }, [mounted, user]);
-
-  // ---- Fetch notifications ----
   useEffect(() => {
-    if (!isAuthenticated) return;
-    const fetchNotifications = async () => {
-      try {
-        const response = await fetch("/api/notifications/mine");
-        if (response.ok) {
-          const data = await response.json();
-          setNotifications(data.notifications || []);
-        }
-      } catch (error) {
-        console.error("Notification fetch error:", error);
+    const appId = process.env.NEXT_PUBLIC_SENDBIRD_APP_ID;
+    if (!appId) {
+      console.warn("NEXT_PUBLIC_SENDBIRD_APP_ID not configured - SendBird chat disabled");
+      return;
+    }
+    
+    try {
+      const sb = new Sendbird({ appId });
+      if (user) {
+        sb.connect(user.id, (sbUser, error) => {
+          if (error) {
+            // Silently handle SendBird errors (domain not whitelisted, app disabled, etc.)
+            console.debug("SendBird connection skipped:", error.message);
+          } else {
+            console.log("SendBird connected for user:", sbUser);
+          }
+        });
       }
-    };
-    fetchNotifications();
-  }, [isAuthenticated]);
+    } catch (error) {
+      // Catch any initialization errors
+      console.debug("SendBird initialization skipped:", error.message);
+    }
+  }, [user]);
+
+  const convexNotifications = useQuery(
+    api.notifications.listMine,
+    isAuthenticated && user?.id ? { userId: user.id } : "skip"
+  );
+
+  useEffect(() => {
+    if (!Array.isArray(convexNotifications)) return;
+    // Map Convex docs to UI shape expected by header
+    const mapped = convexNotifications.map((n) => ({
+      id: n._id,
+      message: n.message,
+      is_read: !!n.isRead,
+      created_at: new Date(n.createdAt).toISOString(),
+      type: n.type || 'system',
+      title: n.title || 'Notification',
+    }));
+    setNotifications(mapped);
+  }, [convexNotifications]);
 
   // ---- Handle Sign Out ----
   const handleSignOutClick = async () => {
@@ -156,11 +144,16 @@ export default function SiteHeader() {
     setSignOutLoading(false);
   };
 
-  // ---- Handle notification actions ----
+  const markAllAsReadMut = useMutation(api.notifications.markAllAsRead);
+  const clearAllMut = useMutation(api.notifications.clearAll);
+  const toggleReadMut = useMutation(api.notifications.toggleRead);
+
   const handleClearAll = async () => {
     if (confirm("Are you sure you want to clear all notifications?")) {
       try {
-        await fetch("/api/notifications", { method: "DELETE" });
+        if (user?.id) {
+          await clearAllMut({ userId: user.id });
+        }
         setNotifications([]);
       } catch (error) {
         console.error("Error clearing notifications:", error);
@@ -170,15 +163,30 @@ export default function SiteHeader() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch("/api/notifications/mark-as-read", { method: "PATCH" });
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      if (user?.id) {
+        await markAllAsReadMut({ userId: user.id });
+      }
+      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
+      setNotificationModal(false);
     } catch (error) {
       console.error("Error marking notifications as read:", error);
     }
   };
 
-  // ---- Unread count ----
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const handleToggleRead = async (notification) => {
+    try {
+      const newReadState = !notification.is_read;
+      await toggleReadMut({ 
+        notificationId: notification.id, 
+        isRead: newReadState 
+      });
+      setNotifications(notifications.map(n => 
+        n.id === notification.id ? { ...n, is_read: newReadState } : n
+      ));
+    } catch (error) {
+      console.error("Error toggling notification read state:", error);
+    }
+  };
 
   // ---- Render placeholder during hydration ----
   if (!mounted) {
@@ -195,41 +203,164 @@ export default function SiteHeader() {
   // ---- Render full header ----
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <header className="sticky top-0 z-40 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-2 sm:px-3 lg:px-5">
           {/* Logo */}
-          <div className="flex items-center gap-2 ml-[-16px]">
-            <img src="/images/logo.png" alt="SafeSpace Logo" className="h-10 w-10 " />
-            <span className="text-lg font-bold">
-              <span className="text-teal-600">Safe</span>
-              <span className="text-gray-900">Space</span>
+          <div className="flex items-center gap-3">
+            <img src="/images/logo.png" alt="SafeSpace Logo" className="h-12 w-12" />
+            <span className="text-xl font-bold">
+              <span className="text-emerald-600">Safe</span>
+              <span className="text-foreground">Space</span>
             </span>
           </div>
 
           {/* Right side buttons */}
           <div className="flex items-center gap-2">
-            {isAuthenticated && (
+            {/* Theme toggle always visible */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full"
+              aria-label="Toggle theme"
+              onClick={toggleDarkMode}
+              title={isDark ? "Switch to light" : "Switch to dark"}
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
+            {isAuthenticated ? (
               <>
-                {/* Notification Bell */}
-                <div className="relative">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="rounded-full"
-                    aria-label="Notifications"
-                    onClick={() => setNotificationModal(true)}
+                {/* Notification Bell with Popover */}
+                <Popover open={notificationModal} onOpenChange={setNotificationModal}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full relative"
+                      aria-label="Notifications"
+                    >
+                      <Bell className="h-5 w-5 text-orange-500" />
+                      {unreadCount > 0 && (
+                        <Badge 
+                          variant="destructive" 
+                          className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
+                        >
+                          {unreadCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent 
+                    className="w-[500px] p-0 mr-4" 
+                    align="end"
+                    sideOffset={8}
                   >
-                    <Bell className="h-5 w-5 text-orange-500" />
-                    {unreadCount > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs flex items-center justify-center"
-                      >
-                        {unreadCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </div>
+                    <div className="flex flex-col max-h-[600px]">
+                      <div className="flex-shrink-0 p-4 border-b bg-slate-50 dark:bg-slate-900">
+                        <div className="flex items-center gap-3">
+                          <Bell className="h-5 w-5" />
+                          <h3 className="font-semibold text-lg">Notifications</h3>
+                          {unreadCount > 0 && (
+                            <Badge variant="secondary" className="ml-auto px-2 py-0.5 text-xs">
+                              {unreadCount} new
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 overflow-y-auto p-4">
+                        <div className="space-y-3">
+                          {notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
+                                !notification.is_read 
+                                  ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-300 dark:border-teal-700' 
+                                  : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                              }`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 mt-1 p-2 rounded-lg bg-teal-100 dark:bg-teal-900/40">
+                                  {getNotificationIcon('referral')}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                      New Referral
+                                    </p>
+                                    {!notification.is_read && (
+                                      <div className="h-2.5 w-2.5 bg-teal-600 dark:bg-teal-500 rounded-full animate-pulse"></div>
+                                    )}
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="ml-auto h-6 px-2 text-xs hover:bg-slate-200 dark:hover:bg-slate-700"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleToggleRead(notification);
+                                      }}
+                                      title={notification.is_read ? "Mark as unread" : "Mark as read"}
+                                    >
+                                      {notification.is_read ? (
+                                        <span className="flex items-center gap-1">
+                                          <CheckCircle className="h-3 w-3" />
+                                          Read
+                                        </span>
+                                      ) : (
+                                        <span className="flex items-center gap-1">
+                                          <CheckCircle className="h-3 w-3" />
+                                          Unread
+                                        </span>
+                                      )}
+                                    </Button>
+                                  </div>
+                                  <p className="text-sm text-slate-700 dark:text-slate-300 mb-2 leading-relaxed">
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    {new Date(notification.created_at).toLocaleDateString('en-US', { 
+                                      weekday: 'short', 
+                                      month: 'short', 
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {notifications.length === 0 && (
+                          <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                            <Bell className="mx-auto h-12 w-12 mb-3 opacity-30" />
+                            <p className="text-sm font-medium">No notifications</p>
+                            <p className="text-xs mt-1">You're all caught up!</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-shrink-0 p-3 border-t bg-slate-50 dark:bg-slate-900 grid grid-cols-2 gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="w-full"
+                          onClick={handleMarkAllAsRead}
+                        >
+                          Mark all as read
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          className="w-full"
+                          onClick={handleClearAll}
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
 
                 {/* Avatar */}
                 <Button
@@ -264,73 +395,6 @@ export default function SiteHeader() {
           </div>
         </div>
       </header>
-
-      {/* Notifications Dialog */}
-      <Dialog open={notificationModal} onOpenChange={setNotificationModal}>
-        
-        <DialogContent className="sm:max-w-md max-h-[80vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Notifications
-              {unreadCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {unreadCount} new
-                </Badge>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-
-          {/* Notification list */}
-          <div className="flex-1 overflow-y-auto pr-2">
-            <div className="space-y-3">
-              {notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={`p-3 rounded-lg border ${
-                    !n.is_read
-                      ? "bg-blue-50 border-blue-200"
-                      : "bg-gray-50 border-gray-200"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getNotificationIcon(n.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {n.title || "New Notification"}
-                        </p>
-                        {!n.is_read && <div className="h-2 w-2 bg-blue-500 rounded-full" />}
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{n.message}</p>
-                      <p className="text-xs text-gray-400">{timeAgo(n.created_at)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {notifications.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <Bell className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                  <p className="text-sm">No notifications</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex-shrink-0 mt-4 grid grid-cols-2 gap-2">
-            <Button variant="outline" className="w-full" onClick={handleMarkAllAsRead}>
-              Mark all as read
-            </Button>
-            <Button variant="destructive" className="w-full" onClick={handleClearAll}>
-              Clear All
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

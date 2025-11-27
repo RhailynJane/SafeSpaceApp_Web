@@ -1,59 +1,19 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getAuth } from '@clerk/nextjs/server';
 
-const prisma = new PrismaClient();
+// Create a new instance of Prisma client for database operations
+// This establishes the connection to your database
+// Deprecated route: handled by Convex now
 
-export async function DELETE(req, { params }) {
-  try {
-    const { userId } = getAuth(req);
-
-    if (!userId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const appointmentId = Number(params.id);
-
-    // Pull the appointment AND the client AND the scheduler's Clerk id
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId },
-      include: {
-        client: {
-          select: { user_id: true } // numeric user id of client owner
-        },
-        scheduled_by: {
-          select: { clerk_user_id: true } // clerk id of scheduler
-        }
-      }
-    });
-
-    if (!appointment) {
-      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
-    }
-
-    // AUTHORIZATION:
-    // A user can delete if:
-    // - They scheduled it (matching Clerk user ID)
-    // - They own the client (matching numeric ID mapped to user table)
-    const isScheduler = appointment.scheduled_by?.clerk_user_id === userId;
-    const isClientOwner = appointment.client?.user_id === appointment.scheduled_by?.id;
-
-    if (!isScheduler && !isClientOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // Delete
-    await prisma.appointment.delete({
-      where: { id: appointmentId },
-    });
-
-    return NextResponse.json(
-      { message: 'Appointment deleted successfully' },
-      { status: 200 }
-    );
-
-  } catch (error) {
-    console.error('Error deleting appointment:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
-}
+/**
+ * DELETE Handler Function
+ * 
+ * This function runs when someone makes a DELETE request to /api/appointments/[id]
+ * It verifies the user's identity and authorization before deleting the appointment.
+ * 
+ * @param {Request} req - The incoming HTTP request object (contains auth info)
+ * @param {Object} params - Object containing route parameters
+ * @param {Object} params.params - Nested params object with the appointment ID
+ * @param {string} params.params.id - The ID of the appointment to delete
+ * @returns {Promise<NextResponse>} JSON response with success message or error
+ */
+export async function DELETE() { return NextResponse.json({ message: 'Appointments API deprecated. Use Convex.' }, { status: 410 }); }

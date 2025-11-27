@@ -19,7 +19,7 @@ import { NextResponse } from "next/server";                // Next.js utility fo
 export async function PATCH(req, { params }) {
   try {
     // Extract the referral ID from the dynamic route parameter
-    const { id } = params;
+    const { id } = await params;
     
     // Parse incoming JSON body from the request (contains status + optional note)
     const body = await req.json();

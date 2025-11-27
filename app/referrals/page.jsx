@@ -79,7 +79,7 @@ const DeclineReferralModal = ({ referral, onClose, onDecline }) => (
 );
 
 // functional React component - userRole and showAllReferrals passed as props
-export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
+function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
   const [selectedReferral, setSelectedReferral] = useState(null);
   const [modal, setModal] = useState({ type: null, data: null });
   const [searchTerm, setSearchTerm] = useState("");
@@ -122,7 +122,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
       alert("Please select a Support Worker.");
       return;
     }
-    const res = await fetch(`/api/referrals/${modal.data.id}`, {
+    const res = await fetch(`/api/referrals/${modal.data._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -131,7 +131,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
       }),
     });
     if (res.ok) {
-      setTrackedReferrals(trackedReferrals.filter(r => r.id !== modal.data.id));
+      setTrackedReferrals(trackedReferrals.filter(r => r._id !== modal.data._id));
       closeModal();
     } else {
       const errorData = await res.json();
@@ -140,13 +140,13 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
   };
 
   const handleDeclineReferral = async () => {
-    const res = await fetch(`/api/referrals/${modal.data.id}`, {
+    const res = await fetch(`/api/referrals/${modal.data._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'declined' }),
     });
     if (res.ok) {
-      setTrackedReferrals(trackedReferrals.filter(r => r.id !== modal.data.id));
+      setTrackedReferrals(trackedReferrals.filter(r => r._id !== modal.data._id));
       closeModal();
     }
   };
@@ -276,7 +276,7 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
           {/* Referrals List */}
           <div className="space-y-4">
             {filteredReferrals.map((referral) => (
-              <div key={referral.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
+              <div key={referral._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
                 <div className="flex items-start justify-between">
                   <div className="space-y-3 flex-1">
                     <div className="flex items-center gap-3">
@@ -322,8 +322,47 @@ export function ReferralStatusTracker({ userRole, showAllReferrals = false }) {
 }
 
 export default function ReferralsPage() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
   const rawRole = user?.publicMetadata?.role ?? null;
   const userRole = rawRole ? rawRole.replace(/_/g, "-") : null;
+
+  // Show loading state while user data is loading
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Restrict access to team leaders and admins only
+  if (userRole !== "team-leader" && userRole !== "admin") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <AlertCircle className="mx-auto h-16 w-16 text-red-500 mb-4" />
+            <CardTitle className="text-xl text-red-600">Access Restricted</CardTitle>
+            <CardDescription>
+              You don't have permission to access the Referrals section. 
+              This area is restricted to Team Leaders and Administrators only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-sm text-gray-600 mb-4">
+              Current role: <Badge variant="outline">{userRole || 'Unknown'}</Badge>
+            </p>
+            <Button onClick={() => window.history.back()} variant="outline">
+              Go Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return <ReferralStatusTracker userRole={userRole} />;
 }

@@ -1,37 +1,41 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { auth } from "@clerk/nextjs/server";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+
+async function getConvexClient() {
+  const { getToken } = await auth();
+  const token = await getToken({ template: "convex" });
+  
+  const client = new ConvexHttpClient(convexUrl);
+  client.setAuth(token);
+  
+  return client;
+}
 
 export async function GET(request, { params }) {
   try {
-    const { id } = await params; // FIXED: Await params
-    
-    const timeline = await prisma.timeline.findMany({
-      where: {
-        referral_id: Number(id)
-      },
-      orderBy: {
-        created_at: 'asc'
-      }
-    });
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const timelineData = timeline.map(entry => ({
-      status: entry.message.includes('submitted') ? 'SUBMITTED' : 
-              entry.message.includes('Pending') ? 'PENDING' :
-              entry.message.includes('Accepted') ? 'ACCEPTED' :
-              entry.message.includes('Declined') ? 'REJECTED' : 'IN REVIEW',
-      created_at: entry.created_at.toISOString(),
-      note: entry.message,
-      icon: entry.message.includes('submitted') ? 'ClockIcon' :
-            entry.message.includes('Accepted') ? 'CheckCircleIcon' :
-            entry.message.includes('Declined') ? 'XCircleIcon' : 'EyeIcon'
-    }));
+    const { id: referralId } = await params;
+    if (!referralId) {
+      return NextResponse.json({ error: "Referral ID is required" }, { status: 400 });
+    }
+
+    const client = await getConvexClient();
+    const timelineData = await client.query(api.referrals.getTimeline, { referralId });
 
     return NextResponse.json(timelineData);
   } catch (error) {
-    console.error('Error fetching timeline:', error);
-    return NextResponse.json({ 
-      error: 'Failed to fetch timeline',
-      details: error.message 
-    }, { status: 500 });
+    console.error("Error fetching referral timeline:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch timeline", details: error.message },
+      { status: 500 }
+    );
   }
 }

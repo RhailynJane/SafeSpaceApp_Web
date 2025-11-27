@@ -1,44 +1,65 @@
-// app/api/clients/route.js
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getAuth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
+import { getConvexClient } from "@/lib/convex-server";
+import { api } from "@/convex/_generated/api";
 
 /**
- * GET /api/clients
- * Returns a list of all clients, ignoring user role
+ * Helper function to map Convex client data to frontend snake_case format
  */
-export async function GET(req) {
+function mapClientToSnakeCase(client) {
+  return {
+    _id: client._id,
+    id: client._id, // For backwards compatibility
+    client_first_name: client.firstName,
+    client_last_name: client.lastName,
+    first_name: client.firstName,
+    last_name: client.lastName,
+    email: client.email,
+    phone: client.phone,
+    address: client.address,
+    date_of_birth: client.dateOfBirth,
+    gender: client.gender,
+    emergency_contact_name: client.emergencyContactName,
+    emergency_contact_phone: client.emergencyContactPhone,
+    status: client.status,
+    risk_level: client.riskLevel,
+    assigned_user_id: client.assignedUserId,
+    org_id: client.orgId,
+    last_session_date: client.lastSessionDate,
+    created_at: client.createdAt,
+    updated_at: client.updatedAt,
+  };
+}
+
+export async function GET(request) {
   try {
-    // Step 1: Authenticate via Clerk
-    const { userId: clerkUserId } = await getAuth(req);
-    if (!clerkUserId) {
+    const { userId } = await auth();
+    
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Step 2: Optional: log the authenticated user
-    console.log("✅ Authenticated Clerk ID:", clerkUserId);
+    const user = await currentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // Step 3: Fetch all clients with their assigned user info
-    const clients = await prisma.client.findMany({
-      orderBy: { created_at: "desc" },
-      include: {
-        user: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            email: true,
-          },
-        },
-      },
+    const convex = await getConvexClient();
+
+    // Fetch clients from Convex using the list query
+    const clients = await convex.query(api.clients.list, {
+      clerkId: userId,
     });
 
-    return NextResponse.json(clients, { status: 200 });
+    // Map Convex clients to snake_case format for frontend compatibility
+    const mappedClients = clients.map(mapClientToSnakeCase);
+
+    return NextResponse.json(mappedClients, { status: 200 });
 
   } catch (error) {
-    console.error("❌ Error fetching clients:", error);
+    console.error("Error fetching clients:", error);
     return NextResponse.json(
-      { error: "Internal Server Error", details: error.message },
+      { message: "Error fetching clients", error: error.message },
       { status: 500 }
     );
   }

@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Search, Plus, Settings, X } from "lucide-react";
+import { Search, Plus, Settings, X, Filter, ArrowUpDown } from "lucide-react";
 
 // --- ICONS ---
 // A collection of simple, stateless functional components for rendering SVG icons.
@@ -101,28 +101,95 @@ export default function UsersPage() {
     const [modal, setModal] = useState({ type: null, data: null });
     // State to hold the list of users.
     const [users, setUsers] = useState([]);
+    // Filter states
+    const [filterRole, setFilterRole] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [showFilters, setShowFilters] = useState(false);
+    // Sort state
+    const [sortBy, setSortBy] = useState('created_at');
+    const [sortOrder, setSortOrder] = useState('desc');
     const router = useRouter();
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState(null);
 
     useEffect(() => {
-        const getUsers = async () => {
-            const res = await fetch('/api/admin/users');
-            const data = await res.json();
-            setUsers(data);
-        };
-        getUsers();
-    }, []);
+        const getUsersAndClients = async () => {
+            try {
+                // Fetch users and clients from backend (already merged)
+                const userUrl = filterStatus === 'all' 
+                    ? '/api/admin/users?includeDeleted=true' 
+                    : filterStatus === 'deleted' 
+                        ? '/api/admin/users?status=deleted' 
+                        : '/api/admin/users';
+                const userRes = await fetch(userUrl);
+                const userData = await userRes.json();
 
-    // Filters the users based on the search query.
-    // This is recalculated on every render, ensuring the list is always up-to-date with the search query.
-    const filteredUsers = Array.isArray(users) ? users.filter(user => {
-        const lowercasedQuery = searchQuery.toLowerCase();
-        return (
-            user.first_name.toLowerCase().includes(lowercasedQuery) ||
-            user.last_name.toLowerCase().includes(lowercasedQuery) ||
-            user.email.toLowerCase().includes(lowercasedQuery) ||
-            user.role.role_name.toLowerCase().includes(lowercasedQuery)
-        );
-    }) : [];
+                setUsers(Array.isArray(userData) ? userData : []);
+            } catch (error) {
+                console.error('Error fetching users and clients:', error);
+                setUsers([]);
+            }
+        };
+        getUsersAndClients();
+        // refetch when deleted filter toggles
+    }, [filterStatus]);
+
+    // Filters the users based on the search query, role, and status.
+    // Also handles sorting.
+    const filteredUsers = Array.isArray(users) ? users
+        .filter(user => {
+            const lowercasedQuery = searchQuery.toLowerCase();
+            const roleName = user.role?.role_name || 'client';
+            const matchesSearch = (
+                (user.first_name || '').toLowerCase().includes(lowercasedQuery) ||
+                (user.last_name || '').toLowerCase().includes(lowercasedQuery) ||
+                (user.email || '').toLowerCase().includes(lowercasedQuery) ||
+                roleName.toLowerCase().includes(lowercasedQuery)
+            );
+            const matchesRole = filterRole === 'all' || roleName.toLowerCase() === filterRole.toLowerCase();
+            const matchesStatus = filterStatus === 'all' || (user.status || 'active').toLowerCase() === filterStatus.toLowerCase();
+            return matchesSearch && matchesRole && matchesStatus;
+        })
+        .sort((a, b) => {
+            let aVal, bVal;
+            switch (sortBy) {
+                case 'name':
+                    aVal = `${a.first_name} ${a.last_name}`.toLowerCase();
+                    bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
+                    break;
+                case 'email':
+                    aVal = (a.email || '').toLowerCase();
+                    bVal = (b.email || '').toLowerCase();
+                    break;
+                case 'role':
+                    aVal = (a.role?.role_name || 'client').toLowerCase();
+                    bVal = (b.role?.role_name || 'client').toLowerCase();
+                    break;
+                case 'last_login':
+                    aVal = a.last_login === 'N/A' ? 0 : new Date(a.last_login).getTime();
+                    bVal = b.last_login === 'N/A' ? 0 : new Date(b.last_login).getTime();
+                    break;
+                case 'created_at':
+                default:
+                    aVal = new Date(a.created_at).getTime();
+                    bVal = new Date(b.created_at).getTime();
+                    break;
+            }
+            if (sortOrder === 'asc') {
+                return aVal > bVal ? 1 : -1;
+            } else {
+                return aVal < bVal ? 1 : -1;
+            }
+        }) : [];
+
+    const handleSort = (field) => {
+        if (sortBy === field) {
+            setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(field);
+            setSortOrder('desc');
+        }
+    };
 
     /**
      * Toggles the visibility of the action menu for a specific user.
@@ -155,6 +222,24 @@ export default function UsersPage() {
         }
     };
 
+    const handleSyncDeleted = async () => {
+        try {
+            setSyncing(true);
+            setSyncResult(null);
+            const res = await fetch('/api/admin/users/sync-deleted', { method: 'POST' });
+            const data = await res.json();
+            setSyncResult(data);
+            // refresh list after sync (respect current filter)
+            const url = filterStatus === 'deleted' ? '/api/admin/users?status=deleted' : '/api/admin/users';
+            const refresh = await fetch(url);
+            setUsers(await refresh.json());
+        } catch (e) {
+            setSyncResult({ error: String(e?.message || e) });
+        } finally {
+            setSyncing(false);
+        }
+    };
+
     /**
      * Closes any open modal.
      */
@@ -164,7 +249,7 @@ export default function UsersPage() {
 
     return (
         <>
-            <div className="bg-white p-8 rounded-2xl shadow-lg">
+            <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-lg">
                 {/* Header with search bar and 'Create New User' button */}
                 <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <div className="relative w-full md:w-1/3">
@@ -177,68 +262,286 @@ export default function UsersPage() {
                         />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><SearchIcon /></div>
                     </div>
-                    <Link href="/admin/users/create" passHref>
-                        <Button className="w-full md:w-auto px-5 py-3">
-                            <Plus className="h-5 w-5 mr-2" />
-                            Create New User
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setShowFilters(!showFilters)}
+                            className="flex-1 md:flex-initial"
+                        >
+                            <Filter className="h-4 w-4 mr-2" />
+                            Filters
                         </Button>
-                    </Link>
+                        <Button 
+                            variant="outline"
+                            onClick={handleSyncDeleted}
+                            disabled={syncing}
+                            className="flex-1 md:flex-initial"
+                        >
+                            {syncing ? 'Syncing…' : 'Sync Deleted from Clerk'}
+                        </Button>
+                        <Link href="/admin/users/create" passHref className="flex-1 md:flex-initial">
+                            <Button className="w-full px-5 py-3">
+                                <Plus className="h-5 w-5 mr-2" />
+                                Create New User
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
-                {/* User table */}
-                <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                        <thead>
-                            <tr className="border-b border-gray-200">
-                                {['ID', 'First Name', 'Last Name', 'Email Address', 'Role', 'Last Login', 'Created At', 'Status', ''].map(header => (
-                                    <th key={header} className="px-6 py-3 text-left text-xs font-bold text-teal-800 uppercase tracking-wider bg-teal-50">{header}</th>
-                                ))}
+                {/* Advanced Filters */}
+                {showFilters && (
+                    <div className="mb-6 p-4 bg-muted/40 rounded-xl border border-border/60">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-2">Filter by Role</label>
+                                <select 
+                                    value={filterRole} 
+                                    onChange={(e) => setFilterRole(e.target.value)}
+                                    className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                                >
+                                    <option value="all">All Roles</option>
+                                    <option value="admin">Administrator</option>
+                                    <option value="team_leader">Team Leader</option>
+                                    <option value="support_worker">Support Worker</option>
+                                    <option value="client">Client</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-2">Filter by Status</label>
+                                <select 
+                                    value={filterStatus} 
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                                >
+                                    <option value="all">All Statuses</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="suspended">Suspended</option>
+                                    <option value="deleted">Deleted</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Sort Controls */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                    <span className="text-sm font-medium text-muted-foreground flex items-center">Sort by:</span>
+                    <Button 
+                        variant={sortBy === 'name' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleSort('name')}
+                    >
+                        Name {sortBy === 'name' && <ArrowUpDown className="ml-1 h-3 w-3" />}
+                    </Button>
+                    <Button 
+                        variant={sortBy === 'role' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleSort('role')}
+                    >
+                        Role {sortBy === 'role' && <ArrowUpDown className="ml-1 h-3 w-3" />}
+                    </Button>
+                    <Button 
+                        variant={sortBy === 'last_login' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleSort('last_login')}
+                    >
+                        Last Login {sortBy === 'last_login' && <ArrowUpDown className="ml-1 h-3 w-3" />}
+                    </Button>
+                    <Button 
+                        variant={sortBy === 'created_at' ? 'default' : 'outline'} 
+                        size="sm"
+                        onClick={() => handleSort('created_at')}
+                    >
+                        Created {sortBy === 'created_at' && <ArrowUpDown className="ml-1 h-3 w-3" />}
+                    </Button>
+                    {sortBy && (
+                        <span className="text-xs text-muted-foreground flex items-center ml-2">
+                            ({sortOrder === 'asc' ? 'A→Z' : 'Z→A'})
+                        </span>
+                    )}
+                </div>
+
+                {/* Table view for desktop */}
+                <div className="hidden lg:block overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-gradient-to-r from-teal-600 to-cyan-600 sticky top-0 z-10">
+                            <tr className="text-xs font-bold text-white uppercase tracking-wider">
+                                <th className="text-left py-3 px-6">Name</th>
+                                <th className="text-left py-3 px-6">Role</th>
+                                <th className="text-left py-3 px-6">Last Login</th>
+                                <th className="text-left py-3 px-6">Created</th>
+                                <th className="text-left py-3 px-6">Status</th>
+                                <th className="text-right py-3 px-6">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredUsers.map(user => (
-                                <tr key={user.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.id}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.first_name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{user.last_name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.role.role_name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.last_login}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.created_at}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{user.status}</span>
-                                    </td>
-                                    {/* Action menu for each user */}
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center relative">
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            {filteredUsers.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" className="text-center py-8 text-gray-500">No results found</td>
+                                </tr>
+                            ) : (
+                                filteredUsers.map(user => (
+                                    <tr key={user.id} className="hover:bg-teal-50/40 transition-colors">
+                                        {/* Name */}
+                                        <td className="py-4 px-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                                    <span className="text-sm font-semibold text-primary">
+                                                        {user.first_name?.[0]}{user.last_name?.[0]}
+                                                    </span>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                                        {user.first_name} {user.last_name}
+                                                    </h3>
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{user.email}</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">ID: {user.id.slice(-12)}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {/* Role */}
+                                        <td className="py-4 px-6">
+                                            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800 capitalize">
+                                                {(user.role?.role_name || 'client').replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                        {/* Last Login */}
+                                        <td className="py-4 px-6">
+                                            <p className="text-sm text-gray-700 dark:text-gray-300">{user.last_login || 'N/A'}</p>
+                                        </td>
+                                        {/* Created */}
+                                        <td className="py-4 px-6">
+                                            <p className="text-sm text-gray-700 dark:text-gray-300">{user.created_at}</p>
+                                        </td>
+                                        {/* Status */}
+                                        <td className="py-4 px-6">
+                                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${
+                                                user.status.toLowerCase() === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                                                user.status.toLowerCase() === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                                                user.status.toLowerCase() === 'suspended' ? 'bg-amber-100 text-amber-800' :
+                                                user.status.toLowerCase() === 'deleted' ? 'bg-rose-100 text-rose-800' :
+                                                'bg-blue-100 text-blue-800'
+                                            }`}>
+                                                {user.status}
+                                            </span>
+                                        </td>
+                                        {/* Actions */}
+                                        <td className="py-4 px-6 text-right">
+                                            <div className="flex justify-end relative">
+                                                <Button variant="ghost" size="icon" onClick={() => handleActionMenu(user.id)}>
+                                                    <Settings className="h-5 w-5" />
+                                                </Button>
+                                                {activeActionMenu === user.id && (
+                                                    <div className="absolute right-0 top-full mt-2 w-40 bg-card border border-border rounded-lg shadow-xl z-20">
+                                                        <button 
+                                                            onClick={() => router.push(`/admin/users/${user.id}/edit`)} 
+                                                            className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted rounded-t-lg"
+                                                        >
+                                                            Edit User
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDeleteClick(user)} 
+                                                            className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-b-lg"
+                                                        >
+                                                            Delete User
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Mobile card view */}
+                <div className="lg:hidden grid grid-cols-1 gap-4">
+                    {filteredUsers.length === 0 ? (
+                        <p className="text-center py-8 text-muted-foreground">No results found</p>
+                    ) : (
+                        filteredUsers.map(user => (
+                            <div key={user.id} className="bg-card border border-border rounded-xl p-4 hover:shadow-md transition-shadow">
+                                <div className="flex items-center justify-between gap-4">
+                                    {/* Avatar and Name */}
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                            <span className="text-sm font-semibold text-primary">
+                                                {user.first_name?.[0]}{user.last_name?.[0]}
+                                            </span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="font-semibold text-foreground truncate">
+                                                {user.first_name} {user.last_name}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                                            <p className="text-xs text-muted-foreground/70 mt-0.5">ID: {user.id.slice(-12)}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Action menu */}
+                                    <div className="flex-shrink-0 relative">
                                         <Button variant="ghost" size="icon" onClick={() => handleActionMenu(user.id)}>
                                             <Settings className="h-5 w-5" />
                                         </Button>
-                                        {/* The action menu dropdown, conditionally rendered */}
                                         {activeActionMenu === user.id && (
-                                            <div className="absolute right-8 top-full mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-xl z-10">
-                                                <button onClick={() => router.push(`/admin/users/${user.id}/edit`)} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit User</button>
-                                                <button onClick={() => handleDeleteClick(user)} className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete User</button>
+                                            <div className="absolute right-0 top-full mt-2 w-40 bg-card border border-border rounded-lg shadow-xl z-10">
+                                                <button 
+                                                    onClick={() => router.push(`/admin/users/${user.id}/edit`)} 
+                                                    className="block w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted rounded-t-lg"
+                                                >
+                                                    Edit User
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteClick(user)} 
+                                                    className="block w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-b-lg"
+                                                >
+                                                    Delete User
+                                                </button>
                                             </div>
                                         )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                     {/* Message to display when no search results are found */}
-                     {filteredUsers.length === 0 && (
-                        <p className="text-center py-8 text-gray-500">No results found</p>
+                                    </div>
+                                </div>
+
+                                {/* Mobile view - show details below */}
+                                <div className="mt-3 pt-3 border-t border-border grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <span className="text-muted-foreground text-xs">Role</span>
+                                        <p className="font-medium text-foreground">{user.role?.role_name || 'client'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground text-xs">Status</span>
+                                        <p className="font-medium text-foreground">{user.status}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground text-xs">Last Login</span>
+                                        <p className="font-medium text-foreground truncate">{user.last_login || 'Never'}</p>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground text-xs">Created</span>
+                                        <p className="font-medium text-foreground truncate">{user.created_at}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
                     )}
-                </div>
-                 {/* A simple scrollbar placeholder */}
-                 <div className="w-full h-2 bg-gray-200 rounded-full mt-6">
-                    <div className="h-2 bg-gray-400 rounded-full" style={{ width: '50%' }}></div>
                 </div>
             </div>
 
             {/* Conditionally render the modals based on the modal state */}
             {modal.type === 'delete-confirm' && <DeleteUserModal user={modal.data} onConfirm={handleConfirmDelete} onCancel={closeModal} />}
             {modal.type === 'delete-success' && <DeleteSuccessModal onClose={closeModal} />}
+            {syncResult && (
+                <div className="mt-4 text-sm text-muted-foreground">
+                    {syncResult.error ? (
+                        <p className="text-red-600">Sync failed: {syncResult.error}</p>
+                    ) : (
+                        <p>Checked {syncResult.checked || 0} users; archived {syncResult.archived || 0}.</p>
+                    )}
+                </div>
+            )}
         </>
     );
 }

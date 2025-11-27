@@ -9,6 +9,20 @@ export async function GET() {
     const user = await currentUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    // Check user role - only team leaders and admins can access referrals
+    const role = user?.publicMetadata?.role;
+    const allowedRoles = ["admin", "team_leader"];
+    if (!allowedRoles.includes(role)) {
+      return NextResponse.json(
+        { 
+          error: "Forbidden - Access to referrals is restricted to Team Leaders and Administrators only",
+          yourRole: role,
+          allowedRoles: allowedRoles
+        }, 
+        { status: 403 }
+      );
+    }
+
     const clerkUserId = user.id;
 
     // Find the local user record based on the Clerk user ID to get the integer ID

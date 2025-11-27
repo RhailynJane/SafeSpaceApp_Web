@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 
 export async function GET(request, { params }) {
-  const { email } = params;
+  const { email } = await params;
 
   try {
     const users = await clerkClient.users.getUserList({ emailAddress: [email] });

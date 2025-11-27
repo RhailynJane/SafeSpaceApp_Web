@@ -27,31 +27,54 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (!selectedUserId) {
+            alert("Please select a team member to assign the referral to.");
+            return;
+        }
         onAssign(selectedUserId);
     };
 
     return (
         <Dialog open={true} onOpenChange={onClose}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle className="text-3xl text-teal-900">Accept and Assign Referral</DialogTitle>
-                    <DialogDescription>
-                        Accept the referral for {referral.client_first_name} {referral.client_last_name} and assign it to a team member.
+                    <DialogTitle className="text-2xl font-semibold text-foreground">Accept and Assign Referral</DialogTitle>
+                    <DialogDescription className="text-muted-foreground">
+                        Accept the referral for <span className="font-medium text-foreground">{referral.client_first_name} {referral.client_last_name}</span> and assign it to a team member.
                     </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label htmlFor="assignee" className="block text-sm font-medium text-gray-700">Assign to</label>
-                        <select id="assignee" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="mt-1 block w-full p-3 border border-gray-300 rounded-lg bg-white">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="space-y-3">
+                        <label htmlFor="assignee" className="block text-sm font-medium text-foreground">
+                            Assign to
+                        </label>
+                        <select 
+                            id="assignee" 
+                            value={selectedUserId} 
+                            onChange={(e) => setSelectedUserId(e.target.value)} 
+                            className="w-full px-4 py-3 border border-input rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                            required
+                        >
                             <option value="">Select a team member...</option>
                             {assignableUsers.map(user => (
-                                <option key={user.id} value={user.id}>{user.first_name} {user.last_name} ({user.roles.role_name})</option>
+                                <option key={user.id || user._id} value={user.id || user._id}>
+                                    {user.first_name} {user.last_name} ({user.role_name === 'support_worker' ? 'Support Worker' : 'Team Leader'})
+                                </option>
                             ))}
                         </select>
                     </div>
-                    <div className="flex justify-end gap-4 pt-4">
-                        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-                        <Button type="submit" className="bg-teal-800 hover:bg-teal-900">Accept and Assign</Button>
+                    <div className="flex gap-3 justify-end pt-4 border-t border-border">
+                        <Button type="button" variant="outline" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button 
+                            type="submit" 
+                            className="bg-teal-600 hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-800"
+                            disabled={!selectedUserId}
+                        >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Accept and Assign
+                        </Button>
                     </div>
                 </form>
             </DialogContent>
@@ -62,25 +85,36 @@ const AcceptAndAssignModal = ({ referral, onClose, onAssign, assignableUsers }) 
 const RequestInfoDialog = ({ referral, onClose, onSendMessage, onSendEmail }) => {
     return (
         <Dialog open={true} onOpenChange={onClose}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="text-3xl text-teal-900">Request More Information</DialogTitle>
-                    <DialogDescription>
-                        How would you like to contact the source of the referral for {referral.client_first_name} {referral.client_last_name}?
+                    <DialogTitle className="text-2xl font-semibold text-foreground">Request More Information</DialogTitle>
+                    <DialogDescription className="text-muted-foreground">
+                        Send an email to request additional details about this referral.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-4">
-                    <p>Please select your preferred method to request more information.</p>
-                    <div className="grid grid-cols-2 gap-4">
-                        <Button onClick={onSendMessage} className="bg-teal-800 hover:bg-teal-900">
-                            <MessageCircle className="h-4 w-4 mr-2 bg-text" />
-                            Send In-App Message
-                        </Button>
-                        <Button onClick={onSendEmail} variant="outline">
-                            <Mail className="h-4 w-4 mr-2" />
-                            Send Email
-                        </Button>
+                <div className="py-6">
+                    <div className="flex flex-col items-center gap-4 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900">
+                            <Mail className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium text-foreground">
+                                {referral.client_first_name} {referral.client_last_name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                An email will be sent to the referral source requesting more information.
+                            </p>
+                        </div>
                     </div>
+                </div>
+                <div className="flex gap-3 justify-end">
+                    <Button onClick={onClose} variant="outline">
+                        Cancel
+                    </Button>
+                    <Button onClick={onSendEmail} className="bg-teal-600 hover:bg-teal-700 dark:bg-teal-700 dark:hover:bg-teal-800">
+                        <Mail className="h-4 w-4 mr-2" />
+                        Send Email
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>
@@ -104,7 +138,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
   const [selectedAction, setSelectedAction] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  if (!referral || !['pending', 'in-review'].includes(referral.status.toLowerCase())) {
+  if (!referral || !['pending', 'in-review', 'info-requested'].includes(referral.status.toLowerCase())) {
     return null;
   }
 
@@ -129,13 +163,24 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
 
     setIsProcessing(true);
     try {
+      // userId is actually the _id from assignableUsers
+      // We need to find the clerkId from assignableUsers
+      const selectedUser = assignableUsers.find(u => (u.id || u._id) === userId);
+      const clerkId = selectedUser?.clerkId;
+
+      if (!clerkId) {
+        throw new Error("Could not find clerk ID for selected user");
+      }
+
       const body = {
         status: "accepted",
-        processed_by_user_id: parseInt(userId, 10),
+        processed_by_user_id: clerkId, // Send Clerk ID, not _id
         processed_date: new Date().toISOString(),
       };
 
-      const res = await fetch(`/api/referrals/${referral.id}`, {
+      console.log("Accepting referral with body:", body);
+
+      const res = await fetch(`/api/referrals/${referral._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -148,7 +193,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
       }
 
       const updatedReferral = await res.json();
-      onStatusUpdate?.(referral.id, updatedReferral);
+      onStatusUpdate?.(referral._id, updatedReferral);
 
       setShowAssignDialog(false);
       setShowSuccessDialog(true);
@@ -171,7 +216,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     try {
       const body = { status: selectedAction };
 
-      const res = await fetch(`/api/referrals/${referral.id}`, {
+      const res = await fetch(`/api/referrals/${referral._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -184,7 +229,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
       }
 
       const updatedReferral = await res.json();
-      onStatusUpdate?.(referral.id, updatedReferral);
+      onStatusUpdate?.(referral._id, updatedReferral);
 
       setShowConfirmDialog(false);
       setShowSuccessDialog(true);
@@ -204,7 +249,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     const body = { 
       status: selectedAction};
 
-    const res = await fetch(`/api/referrals/${referral.id}`, {
+    const res = await fetch(`/api/referrals/${referral._id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -216,7 +261,7 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
     }
 
     const updatedReferral = await res.json();
-    onStatusUpdate?.(referral.id, updatedReferral);
+    onStatusUpdate?.(referral._id, updatedReferral);
 
     // Then open email composer
     setShowEmailComposer(true);
@@ -347,28 +392,36 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
 
       {/* ------------------------ Confirmation Dialog ------------------------ */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="text-3xl text-teal-800">
-              Confirm {getActionConfig(selectedAction)?.label} Referral
+            <DialogTitle className="text-2xl font-semibold text-foreground">
+              Confirm Decline Referral
             </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to {selectedAction?.toLowerCase()} the referral for{" "}
-              <strong>{referral.client_first_name} {referral.client_last_name}</strong>?
-              <br />
-              <span className="text-sm text-gray-600 mt-2 block">
-                {getActionConfig(selectedAction)?.description}
-              </span>
+            <DialogDescription className="text-muted-foreground">
+              Are you sure you want to decline the referral for{" "}
+              <span className="font-medium text-foreground">{referral.client_first_name} {referral.client_last_name}</span>?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <div className="py-4">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
+                <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Declining this referral will mark it as rejected and remove it from your pending queue.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end pt-4 border-t border-border">
             <Button variant="outline" onClick={resetState} disabled={isProcessing}>
               Cancel
             </Button>
             <Button
               onClick={handleConfirmAction}
               disabled={isProcessing}
-              className={getActionConfig(selectedAction)?.className}
+              variant="destructive"
             >
               {isProcessing ? (
                 <>
@@ -377,12 +430,12 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
                 </>
               ) : (
                 <>
-                  {React.createElement(getActionConfig(selectedAction)?.icon, { className: "h-4 w-4 mr-2" })}
-                  Confirm {getActionConfig(selectedAction)?.label}
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Confirm Decline
                 </>
               )}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

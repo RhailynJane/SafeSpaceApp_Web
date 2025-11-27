@@ -9,7 +9,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const crisisEvent = await prisma.crisisEvent.findUnique({
       where: { id: Number(id) },
     });
@@ -35,7 +35,7 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
 
     const updatedCrisisEvent = await prisma.crisisEvent.update({
@@ -68,7 +68,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await params;
     await prisma.crisisEvent.delete({
       where: { id: Number(id) },
     });

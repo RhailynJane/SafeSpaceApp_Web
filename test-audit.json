@@ -1,0 +1,9 @@
+{
+  "orgId": "safespace",
+  "title": "Test Announcement - Audit Logging",
+  "body": "This is a test announcement to verify audit logging is working correctly.",
+  "authorId": "user_35VPzUarYFjM15jk1oeyh9tDK3U",
+  "active": true,
+  "visibility": "all",
+  "priority": "normal"
+}

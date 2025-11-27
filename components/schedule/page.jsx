@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,34 +8,24 @@ import { Plus, Calendar as CalendarIcon } from "lucide-react";
 import AddAppointmentModal from '@/components/schedule/AddAppointmentModal';
 import ViewAvailabilityModal from '@/components/schedule/ViewAvailabilityModal';
 import ViewDetailsModal from '@/components/schedule/ViewDetailsModal';
+import { useUser } from '@clerk/nextjs';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 
 export default function SchedulePage() {
-  const [appointments, setAppointments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isLoaded } = useUser();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const convexAppointments = useQuery(
+    api.appointments.listByDate,
+    isLoaded && user?.id ? { clerkId: user.id, date: todayStr } : 'skip'
+  ) || [];
   const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
 
-  useEffect(() => {
-    async function fetchAppointments() {
-      try {
-        const response = await fetch('/api/appointments');
-        const data = await response.json();
-        setAppointments(data);
-      } catch (error) {
-        console.error("Failed to fetch appointments:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchAppointments();
-  }, []);
-
   const [prefilledSlot, setPrefilledSlot] = useState(null);
 
-  const handleAddAppointment = async (newAppointment) => {
-    const response = await fetch('/api/appointments', { method: 'POST', body: JSON.stringify(newAppointment) });
-    const addedAppointment = await response.json();
-    setAppointments(prev => [...prev, addedAppointment]);
+  const handleAddAppointment = async (_newAppointment) => {
+    // No-op: AddAppointmentModal writes via Convex; useQuery will refresh automatically
   };
 
   const handleSelectSlot = (slot) => {
@@ -57,6 +47,15 @@ export default function SchedulePage() {
     }
   };
 
+  const mapped = (convexAppointments || []).map(a => ({
+    id: a._id,
+    clientName: a.clientName || '',
+    type: a.type || '',
+    date: a.appointmentDate,
+    time: a.appointmentTime || '',
+    status: a.status || 'scheduled',
+  }));
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -76,10 +75,8 @@ export default function SchedulePage() {
           <CardTitle>Upcoming Appointments</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isLoading ? (
-            <p className="text-center text-gray-500 py-8">Loading appointments...</p>
-          ) : appointments.length > 0 ? (
-            appointments
+          {mapped.length > 0 ? (
+            mapped
               .sort((a, b) => new Date(a.date + ' ' + a.time) - new Date(b.date + ' ' + b.time))
               .map((appointment) => (
                 <div

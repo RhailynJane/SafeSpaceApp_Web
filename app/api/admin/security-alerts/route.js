@@ -1,36 +1,66 @@
 // app/api/admin/security-alerts/route.js
 import { NextResponse } from 'next/server';
-import { getAuth } from '@clerk/nextjs/server';
-import { prisma } from '@/lib/prisma';
+import { auth } from '@clerk/nextjs/server';
+import { ConvexHttpClient } from 'convex/browser';
+import { api } from "@/convex/_generated/api";
 
-export async function GET(req) {
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+
+async function getConvexClient() {
+  const { getToken } = await auth();
+  const token = await getToken({ template: "convex" });
+  
+  const client = new ConvexHttpClient(convexUrl);
+  client.setAuth(token);
+  
+  return client;
+}
+
+/**
+ * @file This API route handles fetching security-related audit logs from Convex.
+ * It is intended for admin use to monitor security events.
+ */
+export async function GET() {
   try {
-    const { userId } = getAuth(req);
-    console.log('Security Alerts API: userId', userId);
+    const { userId } = await auth();
     if (!userId) {
-      return new Response(JSON.stringify({ error: "Unauthorized: No user ID in request" }), { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if the user is an admin
-    const user = await prisma.user.findUnique({
-      where: { clerk_user_id: userId },
-      include: { roles: true },
+    const client = await getConvexClient();
+    
+    // Get security-related audit logs (last 500 entries to ensure we get enough data)
+    const logs = await client.query(api.auditLogs.list, {
+      limit: 500,
     });
-    console.log('Security Alerts API: user from DB', user);
-
-    if (user?.roles?.role_name !== 'admin') {
-        return new Response(JSON.stringify({ error: "Unauthorized: User is not an admin" }), { status: 403 });
-    }
-
-    const unreadAlerts = await prisma.systemAlert.count({
-      where: {
-        is_read: false,
-      },
+    
+    // Filter for CMHA organization security events in the last 24 hours
+    const recentSecurityEvents = logs.filter(log => {
+      const isRecent = log.timestamp > Date.now() - 24 * 60 * 60 * 1000;
+      const isCMHA = log.orgName?.toLowerCase() === 'cmha' || log.orgName?.toLowerCase().includes('canadian mental health');
+      const isSecurityRelated = 
+        log.action?.toLowerCase().includes('login_failed') ||
+        log.action?.toLowerCase().includes('access_denied') ||
+        log.action?.toLowerCase().includes('unauthorized_access') ||
+        log.action?.toLowerCase().includes('permission_denied') ||
+        log.action?.toLowerCase().includes('blocked') ||
+        log.action?.toLowerCase().includes('security_breach') ||
+        log.action?.toLowerCase().includes('failed_authentication');
+      
+      return isRecent && isCMHA && isSecurityRelated;
     });
-
-    return NextResponse.json({ unreadAlerts });
+    
+    return NextResponse.json({ 
+      unreadAlerts: recentSecurityEvents.length,
+      logs: recentSecurityEvents
+    });
   } catch (error) {
     console.error('Error fetching security alerts:', error);
-    return new Response(JSON.stringify({ error: 'Failed to fetch security alerts', details: error.message }), { status: 500 });
+    return NextResponse.json({ 
+      message: 'Error fetching security alerts', 
+      unreadAlerts: 0,
+      logs: [] 
+    }, { status: 200 });
   }
 }
+

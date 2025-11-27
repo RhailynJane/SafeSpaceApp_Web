@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import useSWR, { mutate as globalMutate } from "swr";
+import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,7 +109,7 @@ const formatMetrics = (metrics) => [
   },
 ];
 
-export default function DashboardPage({ clients, onAdd, schedule = [] }) {
+export default function DashboardPage() {
   const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR("/api/dashboard", fetcher);
 
@@ -132,8 +132,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
     };
 
     try {
-      await mutate(newData, { revalidate: false });
-      globalMutate("/api/appointments");
+      await mutate();
     } catch (err) {
       console.error("Error revalidating dashboard after add:", err);
     }
@@ -249,8 +248,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
         <Card className="bg-teal-50 border-teal-200">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-semibold">Upcoming Appointments</CardTitle>
-            {/* <-- AddAppointmentModal kept exactly as before, now wired to handleAddAppointment */}
-            <AddAppointmentModal onAdd={handleAddAppointment} clients={clients} existingAppointments={schedule} className="bg-white border-teal-200" />
+            <AddAppointmentModal onAdd={handleAddAppointment} className="bg-white border-teal-200" />
           </CardHeader>
           <CardContent className="space-y-3">
             {todaysUpcomingAppointments.length > 0 ? (
@@ -303,7 +301,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => router.push('/interactive?tab=Notes')}
+              onClick={() => router.push('/workspace?tab=Notes')}
             >
               <div className="p-2 bg-orange-100 rounded-lg">
                 <Edit className="h-6 w-6 text-orange-600" />
@@ -314,7 +312,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => router.push('/interactive?tab=Clients')}
+              onClick={() => router.push('/workspace?tab=Clients')}
             >
               <div className="p-2 bg-teal-100 rounded-lg">
                 <Users className="h-6 w-6 text-teal-600" />
@@ -325,7 +323,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => router.push('/interactive?tab=Schedule')}
+              onClick={() => router.push('/workspace?tab=Schedule')}
             >
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Calendar className="h-6 w-6 text-blue-600" />
@@ -336,7 +334,7 @@ export default function DashboardPage({ clients, onAdd, schedule = [] }) {
             <Button
               variant="outline"
               className="h-24 flex flex-col items-center justify-center space-y-2 hover:bg-teal-50 hover:border-teal-300 bg-transparent"
-              onClick={() => router.push('/interactive?tab=Reports')}
+              onClick={() => router.push('/workspace?tab=Reports')}
             >
               <div className="p-2 bg-green-100 rounded-lg">
                 <BarChart3 className="h-6 w-6 text-green-600" />
