@@ -204,40 +204,79 @@ export default function CreateReferralPage() {
   // --- Handle Input Changes ---
   const handleChange = (e) => {
     const { id, value } = e.target;
+    
+    // Input restrictions for specific fields
+    let sanitizedValue = value;
+    
+    // Phone number fields - auto-format to (555) 234-5678
+    if (id === 'phone' || id === 'secondary_phone' || id === 'emergency_phone' || id === 'referring_provider_phone') {
+      // Remove all non-digit characters
+      const digitsOnly = value.replace(/\D/g, '');
+      
+      // Prevent more than 10 digits
+      if (digitsOnly.length > 10) {
+        return; // Don't update if exceeds 10 digits
+      }
+      
+      // Auto-format the phone number
+      if (digitsOnly.length === 0) {
+        sanitizedValue = '';
+      } else if (digitsOnly.length <= 3) {
+        sanitizedValue = `(${digitsOnly}`;
+      } else if (digitsOnly.length <= 6) {
+        sanitizedValue = `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3)}`;
+      } else {
+        sanitizedValue = `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6)}`;
+      }
+    }
+    
+    // Age field - only allow numbers between 0 and 120
+    if (id === 'age') {
+      const numValue = parseInt(value, 10);
+      if (value !== '' && (isNaN(numValue) || numValue < 0 || numValue > 120)) {
+        return; // Don't update if invalid age
+      }
+      sanitizedValue = value.replace(/\D/g, ''); // Only digits
+    }
+    
     // Update the specific form field dynamically
     setFormData((prevData) => ({
       ...prevData,
-      [id]: value,
+      [id]: sanitizedValue,
     }));
 
     // Live-validate individual fields when they change
     if (id === 'email') {
-      setErrors((prev) => ({ ...prev, email: value && !isValidEmail(value) ? 'Enter a valid email' : undefined }));
+      setErrors((prev) => ({ ...prev, email: sanitizedValue && !isValidEmail(sanitizedValue) ? 'Enter a valid email' : undefined }));
     }
     if (id === 'phone') {
-      setErrors((prev) => ({ ...prev, phone: value && !isValidPhone(value) ? 'Enter a valid phone number' : undefined }));
+      const digits = sanitizedValue.replace(/\D/g, '');
+      setErrors((prev) => ({ ...prev, phone: sanitizedValue && digits.length < 10 ? 'Phone must be 10 digits' : undefined }));
     }
     if (id === 'secondary_phone') {
-      setErrors((prev) => ({ ...prev, secondary_phone: value && !isValidPhone(value) ? 'Enter a valid phone number' : undefined }));
+      const digits = sanitizedValue.replace(/\D/g, '');
+      setErrors((prev) => ({ ...prev, secondary_phone: sanitizedValue && digits.length < 10 ? 'Phone must be 10 digits' : undefined }));
     }
     if (id === 'emergency_phone') {
-      setErrors((prev) => ({ ...prev, emergency_phone: value && !isValidPhone(value) ? 'Enter a valid emergency phone' : undefined }));
+      const digits = sanitizedValue.replace(/\D/g, '');
+      setErrors((prev) => ({ ...prev, emergency_phone: sanitizedValue && digits.length < 10 ? 'Phone must be 10 digits' : undefined }));
     }
     if (id === 'referring_provider_phone') {
-      setErrors((prev) => ({ ...prev, referring_provider_phone: value && !isValidPhone(value) ? 'Enter a valid provider phone' : undefined }));
+      const digits = sanitizedValue.replace(/\D/g, '');
+      setErrors((prev) => ({ ...prev, referring_provider_phone: sanitizedValue && digits.length < 10 ? 'Phone must be 10 digits' : undefined }));
     }
     if (id === 'age') {
-      setErrors((prev) => ({ ...prev, age: value && !isValidAge(value) ? 'Age must be between 0 and 120' : undefined }));
+      setErrors((prev) => ({ ...prev, age: sanitizedValue && !isValidAge(sanitizedValue) ? 'Age must be between 0 and 120' : undefined }));
     }
     if (id === 'referring_provider_email') {
-      setErrors((prev) => ({ ...prev, referring_provider_email: value && !isValidEmail(value) ? 'Enter a valid email' : undefined }));
+      setErrors((prev) => ({ ...prev, referring_provider_email: sanitizedValue && !isValidEmail(sanitizedValue) ? 'Enter a valid email' : undefined }));
     }
     if (id === 'consent_date') {
-      setErrors((prev) => ({ ...prev, consent_date: value && !isValidDate(value) ? 'Enter a valid date (YYYY-MM-DD)' : undefined }));
+      setErrors((prev) => ({ ...prev, consent_date: sanitizedValue && !isValidDate(sanitizedValue) ? 'Enter a valid date (YYYY-MM-DD)' : undefined }));
     }
 
     if (id === 'address') {
-      setAddressQuery(value);
+      setAddressQuery(sanitizedValue);
     }
   };
 
@@ -511,7 +550,7 @@ export default function CreateReferralPage() {
               <Field label="Client Last Name" id="client_last_name" value={formData.client_last_name} onChange={handleChange} placeholder="Enter client's last name" required />
             </div>
             <div>
-              <Field label="Age" id="age" value={formData.age} onChange={handleChange} placeholder="Enter age" type="number" required />
+              <Field label="Age" id="age" value={formData.age} onChange={handleChange} placeholder="Enter age" type="number" required min="0" max="120" />
               {errors.age && (
                 <p className="text-red-600 text-sm mt-1">{errors.age}</p>
               )}
@@ -535,14 +574,14 @@ export default function CreateReferralPage() {
             </div>
 
             <div>
-              <Field label="Phone" id="phone" value={formData.phone} onChange={handleChange} placeholder="(555) 123-4567" required />
+              <Field label="Phone" id="phone" value={formData.phone} onChange={handleChange} placeholder="(555) 123-4567" type="tel" required maxLength="20" />
               {errors.phone && (
                 <p className="text-red-600 text-sm mt-1">{errors.phone}</p>
               )}
             </div>
 
             <div>
-              <Field label="Secondary Phone (optional)" id="secondary_phone" value={formData.secondary_phone} onChange={handleChange} placeholder="(555) 234-5678" />
+              <Field label="Secondary Phone (optional)" id="secondary_phone" value={formData.secondary_phone} onChange={handleChange} placeholder="(555) 234-5678" type="tel" maxLength="20" />
               {errors.secondary_phone && (
                 <p className="text-red-600 text-sm mt-1">{errors.secondary_phone}</p>
               )}
@@ -593,7 +632,7 @@ export default function CreateReferralPage() {
               <Field label="Emergency Contact Last Name" id="emergency_last_name" value={formData.emergency_last_name} onChange={handleChange} placeholder="Enter emergency contact's last name" required />
             </div>
             <div>
-              <Field label="Emergency Contact Phone" id="emergency_phone" value={formData.emergency_phone} onChange={handleChange} placeholder="(555) 123-4567" required />
+              <Field label="Emergency Contact Phone" id="emergency_phone" value={formData.emergency_phone} onChange={handleChange} placeholder="(555) 123-4567" type="tel" required maxLength="20" />
               {errors.emergency_phone && (
                 <p className="text-red-600 text-sm mt-1">{errors.emergency_phone}</p>
               )}
@@ -630,7 +669,7 @@ export default function CreateReferralPage() {
               <Field label="Referring Provider Name" id="referring_provider_name" value={formData.referring_provider_name} onChange={handleChange} placeholder="Provider full name" />
             </div>
             <div>
-              <Field label="Referring Provider Phone" id="referring_provider_phone" value={formData.referring_provider_phone} onChange={handleChange} placeholder="(555) 987-6543" />
+              <Field label="Referring Provider Phone" id="referring_provider_phone" value={formData.referring_provider_phone} onChange={handleChange} placeholder="(555) 987-6543" type="tel" maxLength="20" />
               {errors.referring_provider_phone && (
                 <p className="text-red-600 text-sm mt-1">{errors.referring_provider_phone}</p>
               )}
