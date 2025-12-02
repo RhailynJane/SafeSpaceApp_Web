@@ -10,7 +10,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
-import { Field, TextArea } from '@/components/ui/form-elements'; // Reusable input components
+import { Field, TextArea } from '@/components/ui/form-elements.jsx'; // Reusable input components
 
 // --- ICON COMPONENTS ---
 // These are small SVG-based React components used for decorative icons in the UI.
@@ -254,8 +254,24 @@ export default function CreateReferralPage() {
     }
 
     // Basic validation for required fields
-    if (!formData.client_first_name || !formData.client_last_name) {
-      alert('Please provide client first and last name');
+    const requiredFields = [
+      'client_first_name',
+      'client_last_name',
+      'age',
+      'gender',
+      'phone',
+      'address',
+      'email',
+      'emergency_first_name',
+      'emergency_last_name',
+      'emergency_phone',
+      'referral_source',
+      'reason_for_referral'
+    ];
+    
+    const missingFields = requiredFields.filter(field => !formData[field]);
+    if (missingFields.length > 0) {
+      alert('Please fill in all required fields');
       return;
     }
 
@@ -489,13 +505,13 @@ export default function CreateReferralPage() {
           {/* All Input Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Field label="Client First Name" id="client_first_name" value={formData.client_first_name} onChange={handleChange} placeholder="Enter client's first name" />
+              <Field label="Client First Name" id="client_first_name" value={formData.client_first_name} onChange={handleChange} placeholder="Enter client's first name" required />
             </div>
             <div>
-              <Field label="Client Last Name" id="client_last_name" value={formData.client_last_name} onChange={handleChange} placeholder="Enter client's last name" />
+              <Field label="Client Last Name" id="client_last_name" value={formData.client_last_name} onChange={handleChange} placeholder="Enter client's last name" required />
             </div>
             <div>
-              <Field label="Age" id="age" value={formData.age} onChange={handleChange} placeholder="Enter age" type="number" />
+              <Field label="Age" id="age" value={formData.age} onChange={handleChange} placeholder="Enter age" type="number" required />
               {errors.age && (
                 <p className="text-red-600 text-sm mt-1">{errors.age}</p>
               )}
@@ -503,12 +519,13 @@ export default function CreateReferralPage() {
 
             {/* Gender dropdown */}
             <div>
-              <label className="font-semibold text-gray-700">Gender</label>
+              <label className="font-semibold text-gray-700">Gender <span className="text-red-500">*</span></label>
               <select
                 id="gender"
                 value={formData.gender}
                 onChange={handleChange}
                 className="w-full mt-1 p-3 border border-gray-300 rounded-lg bg-white"
+                required
               >
                 <option value="">Select gender...</option>
                 <option value="Male">Male</option>
@@ -518,7 +535,7 @@ export default function CreateReferralPage() {
             </div>
 
             <div>
-              <Field label="Phone" id="phone" value={formData.phone} onChange={handleChange} placeholder="(555) 123-4567" />
+              <Field label="Phone" id="phone" value={formData.phone} onChange={handleChange} placeholder="(555) 123-4567" required />
               {errors.phone && (
                 <p className="text-red-600 text-sm mt-1">{errors.phone}</p>
               )}
@@ -533,7 +550,7 @@ export default function CreateReferralPage() {
 
             {/* Address with Mapbox autocomplete */}
             <div className="relative md:col-span-2">
-              <label className="font-semibold text-gray-700">Address</label>
+              <label className="font-semibold text-gray-700">Address <span className="text-red-500">*</span></label>
               <input
                 id="address"
                 value={formData.address}
@@ -541,6 +558,7 @@ export default function CreateReferralPage() {
                 placeholder="123 Main St, City, State ZIP"
                 className="w-full mt-1 p-3 border border-gray-300 rounded-lg"
                 autoComplete="off"
+                required
               />
               {mapboxToken && addressSuggestions.length > 0 && (
                 <ul className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow max-h-56 overflow-auto">
@@ -561,7 +579,7 @@ export default function CreateReferralPage() {
             </div>
 
             <div>
-              <Field label="Email" id="email" type="email" value={formData.email} onChange={handleChange} placeholder="client@gmail.com" />
+              <Field label="Email" id="email" type="email" value={formData.email} onChange={handleChange} placeholder="client@gmail.com" required />
               {errors.email && (
                 <p className="text-red-600 text-sm mt-1">{errors.email}</p>
               )}
@@ -569,13 +587,13 @@ export default function CreateReferralPage() {
 
             {/* Emergency contact details */}
             <div>
-              <Field label="Emergency Contact First Name" id="emergency_first_name" value={formData.emergency_first_name} onChange={handleChange} placeholder="Enter emergency contact's first name" />
+              <Field label="Emergency Contact First Name" id="emergency_first_name" value={formData.emergency_first_name} onChange={handleChange} placeholder="Enter emergency contact's first name" required />
             </div>
             <div>
-              <Field label="Emergency Contact Last Name" id="emergency_last_name" value={formData.emergency_last_name} onChange={handleChange} placeholder="Enter emergency contact's last name" />
+              <Field label="Emergency Contact Last Name" id="emergency_last_name" value={formData.emergency_last_name} onChange={handleChange} placeholder="Enter emergency contact's last name" required />
             </div>
             <div>
-              <Field label="Emergency Contact Phone" id="emergency_phone" value={formData.emergency_phone} onChange={handleChange} placeholder="(555) 123-4567" />
+              <Field label="Emergency Contact Phone" id="emergency_phone" value={formData.emergency_phone} onChange={handleChange} placeholder="(555) 123-4567" required />
               {errors.emergency_phone && (
                 <p className="text-red-600 text-sm mt-1">{errors.emergency_phone}</p>
               )}
@@ -636,12 +654,13 @@ export default function CreateReferralPage() {
 
             {/* Referral source dropdown */}
             <div>
-              <label className="font-semibold text-gray-700">Referral Source</label>
+              <label className="font-semibold text-gray-700">Referral Source <span className="text-red-500">*</span></label>
               <select
                 id="referral_source"
                 value={formData.referral_source}
                 onChange={handleChange}
                 className="w-full mt-1 p-3 border border-gray-300 rounded-lg bg-white"
+                required
               >
                 <option value="">Select referral source...</option>
                 <option value="Forensic Psychiatric center">Forensic Psychiatric center</option>
@@ -654,7 +673,7 @@ export default function CreateReferralPage() {
 
             {/* Textarea fields for notes */}
             <div className="md:col-span-2">
-              <TextArea label="Reason for Referral" id="reason_for_referral" value={formData.reason_for_referral} onChange={handleChange} placeholder="Describe the client's needs and reason for referral" />
+              <TextArea label="Reason for Referral" id="reason_for_referral" value={formData.reason_for_referral} onChange={handleChange} placeholder="Describe the client's needs and reason for referral" required />
             </div>
             <div className="md:col-span-2">
               <TextArea label="Additional Notes" id="additional_notes" value={formData.additional_notes} onChange={handleChange} placeholder="Any additional information or special considerations" />
