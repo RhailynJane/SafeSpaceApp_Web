@@ -258,6 +258,27 @@ export default function ReferralTrackingPage() {
                                 if (s === 'declined') return 'bg-red-100 text-red-800 border-red-300';
                                 return 'bg-gray-100 text-gray-800 border-gray-300';
                             };
+                            
+                            // Calculate days in process
+                            const calculateDaysInProcess = (submittedDate, processedDate, status) => {
+                                const start = new Date(submittedDate);
+                                const end = (processedDate && (status === 'accepted' || status === 'declined')) 
+                                    ? new Date(processedDate) 
+                                    : new Date();
+                                const diffTime = Math.abs(end - start);
+                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                return diffDays;
+                            };
+                            
+                            const daysInProcess = calculateDaysInProcess(ref.submitted_date, ref.processed_date, ref.status);
+                            
+                            // Determine color based on days in process
+                            const getDaysColor = (days) => {
+                                if (days <= 3) return 'text-green-600 dark:text-green-400';
+                                if (days <= 7) return 'text-yellow-600 dark:text-yellow-400';
+                                return 'text-red-600 dark:text-red-400';
+                            };
+                            
                             return (
                                 <div key={ref._id || ref.id} className="bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-750 p-6 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-teal-400 hover:shadow-lg transition-all duration-200">
                                     <div className="flex flex-col md:flex-row justify-between gap-4">
@@ -281,6 +302,10 @@ export default function ReferralTrackingPage() {
                                             <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
                                                 <CalendarIcon />
                                                 <span>Submitted: {new Date(ref.submitted_date).toLocaleDateString()}</span>
+                                            </div>
+                                            <div className={`flex items-center gap-2 text-sm font-bold bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border-2 ${getDaysColor(daysInProcess)}`}>
+                                                <ClockIcon />
+                                                <span>{daysInProcess} {daysInProcess === 1 ? 'day' : 'days'} in process</span>
                                             </div>
                                             {ref.phone && (
                                                 <div className="text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700">
