@@ -8,10 +8,17 @@ const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
 async function getConvexClient() {
   const { getToken } = await auth();
-  const token = await getToken({ template: "convex" });
+  let token = null;
+  try {
+    const template = process.env.CLERK_JWT_TEMPLATE_NAME || "convex";
+    token = await getToken({ template });
+  } catch (e) {
+    console.warn("Clerk getToken failed; falling back:", e?.message || e);
+    try { token = await getToken(); } catch (_) { token = null; }
+  }
   
   const client = new ConvexHttpClient(convexUrl);
-  client.setAuth(token);
+  if (token) client.setAuth(token);
   
   return client;
 }

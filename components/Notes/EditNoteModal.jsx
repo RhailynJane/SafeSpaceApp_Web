@@ -177,8 +177,28 @@ export default function EditNoteModal({ isOpen, onClose, note, onSave }) {
             </div>
           </div>
 
+          {/* Common Activities (moved above Time Tracking) */}
+          <div className="space-y-3 pt-2 border-t">
+            <Label className="text-sm font-medium text-gray-700">Common Activities</Label>
+            <div className="flex flex-wrap gap-2">
+              {COMMON_ACTIVITIES.map(activity => (
+                <Button
+                  key={activity}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickAddActivity(activity)}
+                  disabled={formData.activities.some(a => a.type === activity)}
+                  className="text-sm"
+                >
+                  {activity}
+                </Button>
+              ))}
+            </div>
+          </div>
+
           {/* Time Tracking Section */}
-          <div className="space-y-4 pt-2 border-t">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm text-gray-700">Time Tracking</h3>
               <Button 
@@ -269,26 +289,6 @@ export default function EditNoteModal({ isOpen, onClose, note, onSave }) {
                 </div>
               </div>
             )}
-
-            {/* Common Activities */}
-            <div className="space-y-3 mt-4">
-              <Label className="text-sm font-medium text-gray-700">Common Activities</Label>
-              <div className="flex flex-wrap gap-2">
-                {COMMON_ACTIVITIES.map(activity => (
-                  <Button
-                    key={activity}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickAddActivity(activity)}
-                    disabled={formData.activities.some(a => a.type === activity)}
-                    className="text-sm"
-                  >
-                    {activity}
-                  </Button>
-                ))}
-              </div>
-            </div>
 
             {/* Total Time */}
             <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg mt-4">

@@ -8,8 +8,8 @@
 
 import { auth, currentUser } from "@clerk/nextjs/server";  // Clerk authentication helpers
 import { NextResponse } from "next/server";                // Used to create HTTP responses in Next.js
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { getConvexClient } from "@/lib/convex-server.js";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
@@ -41,15 +41,7 @@ function mapReferralToSnakeCase(referral) {
   };
 }
 
-// Helper to get authenticated Convex client
-async function getConvexClient() {
-  const { getToken } = await auth();
-  const token = await getToken({ template: "convex" });
-  
-  const client = new ConvexHttpClient(convexUrl);
-  client.setAuth(token);
-  return client;
-}
+// Using shared getConvexClient from lib with robust Clerk token fallbacks
 
 /**
  * =====================

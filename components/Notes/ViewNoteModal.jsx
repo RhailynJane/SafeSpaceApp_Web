@@ -92,6 +92,37 @@ export default function ViewNoteModal({ isOpen, onClose, onEdit, note }) {
             </div>
           </div>
 
+          {/* Tags / Common Activities (displayed above Time Tracking) */}
+          {(Array.isArray(note?.tags) && note.tags.length > 0) || (Array.isArray(note?.activities) && note.activities.length > 0) ? (
+            <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+              {Array.isArray(note?.tags) && note.tags.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tags</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {note.tags.map((tag, idx) => (
+                      <span key={idx} className="px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
+                        {String(tag)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {Array.isArray(note?.activities) && note.activities.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Common Activities</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {/* Display unique activity types as chips */}
+                    {Array.from(new Set(note.activities.map(a => a.type))).map((type, idx) => (
+                      <span key={idx} className="px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
+                        {String(type)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
           {/* Time Tracking Section */}
           <div className="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-2">
