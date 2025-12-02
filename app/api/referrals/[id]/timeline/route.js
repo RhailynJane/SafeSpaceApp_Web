@@ -1,19 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from "@clerk/nextjs/server";
-import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { getConvexClient } from "@/lib/convex-server.js";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-
-async function getConvexClient() {
-  const { getToken } = await auth();
-  const token = await getToken({ template: "convex" });
-  
-  const client = new ConvexHttpClient(convexUrl);
-  client.setAuth(token);
-  
-  return client;
-}
 
 export async function GET(request, { params }) {
   try {
