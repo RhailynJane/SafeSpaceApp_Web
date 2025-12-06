@@ -1,6 +1,7 @@
 /**
  * User management functions
  * Handles user CRUD operations with role-based access control
+ * Updated: Force redeploy
  */
 
 import { v } from "convex/values";
@@ -198,6 +199,30 @@ export const getByClerkId = query({
     if (lookupId === clerkId) {
       return user;
     }
+
+    // Check if requesting user has access to target user
+    const isSA = await isSuperAdmin(ctx, clerkId);
+    const hasAccess = isSA || (await hasOrgAccess(ctx, clerkId, user.orgId || ""));
+
+    if (!hasAccess) {
+      throw new Error("Unauthorized: Cannot access user from different organization");
+    }
+
+    return user;
+  },
+});
+
+/**
+ * Get user by document ID (for users without clerkId, e.g., those with role="client")
+ */
+export const getById = query({
+  args: {
+    clerkId: v.string(),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, { clerkId, userId }) => {
+    const user = await ctx.db.get(userId);
+    if (!user) return null;
 
     // Check if requesting user has access to target user
     const isSA = await isSuperAdmin(ctx, clerkId);
@@ -413,10 +438,19 @@ export const update = mutation({
       throw new Error("Current user not found");
     }
 
-    const targetUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", targetClerkId))
-      .first();
+    // Check if targetClerkId is a Clerk ID (starts with "user_") or a Convex document ID
+    const isClerkId = targetClerkId.startsWith("user_");
+    let targetUser;
+    
+    if (isClerkId) {
+      targetUser = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", targetClerkId))
+        .first();
+    } else {
+      // It's a Convex document ID, fetch directly
+      targetUser = await ctx.db.get(targetClerkId as any);
+    }
 
     if (!targetUser) {
       throw new Error("Target user not found");
@@ -452,17 +486,8 @@ export const update = mutation({
       }
     }
 
-    // Get the database ID
-    const dbUser = await ctx.db
-      .query("users")
-      .withIndex("by_clerkId", (q) => q.eq("clerkId", targetClerkId))
-      .first();
-
-    if (!dbUser) {
-      throw new Error("Target user not found in database");
-    }
-
-    await ctx.db.patch(dbUser._id, {
+    // Use the targetUser we already fetched (which has _id)
+    await ctx.db.patch(targetUser._id, {
       ...sanitizedUpdates,
       updatedAt: Date.now(),
     });
@@ -472,12 +497,12 @@ export const update = mutation({
       userId: clerkId,
       action: "user_updated",
       entityType: "user",
-      entityId: dbUser._id,
+      entityId: targetUser._id,
       details: JSON.stringify({ targetClerkId, updates: sanitizedUpdates }),
       timestamp: Date.now(),
     });
 
-    return dbUser._id;
+    return targetUser._id;
   },
 });
 
@@ -871,5 +896,22 @@ export const updateAvailability = mutation({
     });
 
     return user._id;
+  },
+});
+
+/**
+ * Get current user's organization from Convex users table
+ * Used by mobile app to retrieve the user's org context
+ */
+export const getMyOrg = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const rec = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .first();
+    return rec?.orgId ?? null;
   },
 });

@@ -3,7 +3,7 @@
  * Provides role-based access control and permission checking
  */
 
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -169,6 +169,72 @@ export const getUserByClerkId = query({
 });
 
 /**
+ * Get current user (whoami) - for mobile app
+ */
+export const whoami = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    
+    const clerkId = identity.subject;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+    
+    return user;
+  },
+});
+
+/**
+ * Sync/upsert user from mobile app (Clerk authentication)
+ */
+export const syncUser = mutation({
+  args: {
+    email: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+
+    const clerkId = identity.subject;
+    const now = Date.now();
+
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    const doc = {
+      clerkId,
+      email: args.email ?? identity.email ?? undefined,
+      firstName: args.firstName ?? identity.givenName ?? undefined,
+      lastName: args.lastName ?? identity.familyName ?? undefined,
+      imageUrl: args.imageUrl ?? identity.pictureUrl ?? undefined,
+      updatedAt: now,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, doc);
+      return { updated: true };
+    }
+    
+    await ctx.db.insert("users", {
+      ...doc,
+      roleId: "client", // Default role for mobile users
+      status: "active",
+      createdAt: now,
+    });
+    return { created: true };
+  },
+});
+
+/**
  * Get role by slug
  */
 export const getRoleBySlug = query({
@@ -195,16 +261,24 @@ export async function hasPermission(
     .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
     .first();
 
-    if (!user || !user.roleId) return false;
+  if (!user || !user.roleId) {
+    console.log('[hasPermission] User not found or no roleId:', { clerkId, user: user ? 'exists' : 'null' });
+    return false;
+  }
 
-  const role = await ctx.db
-    .query("roles")
-    .withIndex("by_slug", (q) => q.eq("slug", user.roleId))
-    .first();
+  // Get permissions from ROLE_PERMISSIONS map
+  const rolePermissions = ROLE_PERMISSIONS[user.roleId as keyof typeof ROLE_PERMISSIONS] as readonly string[] | undefined;
+  console.log('[hasPermission] Checking permission:', { 
+    clerkId, 
+    roleId: user.roleId, 
+    permission, 
+    hasRole: !!rolePermissions,
+    hasPermission: rolePermissions ? (rolePermissions as string[]).includes(permission) : false
+  });
+  
+  if (!rolePermissions) return false;
 
-  if (!role) return false;
-
-  return role.permissions.includes(permission);
+  return (rolePermissions as string[]).includes(permission);
 }
 
 /**

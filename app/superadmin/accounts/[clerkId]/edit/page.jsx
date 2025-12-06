@@ -16,9 +16,13 @@ import { StatusModal, ConfirmModal } from "@/components/ui/modal";
 export default function AccountEditPage() {
   const params = useParams();
   const router = useRouter();
-  const clerkId = params?.clerkId ? String(params.clerkId) : undefined;
+  const accountId = params?.clerkId ? String(params.clerkId) : undefined;
   const { user } = useUser();
   const me = user?.id;
+  
+  // Clerk IDs start with "user_", everything else could be either users or clients table
+  const isClerkId = accountId && accountId.startsWith("user_");
+  
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -28,6 +32,7 @@ export default function AccountEditPage() {
     status: "active",
     profileImageUrl: "",
     phoneNumber: "",
+    phone: "",
     address: "",
     emergencyContactName: "",
     emergencyContactPhone: "",
@@ -68,12 +73,42 @@ export default function AccountEditPage() {
     return "";
   };
 
-  if (!clerkId) return null;
+  if (!accountId) return null;
 
-  const target = useQuery(api.users.getByClerkId, me && clerkId ? { clerkId: me, targetClerkId: clerkId } : "skip");
+  // Try fetching from users table
+  const userTarget = useQuery(
+    api.users.getByClerkId,
+    me && accountId && isClerkId
+      ? { clerkId: me, targetClerkId: accountId }
+      : "skip"
+  );
+
+  // For non-Clerk IDs, try users table by document ID first (for users with role=client)
+  const userById = useQuery(
+    api.users.getById,
+    me && accountId && !isClerkId
+      ? { clerkId: me, userId: accountId }
+      : "skip"
+  );
+
+  // Try fetching from clients table (for actual client records)
+  const clientTarget = useQuery(
+    api.clients.getById,
+    me && accountId && !isClerkId && !userById
+      ? { clerkId: me, clientId: accountId }
+      : "skip"
+  );
+
+  // Use whichever query returned data
+  const target = userTarget || userById || clientTarget;
+  const isClient = (!!clientTarget || (userById && userById.roleId === "client")) && !userTarget;
+  const isFromClientsTable = !!clientTarget && !userById && !userTarget;
+
   const updateUser = useMutation(api.users.update);
+  const updateClient = useMutation(api.clients.update);
   const deleteUser = useMutation(api.users.remove);
-  const roles = useQuery(api.roles.list, me ? { clerkId: me } : "skip");
+  const deleteClient = useMutation(api.clients.remove);
+  const roles = useQuery(api.roles.list);
   const orgs = useQuery(api.organizations.list, me ? { clerkId: me } : "skip");
 
   useEffect(() => {
@@ -82,17 +117,18 @@ export default function AccountEditPage() {
         firstName: target.firstName || "",
         lastName: target.lastName || "",
         email: target.email || "",
-        roleId: target.roleId || "",
+        roleId: isClient ? "client" : (target.roleId || ""),
         orgId: target.orgId || "",
         status: target.status || "active",
         profileImageUrl: target.profileImageUrl || target.imageUrl || "",
-        phoneNumber: target.phoneNumber || "",
+        phoneNumber: target.phoneNumber || target.phone || "",
+        phone: target.phone || target.phoneNumber || "",
         address: target.address || "",
         emergencyContactName: target.emergencyContactName || "",
         emergencyContactPhone: target.emergencyContactPhone || "",
       });
     }
-  }, [target]);
+  }, [target, isClient]);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -135,16 +171,20 @@ export default function AccountEditPage() {
   };
 
   const onSave = async () => {
-    if (!me || !clerkId) return;
+    if (!me || !accountId) return;
 
     // Validate all fields before saving
     const errors = {};
     errors.firstName = validateName(form.firstName, "First name");
     errors.lastName = validateName(form.lastName, "Last name");
     errors.email = validateEmail(form.email);
-    errors.roleId = validateRequired(form.roleId, "Role");
+    if (!isClient) {
+      errors.roleId = validateRequired(form.roleId, "Role");
+    }
     errors.orgId = validateRequired(form.orgId, "Organization");
-    if (form.phoneNumber) errors.phoneNumber = validatePhone(form.phoneNumber);
+    if (form.phoneNumber || form.phone) {
+      errors.phoneNumber = validatePhone(form.phoneNumber || form.phone);
+    }
     if (form.emergencyContactPhone) errors.emergencyContactPhone = validatePhone(form.emergencyContactPhone);
 
     const nonEmptyErrors = Object.fromEntries(
@@ -162,20 +202,37 @@ export default function AccountEditPage() {
     setErrorMsg("");
 
     try {
-      // Sanitize data before sending
-      const sanitizedForm = {
-        ...form,
-        firstName: form.firstName?.trim(),
-        lastName: form.lastName?.trim(),
-        email: form.email?.trim(),
-        phoneNumber: form.phoneNumber?.trim() || undefined,
-        emergencyContactPhone: form.emergencyContactPhone?.trim() || undefined,
-        address: form.address?.trim(),
-        emergencyContactName: form.emergencyContactName?.trim(),
-        profileImageUrl: form.profileImageUrl?.trim(),
-      };
-
-      await updateUser({ clerkId: me, targetClerkId: clerkId, ...sanitizedForm });
+      if (isFromClientsTable) {
+        // Update client from clients table
+        const sanitizedForm = {
+          firstName: form.firstName?.trim(),
+          lastName: form.lastName?.trim(),
+          email: form.email?.trim(),
+          phone: (form.phone || form.phoneNumber)?.trim() || undefined,
+          emergencyContactPhone: form.emergencyContactPhone?.trim() || undefined,
+          address: form.address?.trim(),
+          emergencyContactName: form.emergencyContactName?.trim(),
+          status: form.status,
+          orgId: form.orgId,
+        };
+        await updateClient({ clerkId: me, clientId: accountId, ...sanitizedForm });
+      } else {
+        // Update user (either by clerkId or userId)
+        const sanitizedForm = {
+          firstName: form.firstName?.trim(),
+          lastName: form.lastName?.trim(),
+          email: form.email?.trim(),
+          phoneNumber: (form.phoneNumber || form.phone)?.trim() || undefined,
+          emergencyContactPhone: form.emergencyContactPhone?.trim() || undefined,
+          address: form.address?.trim(),
+          emergencyContactName: form.emergencyContactName?.trim(),
+          profileImageUrl: form.profileImageUrl?.trim(),
+          roleId: form.roleId,
+          status: form.status,
+          orgId: form.orgId,
+        };
+        await updateUser({ clerkId: me, targetClerkId: accountId, ...sanitizedForm });
+      }
       setShowSuccess(true);
     } catch (e) {
       const errMsg = e?.message || "Failed to save account";
@@ -186,22 +243,34 @@ export default function AccountEditPage() {
   };
 
   const onDelete = async () => {
-    if (!me || !clerkId) return;
+    if (!me || !accountId) return;
     try {
-      // 1) Remove from Clerk so the user cannot log in anymore
-      const resp = await fetch("/api/admin/delete-clerk-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetClerkId: clerkId }),
-      });
-      if (!resp.ok) {
-        const data = await resp.json().catch(() => ({}));
-        throw new Error(data?.error || "Failed to delete from Clerk");
-      }
+      if (isFromClientsTable) {
+        // Delete client directly from clients table
+        await deleteClient({ clerkId: me, clientId: accountId });
+        router.push("/superadmin/accounts");
+      } else {
+        // Delete user (requires Clerk deletion if has clerkId)
+        if (isClerkId) {
+          // 1) Remove from Clerk so the user cannot log in anymore
+          const resp = await fetch("/api/admin/delete-clerk-user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ targetClerkId: accountId }),
+          });
+          if (!resp.ok) {
+            const data = await resp.json().catch(() => ({}));
+            throw new Error(data?.error || "Failed to delete from Clerk");
+          }
 
-      // 2) Remove from Convex database
-      await deleteUser({ clerkId: me, targetClerkId: clerkId });
-      router.push("/superadmin/accounts");
+          // 2) Remove from Convex database
+          await deleteUser({ clerkId: me, targetClerkId: accountId });
+        } else {
+          // User without Clerk account (just delete from Convex)
+          await deleteUser({ clerkId: me, targetClerkId: accountId });
+        }
+        router.push("/superadmin/accounts");
+      }
     } catch (e) {
       setErrorMsg(e?.message || "Failed to delete account");
     } finally {
@@ -210,13 +279,18 @@ export default function AccountEditPage() {
   };
 
   const onToggleSuspend = async () => {
-    if (!me || !clerkId) return;
+    if (!me || !accountId) return;
+    if (isFromClientsTable || !isClerkId) {
+      // For clients or users without Clerk accounts, just update status directly
+      setErrorMsg("This account doesn't have a login to suspend. Update status instead.");
+      return;
+    }
     const nextAction = (form.status || "active") === "suspended" ? "unsuspend" : "suspend";
     try {
       const resp = await fetch("/api/admin/suspend-clerk-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetClerkId: clerkId, action: nextAction }),
+        body: JSON.stringify({ targetClerkId: accountId, action: nextAction }),
       });
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}));
@@ -237,7 +311,7 @@ export default function AccountEditPage() {
           <h2 className="text-2xl font-bold">Edit Account</h2>
           <p className="text-muted-foreground">Update account details and permissions.</p>
         </div>
-        <Link href={`/superadmin/accounts/${clerkId}`} className="text-indigo-600 hover:underline">
+        <Link href={`/superadmin/accounts/${accountId}`} className="text-indigo-600 hover:underline">
           Cancel
         </Link>
       </div>
@@ -286,17 +360,25 @@ export default function AccountEditPage() {
               />
               {fieldErrors.email && <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>}
             </div>
-            <div>
-              <Label htmlFor="roleId">Role</Label>
-              <Select value={form.roleId} onValueChange={(v)=>setForm((f)=>({...f, roleId: v}))}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Select role" /></SelectTrigger>
-                <SelectContent>
-                  {(roles||[]).map((r)=> (
-                    <SelectItem key={r.slug} value={r.slug}>{r.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!isClient && (
+              <div>
+                <Label htmlFor="roleId">Role</Label>
+                <Select value={form.roleId} onValueChange={(v)=>setForm((f)=>({...f, roleId: v}))}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select role" /></SelectTrigger>
+                  <SelectContent>
+                    {(roles||[]).map((r)=> (
+                      <SelectItem key={r.slug} value={r.slug}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {isClient && (
+              <div>
+                <Label htmlFor="roleId">Role</Label>
+                <Input id="roleId" name="roleId" value="Client" disabled className="bg-gray-50" />
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -324,8 +406,8 @@ export default function AccountEditPage() {
               <Label htmlFor="phoneNumber">Phone</Label>
               <Input 
                 id="phoneNumber" 
-                name="phoneNumber" 
-                value={form.phoneNumber} 
+                name={isClient ? "phone" : "phoneNumber"}
+                value={isClient ? form.phone : form.phoneNumber} 
                 onChange={onChange}
                 onBlur={() => handleFieldBlur("phoneNumber")}
                 className={fieldErrors.phoneNumber ? "border-red-500" : ""}
@@ -357,12 +439,14 @@ export default function AccountEditPage() {
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" asChild>
-              <Link href={`/superadmin/accounts/${clerkId}`}>Cancel</Link>
+              <Link href={`/superadmin/accounts/${accountId}`}>Cancel</Link>
             </Button>
             <Button onClick={onSave} disabled={saving}>{saving ? "Saving..." : "Save Changes"}</Button>
-            <Button variant={form.status === "suspended" ? "secondary" : "outline"} onClick={onToggleSuspend}>
-              {form.status === "suspended" ? "Unsuspend" : "Suspend"}
-            </Button>
+            {!isFromClientsTable && isClerkId && (
+              <Button variant={form.status === "suspended" ? "secondary" : "outline"} onClick={onToggleSuspend}>
+                {form.status === "suspended" ? "Unsuspend" : "Suspend"}
+              </Button>
+            )}
             <Button variant="destructive" onClick={()=>setConfirmOpen(true)}>Delete</Button>
           </div>
         </CardContent>

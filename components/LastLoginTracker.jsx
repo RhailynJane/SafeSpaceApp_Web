@@ -17,8 +17,10 @@ export default function LastLoginTracker() {
 
     (async () => {
       try {
+        console.log('[LastLoginTracker] Updating last login for user:', user.id);
         await updateLastLogin({ clerkId: user.id });
         sessionStorage.setItem(key, "1");
+        console.log('[LastLoginTracker] ✅ Last login updated successfully');
       } catch (e) {
         // Non-blocking; silently ignore failure
         console.warn("Failed to update last login:", e);

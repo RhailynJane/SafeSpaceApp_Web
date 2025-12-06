@@ -252,6 +252,10 @@ export default defineSchema({
 		details: v.optional(v.string()),
 		cancellationReason: v.optional(v.string()),
 		
+		// === LEGACY FIELDS (for backward compatibility) ===
+		avatarUrl: v.optional(v.string()), // Support worker avatar (legacy)
+		specialization: v.optional(v.string()), // Support worker specialization (legacy)
+		
 		// === ORGANIZATION SCOPING ===
 		orgId: v.optional(v.string()),
 		
@@ -930,3 +934,4 @@ export default defineSchema({
 		.index("by_active", ["active"])
 		.index("by_createdAt", ["createdAt"]),
 });
+

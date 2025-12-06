@@ -57,6 +57,22 @@ export const listMine = query({
   },
 });
 
+// Alias for compatibility
+export const getNotifications = query({
+  args: { 
+    userId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { userId, limit }) => {
+    const list = await ctx.db
+      .query("notifications")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(limit || 200);
+    return list;
+  },
+});
+
 export const clearAll = mutation({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
@@ -66,5 +82,30 @@ export const clearAll = mutation({
       .collect();
     await Promise.all(all.map((n) => ctx.db.delete(n._id)));
     return { count: all.length };
+  },
+});
+
+/**
+ * Get unread notification count (mobile app)
+ */
+export const getUnreadCount = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    const unreadNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_user_and_read", (q) => q.eq("userId", userId).eq("isRead", false))
+      .collect();
+    return { count: unreadNotifications.length };
+  },
+});
+
+/**
+ * Delete a single notification (mobile app)
+ */
+export const deleteNotification = mutation({
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, { notificationId }) => {
+    await ctx.db.delete(notificationId);
+    return { success: true };
   },
 });

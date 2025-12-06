@@ -15,7 +15,7 @@ export const list = query({
     // Verify user is a participant in this conversation
     const participant = await ctx.db
       .query("conversationParticipants")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", args.conversationId))
       .filter((q) => q.eq(q.field("userId"), identity.subject))
       .first();
 

@@ -128,6 +128,91 @@ export const initializeRoles = mutation({
 });
 
 /**
+ * Bootstrap roles without auth (for initial setup)
+ */
+export const bootstrapRoles = mutation({
+  handler: async (ctx) => {
+    const defaultRoles = [
+      {
+        slug: "superadmin",
+        name: "SuperAdmin",
+        description: "System-wide administrator with full access to all organizations and settings",
+        permissions: ROLE_PERMISSIONS.superadmin,
+        level: ROLE_LEVELS.superadmin,
+      },
+      {
+        slug: "admin",
+        name: "Administrator",
+        description: "Organization administrator with full access within their organization",
+        permissions: ROLE_PERMISSIONS.admin,
+        level: ROLE_LEVELS.admin,
+      },
+      {
+        slug: "team_leader",
+        name: "Team Leader",
+        description: "Team leader with client assignment and oversight within their organization",
+        permissions: ROLE_PERMISSIONS.team_leader,
+        level: ROLE_LEVELS.team_leader,
+      },
+      {
+        slug: "support_worker",
+        name: "Support Worker (CMHA)",
+        description: "Support worker with limited clinical access",
+        permissions: ROLE_PERMISSIONS.support_worker,
+        level: ROLE_LEVELS.support_worker,
+      },
+      {
+        slug: "peer_support",
+        name: "Peer Support (SAIT)",
+        description: "Peer support with limited clinical access (same as Support Worker)",
+        permissions: ROLE_PERMISSIONS.peer_support,
+        level: ROLE_LEVELS.peer_support,
+      },
+      {
+        slug: "client",
+        name: "Client",
+        description: "Client user with access to personal features only",
+        permissions: ROLE_PERMISSIONS.client,
+        level: ROLE_LEVELS.client,
+      },
+    ];
+
+    const createdRoles = [];
+
+    for (const roleData of defaultRoles) {
+      // Check if role already exists
+      const existing = await ctx.db
+        .query("roles")
+        .withIndex("by_slug", (q) => q.eq("slug", roleData.slug))
+        .first();
+
+      if (!existing) {
+        const roleId = await ctx.db.insert("roles", {
+          ...roleData,
+          permissions: [...roleData.permissions],
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        createdRoles.push({ slug: roleData.slug, id: roleId, created: true });
+      } else {
+        // Update existing role with latest permissions
+        await ctx.db.patch(existing._id, {
+          permissions: [...roleData.permissions],
+          updatedAt: Date.now(),
+        });
+        createdRoles.push({ slug: roleData.slug, id: existing._id, updated: true });
+      }
+    }
+
+    return { 
+      success: true, 
+      message: `Initialized ${createdRoles.length} roles`,
+      roles: createdRoles 
+    };
+  },
+});
+
+/**
  * Update role permissions (SuperAdmin only)
  */
 export const updatePermissions = mutation({

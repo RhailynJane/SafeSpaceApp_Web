@@ -213,3 +213,268 @@ export const list = query({
     return withNames;
   },
 });
+
+/**
+ * Get all appointments for a user (mobile app)
+ * Supports filtering by status and limiting results
+ */
+export const getUserAppointments = query({
+  args: { 
+    userId: v.string(),
+    includeStatus: v.optional(v.array(v.string())),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { userId, includeStatus, limit }) => {
+    let appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .take(limit ?? 100);
+
+    // Filter by status if provided
+    if (includeStatus && includeStatus.length > 0) {
+      appointments = appointments.filter(apt => includeStatus.includes(apt.status));
+    }
+
+    // Sort by appointmentDate then appointmentTime
+    const sorted = appointments.sort((a, b) => {
+      const dateA = a.appointmentDate || a.date || "";
+      const dateB = b.appointmentDate || b.date || "";
+      const dateCompare = dateA.localeCompare(dateB);
+      if (dateCompare !== 0) return dateCompare;
+      const timeA = a.appointmentTime || a.time || "";
+      const timeB = b.appointmentTime || b.time || "";
+      return timeA.localeCompare(timeB);
+    });
+
+    return sorted;
+  },
+});
+
+/**
+ * Get upcoming appointments for a user (mobile app)
+ * Returns appointments with status 'scheduled' or 'confirmed' and date >= today
+ */
+export const getUpcomingAppointments = query({
+  args: { 
+    userId: v.string(),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, { userId, limit = 50 }) => {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get appointments with upcoming statuses (today or future dates)
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_user_and_date", (q) => 
+        q.eq("userId", userId).gte("appointmentDate", today)
+      )
+      .filter((q) => 
+        q.or(
+          q.eq(q.field("status"), "scheduled"),
+          q.eq(q.field("status"), "confirmed")
+        )
+      )
+      .collect();
+
+    // Sort by date then time (ascending)
+    const sorted = appointments.sort((a, b) => {
+      const dateCompare = a.appointmentDate.localeCompare(b.appointmentDate);
+      if (dateCompare !== 0) return dateCompare;
+      return (a.appointmentTime || "").localeCompare(b.appointmentTime || "");
+    });
+
+    return sorted.slice(0, limit);
+  },
+});
+
+/**
+ * Get past appointments for a user (mobile app)
+ * Returns appointments with date < today or status completed/cancelled/no_show
+ */
+export const getPastAppointments = query({
+  args: { 
+    userId: v.string(),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, { userId, limit = 50 }) => {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get appointments with past dates (before today)
+    const pastDates = await ctx.db
+      .query("appointments")
+      .withIndex("by_user_and_date", (q) => 
+        q.eq("userId", userId).lt("appointmentDate", today)
+      )
+      .collect();
+    
+    // Get appointments with completed/cancelled/no_show status (regardless of date)
+    const completedStatuses = await ctx.db
+      .query("appointments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .filter((q) => 
+        q.or(
+          q.eq(q.field("status"), "completed"),
+          q.eq(q.field("status"), "cancelled"),
+          q.eq(q.field("status"), "no_show")
+        )
+      )
+      .collect();
+    
+    // Combine and deduplicate
+    const combined = [...pastDates, ...completedStatuses];
+    const uniqueMap = new Map(combined.map(apt => [apt._id, apt]));
+    const unique = Array.from(uniqueMap.values());
+    
+    // Sort by date then time (descending)
+    const sorted = unique
+      .sort((a, b) => {
+        const dateCompare = b.appointmentDate.localeCompare(a.appointmentDate);
+        if (dateCompare !== 0) return dateCompare;
+        return (b.appointmentTime || "").localeCompare(a.appointmentTime || "");
+      })
+      .slice(0, limit);
+
+    return sorted;
+  },
+});
+
+/**
+ * Get appointment statistics for a user (mobile app)
+ */
+export const getAppointmentStats = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+
+    const today = new Date().toISOString().split('T')[0];
+    
+    const upcoming = appointments.filter(apt => 
+      (apt.status === "scheduled" || apt.status === "confirmed") && 
+      apt.appointmentDate >= today
+    );
+    const completed = appointments.filter(apt => apt.status === "completed");
+    const cancelled = appointments.filter(apt => apt.status === "cancelled");
+
+    // Find next appointment
+    const sortedUpcoming = upcoming.sort((a, b) => {
+      const dateCompare = a.appointmentDate.localeCompare(b.appointmentDate);
+      if (dateCompare !== 0) return dateCompare;
+      return (a.appointmentTime || "").localeCompare(b.appointmentTime || "");
+    });
+
+    return {
+      upcomingCount: upcoming.length,
+      completedCount: completed.length,
+      cancelledCount: cancelled.length,
+      nextAppointment: sortedUpcoming[0] || null,
+    };
+  },
+});
+
+/**
+ * Get single appointment by ID (mobile app)
+ */
+export const getAppointment = query({
+  args: { appointmentId: v.optional(v.id("appointments")) },
+  handler: async (ctx, { appointmentId }) => {
+    if (!appointmentId) return null;
+    const appointment = await ctx.db.get(appointmentId);
+    return appointment || null;
+  },
+});
+
+/**
+ * Reschedule appointment (mobile app)
+ */
+export const rescheduleAppointment = mutation({
+  args: {
+    appointmentId: v.id("appointments"),
+    newDate: v.string(),
+    newTime: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { appointmentId, newDate, newTime, reason }) => {
+    const appointment = await ctx.db.get(appointmentId);
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+    
+    const noteUpdate = reason 
+      ? `${appointment.notes || ''}\n\nRescheduled: ${reason}`.trim()
+      : appointment.notes;
+    
+    await ctx.db.patch(appointmentId, {
+      appointmentDate: newDate,
+      appointmentTime: newTime,
+      notes: noteUpdate,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Cancel appointment (mobile app)
+ */
+export const cancelAppointment = mutation({
+  args: {
+    appointmentId: v.id("appointments"),
+    cancellationReason: v.optional(v.string()),
+  },
+  handler: async (ctx, { appointmentId, cancellationReason }) => {
+    const appointment = await ctx.db.get(appointmentId);
+    if (!appointment) {
+      throw new Error("Appointment not found");
+    }
+    
+    await ctx.db.patch(appointmentId, {
+      status: "cancelled",
+      cancellationReason,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Update appointment status (mobile app)
+ */
+export const updateAppointmentStatus = mutation({
+  args: {
+    appointmentId: v.id("appointments"),
+    status: v.string(),
+  },
+  handler: async (ctx, { appointmentId, status }) => {
+    await ctx.db.patch(appointmentId, {
+      status,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Delete an appointment (mobile app)
+ */
+export const deleteAppointment = mutation({
+  args: {
+    appointmentId: v.id("appointments"),
+  },
+  handler: async (ctx, { appointmentId }) => {
+    await ctx.db.patch(appointmentId, {
+      status: "cancelled",
+      cancellationReason: "Deleted by user",
+      updatedAt: Date.now(),
+    });
+    
+    return { success: true };
+  },
+});

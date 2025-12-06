@@ -287,6 +287,34 @@ export const remove = mutation({
   },
 });
 
+export const getById = query({
+  args: {
+    clerkId: v.string(),
+    clientId: v.id("clients"),
+  },
+  handler: async (ctx, { clerkId, clientId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const client = await ctx.db.get(clientId);
+    if (!client) return null;
+
+    // Authorization: must be same org unless superadmin
+    const me = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (iq) => iq.eq("clerkId", clerkId))
+      .first();
+    if (!me) throw new Error("User not found");
+
+    if (me.roleId !== "superadmin") {
+      if (!client.orgId || me.orgId !== client.orgId) {
+        throw new Error("Unauthorized: Cannot view client from another organization");
+      }
+    }
+
+    return client;
+  },
+});
+
 export const listByOrg = query({
   args: { orgId: v.string() },
   handler: async (ctx, { orgId }) => {
