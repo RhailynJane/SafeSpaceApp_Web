@@ -28,7 +28,7 @@ export const listForUser = query({
     // For now: return notes authored by the user
     let q = ctx.db
       .query("notes")
-      .withIndex("by_author", (iq) => iq.eq("authorUserId", clerkId));
+      .withIndex("by_authorUserId", (iq) => iq.eq("authorUserId", clerkId));
 
     const items = await q.collect();
     if (targetOrg) return items.filter((n) => n.orgId === targetOrg);
@@ -42,7 +42,7 @@ export const listByClient = query({
     await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_NOTES);
     const items = await ctx.db
       .query("notes")
-      .withIndex("by_client", (iq) => iq.eq("clientId", clientId))
+      .withIndex("by_clientId", (iq) => iq.eq("clientId", clientId))
       .collect();
     return items.sort((a, b) => (b.noteDate || "").localeCompare(a.noteDate || ""));
   },

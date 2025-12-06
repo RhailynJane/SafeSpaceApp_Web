@@ -126,7 +126,7 @@ export const getByUser = query({
   handler: async (ctx, args) => {
     const logs = await ctx.db
       .query("auditLogs")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .order("desc")
       .take(args.limit || 50);
 

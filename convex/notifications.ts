@@ -50,7 +50,7 @@ export const listMine = query({
   handler: async (ctx, { userId }) => {
     const list = await ctx.db
       .query("notifications")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .order("desc")
       .take(200);
     return list;
@@ -62,7 +62,7 @@ export const clearAll = mutation({
   handler: async (ctx, { userId }) => {
     const all = await ctx.db
       .query("notifications")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
     await Promise.all(all.map((n) => ctx.db.delete(n._id)));
     return { count: all.length };

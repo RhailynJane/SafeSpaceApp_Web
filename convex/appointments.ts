@@ -90,10 +90,7 @@ export const create = mutation({
     const now = Date.now();
 
     const appointmentId = await ctx.db.insert("appointments", {
-      // mobile-compatible fields
-      date: appointmentDate,
-      time: appointmentTime,
-      // web fields
+      // mobile-compatible fields (now using web field names)
       appointmentDate,
       appointmentTime,
       duration: args.duration,
@@ -145,7 +142,7 @@ export const listByDate = query({
     if (userId) {
       q = ctx.db
         .query("appointments")
-        .withIndex("by_user_and_date", iq => iq.eq("userId", userId).eq("date", date));
+        .withIndex("by_user_and_date", iq => iq.eq("userId", userId).eq("appointmentDate", date));
     } else {
       q = ctx.db
         .query("appointments")

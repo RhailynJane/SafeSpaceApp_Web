@@ -13,7 +13,7 @@ export const list = query({
     // Get conversations where user is a participant
     const participantRecords = await ctx.db
       .query("conversationParticipants")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
       .collect();
 
     const conversations = [];
@@ -23,14 +23,14 @@ export const list = query({
         // Get the latest message for preview
         const latestMessage = await ctx.db
           .query("messages")
-          .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
+          .withIndex("by_conversationId", (q) => q.eq("conversationId", conversation._id))
           .order("desc")
           .first();
 
         // Get all participants for this conversation
         const allParticipants = await ctx.db
           .query("conversationParticipants")
-          .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
+          .withIndex("by_conversationId", (q) => q.eq("conversationId", conversation._id))
           .collect();
 
         // Get participant user details
@@ -55,7 +55,7 @@ export const list = query({
         // Calculate unread count
         const unreadCount = await ctx.db
           .query("messages")
-          .withIndex("by_conversation", (q) => q.eq("conversationId", conversation._id))
+          .withIndex("by_conversationId", (q) => q.eq("conversationId", conversation._id))
           .filter((q) => q.gt(q.field("createdAt"), participant.lastReadAt || 0))
           .collect();
 
@@ -148,7 +148,7 @@ export const markAsRead = mutation({
 
     const participant = await ctx.db
       .query("conversationParticipants")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", args.conversationId))
       .filter((q) => q.eq(q.field("userId"), identity.subject))
       .first();
 
@@ -185,7 +185,7 @@ export const deleteConversation = mutation({
     // Delete all messages in the conversation
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", args.conversationId))
       .collect();
 
     for (const message of messages) {
@@ -195,7 +195,7 @@ export const deleteConversation = mutation({
     // Delete all participants
     const participants = await ctx.db
       .query("conversationParticipants")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", args.conversationId))
       .collect();
 
     for (const participant of participants) {
