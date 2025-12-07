@@ -107,6 +107,47 @@ export const getById = query({
 });
 
 /**
+ * Get organization features for a user (mobile app access control)
+ * Returns the list of enabled features for the user's organization
+ */
+export const getFeatures = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, { clerkId }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user || !user.orgId) {
+      return [];
+    }
+
+    const org = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", user.orgId))
+      .first();
+
+    if (!org) {
+      return [];
+    }
+
+    // Return enabled features or all features by default (for backward compatibility)
+    return org.settings?.features || [
+      'appointments',
+      'video_consultation',
+      'mood_tracking',
+      'crisis_support',
+      'resources',
+      'community',
+      'messaging',
+      'assessments',
+    ];
+  },
+});
+
+/**
  * Create a new organization (SuperAdmin only)
  */
 export const create = mutation({
