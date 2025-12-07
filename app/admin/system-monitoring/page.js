@@ -41,7 +41,7 @@ const Sparkline = ({ data = [], color = "text-teal-500", height = 40, width = 12
 /**
  * Metric card with sparkline chart
  */
-const MetricCard = ({ title, value, subtitle, icon: Icon, trend, trendData = [], status = 'normal' }) => {
+const MetricCard = ({ title, value, subtitle, icon: Icon, trend, trendData = [], status = 'normal', tooltip, helper }) => {
     const statusColors = {
         normal: 'text-green-600 border-green-200 bg-green-50',
         warning: 'text-yellow-600 border-yellow-200 bg-yellow-50',
@@ -49,7 +49,7 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, trend, trendData = [],
     };
 
     return (
-        <Card className={`border-2 ${statusColors[status]}`}>
+        <Card className={`border-2 ${statusColors[status]}`} title={tooltip}>
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-gray-600">{title}</CardTitle>
@@ -67,6 +67,7 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, trend, trendData = [],
                         )}
                     </div>
                     {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+                    {helper && <p className="text-xs text-gray-500 leading-relaxed">{helper}</p>}
                     {trendData.length > 0 && (
                         <div className="mt-2">
                             <Sparkline data={trendData} color="text-teal-500" />
@@ -165,11 +166,15 @@ export default function SystemMonitoringPage() {
                 const response = await fetch('/api/admin/metrics');
                 if (response.ok) {
                     const data = await response.json();
-                    setTotalUsers(data.totalUsers || 0);
-                    setActiveUsers(Math.floor((data.totalUsers || 0) * 0.3)); // Mock: 30% active
+                    const total = data.totalUsers || 0;
+                    const active = data.active ?? data.activeUsers ?? 0;
+
+                    setTotalUsers(total);
+                    setActiveUsers(active);
                     
-                    // Update users trend
-                    setUsersTrend(prev => [...prev.slice(-6), data.totalUsers || 0]);
+                    // Update users trend using active count (fallback to total if missing)
+                    const trendValue = Number.isFinite(active) ? active : total;
+                    setUsersTrend(prev => [...prev.slice(-6), trendValue]);
                 }
             } catch (error) {
                 console.error('Error fetching metrics:', error);
@@ -245,9 +250,11 @@ export default function SystemMonitoringPage() {
 
             if (metricsRes.ok) {
                 const data = await metricsRes.json();
-                setTotalUsers(data.totalUsers || 0);
-                setActiveUsers(Math.floor((data.totalUsers || 0) * 0.3));
-                setUsersTrend(prev => [...prev.slice(-6), data.totalUsers || 0]);
+                const total = data.totalUsers || 0;
+                const active = data.active ?? data.activeUsers ?? 0;
+                setTotalUsers(total);
+                setActiveUsers(active);
+                setUsersTrend(prev => [...prev.slice(-6), Number.isFinite(active) ? active : total]);
             }
 
             if (sessionsRes.ok) {
@@ -317,6 +324,8 @@ export default function SystemMonitoringPage() {
                     icon={Server}
                     trendData={uptimeTrend}
                     status="normal"
+                    tooltip="From /api/admin/system-uptime; underlying data from Convex uptime health check, averaged over 7 days."
+                    helper="Percent of time the platform stayed available over the last 7 days."
                 />
                 <MetricCard
                     title="API Response Time"
@@ -325,6 +334,8 @@ export default function SystemMonitoringPage() {
                     icon={Activity}
                     trendData={responseTimeTrend}
                     status={apiResponseTime > 200 ? 'warning' : 'normal'}
+                    tooltip="Measured client-side by calling /api/admin/ping and timing the round-trip; lower is better."
+                    helper="How long the API takes to answer right now; lower milliseconds means faster."
                 />
                 <MetricCard
                     title="Active Users"
@@ -333,6 +344,8 @@ export default function SystemMonitoringPage() {
                     icon={Users}
                     trendData={usersTrend}
                     status="normal"
+                    tooltip="From /api/admin/metrics; uses Convex users.getOrgUserStats active count for the current org."
+                    helper="People in this organization whose account is marked active (all roles: admins, team leads, clients)."
                 />
                 <MetricCard
                     title="Active Sessions"
@@ -341,6 +354,8 @@ export default function SystemMonitoringPage() {
                     icon={TrendingUp}
                     trendData={sessionsTrend}
                     status="normal"
+                    tooltip="From /api/admin/active-sessions; counts current online sessions tracked in Convex."
+                    helper="Users currently online in this organization (all roles) seen in the last few minutes."
                 />
             </div>
 

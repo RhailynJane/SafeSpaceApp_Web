@@ -27,7 +27,8 @@ export async function GET() {
     const activeSessions = await fetchQuery(api.presence.onlineCountByOrg, {
       clerkId: userId,
       orgId,
-      sinceMs: 6 * 60 * 1000, // last 6 minutes considered online
+      // Widen the window to reduce flakiness if a heartbeat is a bit late
+      sinceMs: 10 * 60 * 1000, // last 10 minutes considered online
     });
 
     return NextResponse.json({ activeSessions });

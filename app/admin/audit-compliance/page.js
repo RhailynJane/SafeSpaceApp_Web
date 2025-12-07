@@ -43,6 +43,50 @@ export default function AuditCompliancePage() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(50);
 
+    const exportEvents = () => {
+        if (!filteredEvents.length) {
+            alert('No events to export with current filters.');
+            return;
+        }
+
+        const headers = [
+            'timestamp',
+            'action',
+            'type',
+            'userName',
+            'userId',
+            'userRole',
+            'orgId',
+            'details'
+        ];
+
+        const csvValue = (val) => {
+            if (val === null || val === undefined) return '""';
+            const str = String(val).replace(/"/g, '""');
+            return `"${str}"`;
+        };
+
+        const rows = filteredEvents.map((e) => [
+            new Date(Number(e.timestamp) || 0).toISOString(),
+            e.action || '',
+            e.type || '',
+            e.userName || '',
+            e.userId || '',
+            e.userRole || '',
+            e.orgId || '',
+            e.details || '',
+        ].map(csvValue).join(','));
+
+        const csv = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `audit-events-${new Date().toISOString().slice(0,10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
     useEffect(() => {
         fetchData();
         fetchOrganizations();
@@ -144,8 +188,8 @@ export default function AuditCompliancePage() {
             }
         }
 
-        // Role filter (relaxed): include common roles plus superadmin; if role unknown, keep event
-        const allowedRoles = new Set(['admin','superadmin','team_leader','support_worker','client']);
+        // Role filter: include org-scoped roles only (exclude superadmin/system)
+        const allowedRoles = new Set(['admin','team_leader','support_worker','client']);
         filtered = filtered.filter((event) => {
             const role = (event.userRole || '').toLowerCase();
             // System / automated events (no user) always shown
@@ -157,6 +201,8 @@ export default function AuditCompliancePage() {
                 const parsed = event.details ? JSON.parse(event.details) : {};
                 const detailRole = (parsed.roleId || '').toLowerCase();
                 if (detailRole && allowedRoles.has(detailRole)) return true;
+                // Explicitly drop superadmin/system roles
+                if (role === 'superadmin' || detailRole === 'superadmin') return false;
             } catch {}
             // Keep unknown roles for visibility instead of hiding silently
             return true;
@@ -323,6 +369,16 @@ export default function AuditCompliancePage() {
                 </Card>
             </div>
 
+            {/* Notes */}
+            <div className="bg-blue-50 border border-blue-100 text-blue-900 text-sm rounded-xl p-3">
+                <p className="font-semibold">Notes</p>
+                <ul className="list-disc list-inside space-y-1 mt-1">
+                    <li>Security Score = 100 − (2 × count of security-significant events in the last 7 days).</li>
+                    <li>Active Alerts = unread security alerts from the last 24 hours.</li>
+                    <li>Compliance label comes from the security score (Excellent ≥ 90, Good ≥ 70, else Needs Review).</li>
+                </ul>
+            </div>
+
 
             
             {/* Audit Events Section */}
@@ -337,7 +393,7 @@ export default function AuditCompliancePage() {
                         </p>
                     </div>
                     <div className="flex gap-3">
-                        <Button variant="outline" size="sm" className="gap-2">
+                        <Button variant="outline" size="sm" className="gap-2" onClick={exportEvents}>
                             <Download className="h-4 w-4" />
                             Export
                         </Button>
