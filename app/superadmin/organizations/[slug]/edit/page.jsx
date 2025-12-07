@@ -46,6 +46,7 @@ export default function OrganizationEditPage() {
   const removeOrg = useMutation(api.organizations.remove);
 
   useEffect(() => {
+    console.log('🚀 Organization Edit Page Mounted - Code Version: 2024-12-06-v2');
     if (org) {
       setForm({
         name: org.name || "",
@@ -58,6 +59,7 @@ export default function OrganizationEditPage() {
         status: org.status || "active",
         features: org.settings?.features || [],
       });
+      console.log('📋 Loaded org features:', org.settings?.features);
     }
   }, [org]);
 
@@ -171,10 +173,12 @@ export default function OrganizationEditPage() {
   };
 
   const onSave = async () => {
+    console.log('🔵 onSave called!', { clerkId, orgId: org?._id, features: form.features });
     if (!clerkId || !org?._id) return;
 
     // Validate form
     const errors = validateForm();
+    console.log('🔍 Validation errors:', errors);
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       setErrorMsg("Please fix validation errors before saving");
@@ -188,14 +192,16 @@ export default function OrganizationEditPage() {
 
     try {
       const { features, ...rest } = form;
-      await updateOrg({
+      const payload = {
         clerkId,
         id: org._id,
         ...rest,
         settings: {
           features: features || [],
         },
-      });
+      };
+      console.log('💾 Saving organization with features:', { features, payload });
+      await updateOrg(payload);
       setShowSuccess(true);
     } catch (e) {
       console.error("Failed to update org", e);
@@ -393,7 +399,7 @@ export default function OrganizationEditPage() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2"
+          <div className="flex justify-end gap-2">
             <Button variant="outline" asChild>
               <Link href={`/superadmin/organizations/${slug}`}>Cancel</Link>
             </Button>
