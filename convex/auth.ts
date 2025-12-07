@@ -210,7 +210,7 @@ export const syncUser = mutation({
       .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
       .first();
 
-    const doc = {
+    const doc: any = {
       clerkId,
       email: args.email ?? identity.email ?? undefined,
       firstName: args.firstName ?? identity.givenName ?? undefined,
@@ -220,8 +220,33 @@ export const syncUser = mutation({
     };
 
     if (existing) {
+      // If user already exists and has no orgId, check if there's a matching client record
+      if (!existing.orgId) {
+        // Try to find matching client record to get orgId
+        const client = await ctx.db
+          .query("clients")
+          .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+          .first();
+        
+        if (client && client.orgId) {
+          doc.orgId = client.orgId;
+          console.log(`[syncUser] Found matching client record with orgId: ${client.orgId}`);
+        }
+      }
+      
       await ctx.db.patch(existing._id, doc);
       return { updated: true };
+    }
+    
+    // For new users, check if there's a matching client record to get orgId
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+    
+    if (client && client.orgId) {
+      doc.orgId = client.orgId;
+      console.log(`[syncUser] Creating user with orgId from client record: ${client.orgId}`);
     }
     
     await ctx.db.insert("users", {
@@ -367,3 +392,157 @@ export async function requireSuperAdmin(ctx: any, clerkId: string) {
     throw new Error("Unauthorized: SuperAdmin access required");
   }
 }
+
+/**
+ * DEBUG: Check user orgId status (temporary helper)
+ */
+export const checkUserOrgId = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, { clerkId }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      return { found: false };
+    }
+
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    return {
+      found: true,
+      user: {
+        _id: user._id,
+        clerkId: user.clerkId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        orgId: user.orgId || null,
+      },
+      client: client ? {
+        _id: client._id,
+        firstName: client.firstName,
+        lastName: client.lastName,
+        orgId: client.orgId || null,
+      } : null,
+    };
+  },
+});
+
+/**
+ * DEBUG: Set a user's orgId directly (no client lookup needed)
+ */
+export const setUserOrgId = mutation({
+  args: {
+    clerkId: v.string(),
+    orgId: v.string(),
+  },
+  handler: async (ctx, { clerkId, orgId }) => {
+    // Verify org exists
+    const org = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", orgId))
+      .first();
+
+    if (!org) {
+      throw new Error(`Organization not found: ${orgId}`);
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, { orgId });
+    console.log(`[setUserOrgId] Set user ${user.firstName} ${user.lastName} orgId to ${orgId}`);
+
+    return {
+      success: true,
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        orgId,
+      },
+    };
+  },
+});
+
+/**
+ * DEBUG: Repair a specific user's orgId
+ */
+export const fixUserOrgId = mutation({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, { clerkId }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!client || !client.orgId) {
+      throw new Error("No matching client record with orgId found");
+    }
+
+    await ctx.db.patch(user._id, { orgId: client.orgId });
+    console.log(`[fixUserOrgId] Fixed user ${user.firstName} ${user.lastName} - set orgId to ${client.orgId}`);
+
+    return {
+      success: true,
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        orgId: client.orgId,
+      },
+    };
+  },
+});
+
+/**
+ * DEBUG: Repair user records by populating orgId from client records
+ * This is a temporary helper to fix existing user records that don't have orgId
+ */
+export const repairUserOrgIds = mutation({
+  handler: async (ctx) => {
+    // Get all users without orgId
+    const usersWithoutOrg = await ctx.db.query("users").collect();
+    const usersToRepair = usersWithoutOrg.filter((u: any) => !u.orgId);
+
+    console.log(`[repairUserOrgIds] Found ${usersToRepair.length} users without orgId`);
+
+    let repaired = 0;
+    for (const user of usersToRepair) {
+      // Try to find matching client record
+      const client = await ctx.db
+        .query("clients")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", user.clerkId))
+        .first();
+
+      if (client && client.orgId) {
+        await ctx.db.patch(user._id, { orgId: client.orgId });
+        console.log(`[repairUserOrgIds] Patched user ${user.firstName} ${user.lastName} with orgId: ${client.orgId}`);
+        repaired++;
+      }
+    }
+
+    return { repaired, total: usersToRepair.length };
+  },
+});

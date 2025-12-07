@@ -136,8 +136,12 @@ export async function GET() {
     const convex = await getConvexClient();
     const referrals = await convex.query(api.referrals.list, {});
 
+    console.log("Fetched referrals count:", referrals?.length || 0);
+
     // Map Convex camelCase to snake_case for frontend compatibility
     const mappedReferrals = referrals.map(mapReferralToSnakeCase);
+
+    console.log("Mapped referrals count:", mappedReferrals?.length || 0);
 
     // Return the list of referrals as a JSON response.
     return NextResponse.json(mappedReferrals, { status: 200 });

@@ -46,30 +46,35 @@ export default function SafespacePlatform() {
         console.log("Needs first factor authentication");
         alert("Please complete the first factor authentication.");
       } else if (attempt.status === "needs_second_factor") {
-        // User needs to complete 2FA
-        console.log("Needs second factor authentication (2FA)");
+        // Email-based verification is required
+        console.log("2FA requirement detected");
         console.log("Available second factors:", attempt.supportedSecondFactors);
+        console.log("Full second factor details:", JSON.stringify(attempt.supportedSecondFactors, null, 2));
         
-        // Check if email code is available and prepare it
+        // Check for email_code factor
         const emailFactor = attempt.supportedSecondFactors?.find(
           factor => factor.strategy === 'email_code'
         );
         
         if (emailFactor) {
-          console.log("Email code factor available, preparing email...");
+          console.log("Preparing email code...");
           try {
             await signIn.prepareSecondFactor({
               strategy: 'email_code',
               emailAddressId: emailFactor.emailAddressId,
             });
             console.log("Email code sent! Check your inbox.");
+            setShowTwoFactor(true);
           } catch (prepareError) {
             console.error("Failed to send email code:", prepareError);
+            alert("Failed to send verification email. Please try again.");
           }
+        } else {
+          const factorTypes = attempt.supportedSecondFactors?.map(f => f.strategy).join(', ');
+          alert(`Email verification is required.\n\nConfigured methods: ${factorTypes}\n\nPlease check your Clerk Dashboard settings.`);
         }
-        
-        setShowTwoFactor(true);
-        // Don't alert - show the 2FA input form instead
+        setLoading(false);
+        return;
       } else if (attempt.status === "needs_new_password") {
         // User needs to set a new password
         console.log("Needs new password");

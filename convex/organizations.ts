@@ -74,19 +74,38 @@ export const getFeatures = query({
   handler: async (ctx, { clerkId }) => {
     console.log('[getFeatures] Called with clerkId:', clerkId);
 
+    // First check users table
     const user = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
       .first();
 
-    console.log('[getFeatures] User found:', user ? `${user.firstName} ${user.lastName} (org: ${user.orgId})` : 'null');
+    let orgSlug: string | undefined;
 
-    if (!user || !user.orgId) {
-      console.log('[getFeatures] No user or orgId, returning empty array');
-      return [];
+    if (!user) {
+      // If not found in users, check clients table
+      console.log('[getFeatures] User found: null, checking clients table');
+      
+      const client = await ctx.db
+        .query("clients")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+        .first();
+      
+      if (client && client.orgId) {
+        console.log('[getFeatures] Client found:', client.firstName, client.lastName, '(org:', client.orgId, ')');
+        orgSlug = client.orgId as string;
+      } else {
+        console.log('[getFeatures] No user or client found, returning empty array');
+        return [];
+      }
+    } else {
+      console.log('[getFeatures] User found:', user.firstName, user.lastName, '(org:', user.orgId, ')');
+      if (!user.orgId) {
+        console.log('[getFeatures] User has no orgId, returning empty array');
+        return [];
+      }
+      orgSlug = user.orgId as string;
     }
-
-    const orgSlug = user.orgId as string;
 
     // Query featurePermissions table for this organization
     const permissions = await ctx.db
@@ -102,16 +121,18 @@ export const getFeatures = query({
 
     // If no permissions found, return all features (default allow)
     if (permissions.length === 0) {
-      console.log('[getFeatures] No permissions found, returning all features (default allow)');
+      console.log('[getFeatures] No permissions found for org:', orgSlug, '- returning all 10 features (default allow)');
       return [
-        'appointments',
-        'video_consultation',
-        'mood_tracking',
-        'crisis_support',
-        'resources',
-        'community',
-        'messaging',
         'assessments',
+        'mood_tracking',
+        'journaling',
+        'resources',
+        'announcements',
+        'crisis_support',
+        'messaging',
+        'appointments',
+        'community',
+        'video_consultation',
       ];
     }
 

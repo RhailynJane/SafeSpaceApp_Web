@@ -7,8 +7,7 @@ const isAdminRoute = createRouteMatcher(['/admin(.*)', '/superadmin(.*)']);
 const isDashboardRoute = createRouteMatcher(['/dashboard(.*)', '/workspace(.*)']);
 const isApiRoute = createRouteMatcher(['/api(.*)']);
 const isAuthOrResetRoute = createRouteMatcher([
-  '/sign-in(.*)',
-  '/sign-up(.*)',
+  '/',
   '/force-password-reset(.*)',
 ]);
 const isStaticOrNext = createRouteMatcher([

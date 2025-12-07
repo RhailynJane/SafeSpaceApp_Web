@@ -360,45 +360,6 @@ export default function OrganizationEditPage() {
             </Select>
           </div>
 
-          {/* Feature Access Control */}
-          <div className="border-t pt-4">
-            <Label className="text-base font-semibold mb-3 block">Feature Access Control</Label>
-            <p className="text-sm text-muted-foreground mb-4">Enable or disable features for this organization's mobile app users</p>
-            <div className="space-y-3">
-              {[
-                { id: 'appointments', label: 'Appointments', description: 'Schedule and manage appointments' },
-                { id: 'video_consultation', label: 'Video Consultation', description: 'Video calls with support workers' },
-                { id: 'mood_tracking', label: 'Mood Tracking', description: 'Daily mood journal and analytics' },
-                { id: 'crisis_support', label: 'Crisis Support', description: 'Emergency crisis resources and contacts' },
-                { id: 'resources', label: 'Resources', description: 'Educational content and resources' },
-                { id: 'community', label: 'Community', description: 'Community posts and forums' },
-                { id: 'messaging', label: 'Messaging', description: 'Direct messaging with support workers' },
-                { id: 'assessments', label: 'Assessments', description: 'Self-assessment tools and questionnaires' },
-              ].map((feature) => (
-                <div key={feature.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex-1">
-                    <label htmlFor={feature.id} className="font-medium text-sm cursor-pointer">{feature.label}</label>
-                    <p className="text-xs text-muted-foreground mt-0.5">{feature.description}</p>
-                  </div>
-                  <button
-                    type="button"
-                    id={feature.id}
-                    onClick={() => toggleFeature(feature.id)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
-                      form.features?.includes(feature.id) ? 'bg-emerald-600' : 'bg-gray-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        form.features?.includes(feature.id) ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div className="flex justify-end gap-2">
             <Button variant="outline" asChild>
               <Link href={`/superadmin/organizations/${slug}`}>Cancel</Link>

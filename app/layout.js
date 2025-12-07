@@ -35,8 +35,8 @@ export default function RootLayout({ children }) {
         />
         <ClerkProvider
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
-          signInUrl="/"
-          signUpUrl="/"
+          signInFallbackRedirectUrl="/"
+          signUpFallbackRedirectUrl="/"
         >
           <ConvexClientProvider>
             <ThemeProvider>
