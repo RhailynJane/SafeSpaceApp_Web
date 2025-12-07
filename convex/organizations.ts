@@ -292,9 +292,17 @@ export const remove = mutation({
       .withIndex("by_orgId", (q) => q.eq("orgId", org.slug))
       .collect();
 
-    if (users.length > 0) {
+    // Check if organization has clients
+    const clients = await ctx.db
+      .query("clients")
+      .withIndex("by_orgId", (q) => q.eq("orgId", org.slug))
+      .collect();
+
+    const totalAssigned = users.length + clients.length;
+
+    if (totalAssigned > 0) {
       throw new Error(
-        `Cannot delete organization '${org.name}' because it has ${users.length} user(s). Please reassign or remove users first.`
+        `Cannot delete organization '${org.name}' because it has ${users.length} user(s) and ${clients.length} client(s) assigned. Please reassign or remove them first.`
       );
     }
 
