@@ -44,6 +44,7 @@ import type * as referrals from "../referrals.js";
 import type * as reports from "../reports.js";
 import type * as resources from "../resources.js";
 import type * as roles from "../roles.js";
+import type * as safetyIndicators from "../safetyIndicators.js";
 import type * as seed from "../seed.js";
 import type * as settings from "../settings.js";
 import type * as storage from "../storage.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   reports: typeof reports;
   resources: typeof resources;
   roles: typeof roles;
+  safetyIndicators: typeof safetyIndicators;
   seed: typeof seed;
   settings: typeof settings;
   storage: typeof storage;

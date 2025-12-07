@@ -33,9 +33,7 @@ export const list = query({
   handler: async (ctx, { clerkId, orgId, status, search }) => {
     await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
 
-    // Scope by org unless SuperAdmin requests a specific org
-    let q = ctx.db.query("clients").fullTableScan();
-
+    // Fetch requester to determine org scope
     const requester = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (iq) => iq.eq("clerkId", clerkId))
@@ -43,16 +41,56 @@ export const list = query({
 
     if (!requester) throw new Error("User not found");
 
-    if (requester.roleId !== "superadmin") {
-      if (!requester.orgId) throw new Error("User has no organization");
-      q = ctx.db.query("clients").withIndex("by_orgId", (iq) => iq.eq("orgId", requester.orgId!));
-    } else if (orgId) {
-      q = ctx.db.query("clients").withIndex("by_orgId", (iq) => iq.eq("orgId", orgId));
+    const targetOrgId = requester.roleId === "superadmin" ? orgId ?? undefined : requester.orgId;
+    if (requester.roleId !== "superadmin" && !targetOrgId) {
+      throw new Error("User has no organization");
     }
 
-    let items = await q.collect();
+    // Pull clients table rows (legacy) scoped by org when applicable
+    let clientDocs = targetOrgId
+      ? await ctx.db.query("clients").withIndex("by_orgId", (iq) => iq.eq("orgId", targetOrgId)).collect()
+      : await ctx.db.query("clients").fullTableScan().collect();
 
-    if (status) items = items.filter((c) => c.status === status);
+    // Pull user records that are roleId="client" so the list always mirrors client users
+    let userClients = targetOrgId
+      ? await ctx.db.query("users").withIndex("by_orgId", (iq) => iq.eq("orgId", targetOrgId)).collect()
+      : await ctx.db.query("users").fullTableScan().collect();
+    userClients = userClients.filter((u) => u.roleId === "client");
+
+    // Apply status filters consistently across both sources
+    const applyStatus = <T extends { status?: string }>(items: T[]): T[] => {
+      if (status) return items.filter((c) => c.status === status);
+      return items.filter((c) => c.status !== "deleted");
+    };
+
+    clientDocs = applyStatus(clientDocs);
+    userClients = applyStatus(userClients);
+
+    // Map user client records into the client shape used by the UI
+    const mappedUserClients = userClients.map((u) => ({
+      _id: u._id as any,
+      _creationTime: u._creationTime,
+      orgId: u.orgId,
+      firstName: u.firstName || "",
+      lastName: u.lastName || "",
+      email: u.email || "",
+      phone: (u as any).phoneNumber || "",
+      status: u.status || "active",
+      riskLevel: "low",
+      lastSessionDate: u.lastLogin || u.updatedAt || u.createdAt || u._creationTime,
+      createdAt: u.createdAt || u._creationTime,
+      updatedAt: u.updatedAt || u._creationTime,
+      clerkId: u.clerkId,
+    }));
+
+    // Combine and deduplicate (prefer explicit clients table rows when emails collide)
+    const combinedMap = new Map<string, any>();
+    for (const c of [...mappedUserClients, ...clientDocs]) {
+      const key = (c.email || c._id || "").toString().toLowerCase();
+      combinedMap.set(key, c);
+    }
+
+    let items = Array.from(combinedMap.values());
 
     if (search) {
       const s = search.toLowerCase();
@@ -65,7 +103,7 @@ export const list = query({
     }
 
     // Sort by lastSessionDate desc then createdAt desc
-    return items.sort((a, b) => (b.lastSessionDate || 0) - (a.lastSessionDate || 0) || b.createdAt - a.createdAt);
+    return items.sort((a, b) => (b.lastSessionDate || 0) - (a.lastSessionDate || 0) || (b.createdAt || 0) - (a.createdAt || 0));
   },
 });
 

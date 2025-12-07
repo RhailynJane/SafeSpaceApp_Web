@@ -153,6 +153,106 @@ export const trackAction = mutation({
   },
 });
 
+// Get crisis support statistics for team leader/admin dashboard
+export const getCrisisStats = query({
+  args: {
+    orgId: v.optional(v.string()),
+    daysBack: v.optional(v.number()), // Number of days to look back (default: 30)
+  },
+  handler: async (ctx, args: { orgId?: string; daysBack?: number }) => {
+    const daysBack = args.daysBack ?? 30;
+    const cutoffTime = Date.now() - daysBack * 24 * 60 * 60 * 1000;
+
+    // Get all crisis events in time range
+    const allEvents = await ctx.db.query("crisisEventsLog").collect();
+    const recentEvents = allEvents.filter(e => e.createdAt >= cutoffTime);
+
+    // Group by action
+    const stats = {
+      totalCrisisAccessed: recentEvents.length,
+      callsCount: recentEvents.filter(e => e.action === 'call').length,
+      visitsCount: recentEvents.filter(e => e.action === 'visit').length,
+      viewsCount: recentEvents.filter(e => e.action === 'view').length,
+    };
+
+    return stats;
+  },
+});
+
+// Get crisis events log with resource details
+export const getCristsEventLog = query({
+  args: {
+    limit: v.optional(v.number()),
+    daysBack: v.optional(v.number()),
+  },
+  handler: async (ctx, args: { limit?: number; daysBack?: number }) => {
+    const limit = args.limit ?? 50;
+    const daysBack = args.daysBack ?? 30;
+    const cutoffTime = Date.now() - daysBack * 24 * 60 * 60 * 1000;
+
+    const events = await ctx.db.query("crisisEventsLog").collect();
+    const recentEvents = events
+      .filter(e => e.createdAt >= cutoffTime)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit);
+
+    // Fetch resource details for each event
+    const withDetails = await Promise.all(
+      recentEvents.map(async (event) => {
+        const resource = await ctx.db.get(event.resourceId);
+        return {
+          id: String(event._id),
+          resourceId: String(event.resourceId),
+          resourceTitle: resource?.title || 'Unknown Resource',
+          resourceValue: resource?.value,
+          action: event.action,
+          userId: event.userId,
+          createdAt: event.createdAt,
+        };
+      })
+    );
+
+    return withDetails;
+  },
+});
+
+// Create a crisis event (for support worker initiated crisis interventions)
+export const createEvent = mutation({
+  args: {
+    clientId: v.optional(v.string()),
+    initiatorUserId: v.optional(v.string()),
+    eventType: v.string(), // 'hotline_call' | 'emergency_call' | 'supervisor_contact' | 'client_contact' | 'client_triggered_hotline'
+    description: v.optional(v.string()),
+    riskLevelAtEvent: v.optional(v.string()),
+    interventionDetails: v.optional(v.string()),
+    outcome: v.optional(v.string()),
+    followUpRequired: v.optional(v.boolean()),
+    orgId: v.optional(v.string()),
+  },
+  handler: async (ctx, args: {
+    clientId?: string; initiatorUserId?: string; eventType: string;
+    description?: string; riskLevelAtEvent?: string; interventionDetails?: string;
+    outcome?: string; followUpRequired?: boolean; orgId?: string;
+  }) => {
+    const now = Date.now();
+    const id = await ctx.db.insert("crisisEvents", {
+      clientId: args.clientId,
+      initiatorUserId: args.initiatorUserId,
+      eventType: args.eventType,
+      eventDate: now,
+      description: args.description,
+      riskLevelAtEvent: args.riskLevelAtEvent,
+      interventionDetails: args.interventionDetails,
+      outcome: args.outcome,
+      followUpRequired: args.followUpRequired,
+      orgId: args.orgId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return id;
+  },
+});
+
 // Seed a minimal default dataset
 export const seedDefault = mutation({
   args: {},

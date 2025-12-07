@@ -25,7 +25,7 @@ export const create = mutation({
     status: v.optional(v.string()),
     duration: v.optional(v.number()),
     orgId: v.optional(v.string()),
-    clientDbId: v.optional(v.id("clients")),
+    clientDbId: v.optional(v.string()), // Can be either a client ID or user ID since clients list includes user records
     clientId: v.optional(v.string()), // keep legacy string id reference if used
     supportWorkerId: v.optional(v.string()), // Clerk ID; if omitted for CMHA, we auto-assign
   },
@@ -40,12 +40,14 @@ export const create = mutation({
       throw new Error("appointmentDate/time (or date/time) is required");
     }
 
-    // Determine organization
+    // Determine organization and get client info
     let orgId = args.orgId ?? null as string | null;
     let client = null as any;
+    let clientIdToUse = args.clientDbId ?? args.clientId ?? null;
 
-    if (!orgId && args.clientDbId) {
-      client = await ctx.db.get(args.clientDbId);
+    if (clientIdToUse) {
+      // Try to get the client from either clients or users table
+      client = await ctx.db.get(clientIdToUse as any);
       if (client?.orgId) orgId = client.orgId;
     }
 
@@ -80,10 +82,14 @@ export const create = mutation({
         return loads[w.clerkId] < loads[best] ? w.clerkId : best;
       }, workers[0].clerkId as string);
 
-      // Auto-assign client if provided and currently unassigned
-      if (!client && args.clientDbId) client = await ctx.db.get(args.clientDbId);
-      if (client && !client.assignedUserId) {
-        await ctx.db.patch(args.clientDbId!, { assignedUserId: assignedWorkerClerkId, updatedAt: Date.now() });
+      // Auto-assign client if provided and currently unassigned (only if it's a legacy client doc)
+      if (clientIdToUse && client?.status !== undefined && !client?.assignedUserId) {
+        try {
+          await ctx.db.patch(clientIdToUse as any, { assignedUserId: assignedWorkerClerkId, updatedAt: Date.now() });
+        } catch (e) {
+          // Might fail if it's a user record, which is fine
+          console.log("Could not patch client, likely a user record:", e);
+        }
       }
     }
 

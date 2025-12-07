@@ -27,15 +27,20 @@ export default function ClientActionButtons({ client, schedule, onClientUpdated 
       const firstName = client?.firstName || client?.client_first_name || client?.first_name;
       const lastName = client?.lastName || client?.client_last_name || client?.last_name;
 
+      const requestBody = { email, orgId, firstName, lastName };
+      console.log("Sending invite request:", requestBody);
+
       const res = await fetch("/api/clients/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, orgId, firstName, lastName }),
+        body: JSON.stringify(requestBody),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || data?.detail || "Invite failed");
+      console.log("Invite response status:", res.status, "data:", data);
+      if (!res.ok) throw new Error(data?.error || data?.detail || `Invite failed (${res.status})`);
       toast.success(`Invitation sent to ${email}`);
     } catch (e) {
+      console.error("Invite error:", e);
       toast.error(e?.message || "Failed to invite client");
     }
   };

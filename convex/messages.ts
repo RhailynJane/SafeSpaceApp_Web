@@ -19,8 +19,10 @@ export const list = query({
       .filter((q) => q.eq(q.field("userId"), identity.subject))
       .first();
 
+    // If user is not a participant (conversation was deleted or they were removed), return null
+    // Frontend should handle this gracefully by clearing selection
     if (!participant) {
-      throw new Error("Not authorized to view this conversation");
+      return null;
     }
 
     // Get messages - limit to last 50 for now

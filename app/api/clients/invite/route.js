@@ -26,6 +26,9 @@ export async function POST(request) {
     const orgId = String(body?.orgId || body?.org_id || "").trim();
     const firstName = String(body?.firstName || body?.client_first_name || "").trim();
     const lastName = String(body?.lastName || body?.client_last_name || "").trim();
+    
+    console.log("Invite request body:", { email, orgId, firstName, lastName });
+    
     if (!email) return NextResponse.json({ error: "Email is required" }, { status: 400 });
 
     const publicMetadata = {
@@ -150,21 +153,23 @@ export async function POST(request) {
     } else {
       // New user - create them first, then send invitation
       console.log(`Creating new user for ${email}`);
+      const createBody = {
+        email_address: email,
+      };
+      if (firstName) createBody.first_name = firstName;
+      if (lastName) createBody.last_name = lastName;
+      createBody.public_metadata = publicMetadata;
+      
+      console.log("Clerk user creation body:", createBody);
+      
       const createRes = await fetch("https://api.clerk.com/v1/users", {
         method: "POST",
         headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email_address: [email],
-          first_name: firstName || undefined,
-          last_name: lastName || undefined,
-          public_metadata: publicMetadata,
-          skip_password_checks: true,
-          skip_password_requirement: true,
-        }),
+        body: JSON.stringify(createBody),
       });
       const createData = await createRes.json();
       if (!createRes.ok) {
-        console.error("Clerk user creation error:", createData);
+        console.error("Clerk user creation error:", createRes.status, createData);
         return NextResponse.json({ 
           error: createData?.errors?.[0]?.message || "User creation failed",
           detail: JSON.stringify(createData)

@@ -11,6 +11,71 @@ function participantKey(ids: string[]) {
   return sorted.join("|");
 }
 
+// Helper to find participants for a conversation (no by_conversation index available)
+async function getConversationParticipants(ctx: any, conversationId: string) {
+  const all = await ctx.db.query("conversationParticipants").collect();
+  return all.filter((p: any) => p.conversationId === conversationId);
+}
+
+async function createConversation(ctx: any, args: { title?: string; participantIds: string[] }) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) throw new Error("Unauthenticated");
+  const creator = identity.subject as string;
+  const now = Date.now();
+
+  // Normalized, unique full participant set (include creator)
+  const fullSet = Array.from(new Set([creator, ...args.participantIds]));
+  const key = participantKey(fullSet);
+
+  // Attempt dedupe: find existing conversations that include ALL these participants and ONLY these participants.
+  const candidateIdCounts: Record<string, number> = {};
+  for (const userId of fullSet) {
+    const memberships = await ctx.db
+      .query("conversationParticipants")
+      .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+      .collect();
+    for (const m of memberships) {
+      candidateIdCounts[m.conversationId] = (candidateIdCounts[m.conversationId] || 0) + 1;
+    }
+  }
+
+  const possibleIds = Object.entries(candidateIdCounts)
+    .filter(([, count]) => count === fullSet.length)
+    .map(([cid]) => cid);
+
+  for (const cid of possibleIds) {
+    const participants = await getConversationParticipants(ctx, cid);
+    const participantIds = participants.map((p: any) => p.userId);
+    const existingKey = participantKey(participantIds);
+    if (existingKey === key && participantIds.length === fullSet.length) {
+      return { conversationId: cid, deduped: true } as const;
+    }
+  }
+
+  // No existing exact conversation; create new one.
+  const conversationId = await ctx.db.insert("conversations", {
+    title: args.title,
+    createdBy: creator,
+    createdAt: now,
+    updatedAt: now,
+    participantKey: key,
+  });
+
+  await Promise.all(
+    fullSet.map((userId) =>
+      ctx.db.insert("conversationParticipants", {
+        conversationId,
+        userId,
+        role: userId === creator ? "owner" : "member",
+        joinedAt: now,
+        lastReadAt: now,
+      })
+    )
+  );
+
+  return { conversationId, deduped: false } as const;
+}
+
 export const listForUser = query({
   args: {},
   handler: async (ctx: any) => {
@@ -31,70 +96,67 @@ export const listForUser = query({
   },
 });
 
+// Public list used by web ChatInterface - returns conversations hydrated with participants
+export const list = query({
+  args: {},
+  handler: async (ctx: any) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject as string;
+
+    const memberships = await ctx.db
+      .query("conversationParticipants")
+      .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+      .collect();
+
+    const convIds = memberships.map((m: any) => m.conversationId);
+    const conversations = (await Promise.all(convIds.map((id: string) => ctx.db.get(id)))).filter(Boolean);
+
+    const hydrated = await Promise.all(conversations.map(async (conv: any) => {
+      const parts = await getConversationParticipants(ctx, conv._id);
+
+      const participantProfiles = await Promise.all(parts.map(async (p: any) => {
+        const user = await ctx.db
+          .query("users")
+          .withIndex("by_clerkId", (q: any) => q.eq("clerkId", p.userId))
+          .first();
+        const prof = await ctx.db
+          .query("profiles")
+          .withIndex("by_clerkId", (q: any) => q.eq("clerkId", p.userId))
+          .first();
+        return {
+          userId: p.userId,
+          role: p.role,
+          joinedAt: p.joinedAt,
+          lastReadAt: p.lastReadAt,
+          firstName: user?.firstName || "",
+          lastName: user?.lastName || "",
+          imageUrl: prof?.profileImageUrl || user?.imageUrl,
+        };
+      }));
+
+      return {
+        ...conv,
+        participants: participantProfiles,
+      };
+    }));
+
+    return hydrated.sort((a: any, b: any) => (b?.updatedAt || 0) - (a?.updatedAt || 0));
+  },
+});
+
 export const create = mutation({
   args: { title: v.optional(v.string()), participantIds: v.array(v.string()) },
   handler: async (ctx: any, args: { title?: string; participantIds: string[] }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    const creator = identity.subject as string;
-    const now = Date.now();
+    return await createConversation(ctx, args);
+  },
+});
 
-    // Normalized, unique full participant set (include creator)
-    const fullSet = Array.from(new Set([creator, ...args.participantIds]));
-    const key = participantKey(fullSet);
-
-    // Attempt dedupe: find existing conversations that include ALL these participants and ONLY these participants.
-    // Strategy: For each participant, gather their conversationIds; intersect sets; verify exact membership match.
-    const candidateIdCounts: Record<string, number> = {};
-    for (const userId of fullSet) {
-      const memberships = await ctx.db
-        .query("conversationParticipants")
-        .withIndex("by_userId", (q: any) => q.eq("userId", userId))
-        .collect();
-      for (const m of memberships) {
-        candidateIdCounts[m.conversationId] = (candidateIdCounts[m.conversationId] || 0) + 1;
-      }
-    }
-
-    const possibleIds = Object.entries(candidateIdCounts)
-      .filter(([, count]) => count === fullSet.length) // appears in all participant membership lists
-      .map(([cid]) => cid);
-
-    for (const cid of possibleIds) {
-      const participants = await ctx.db
-        .query("conversationParticipants")
-        .withIndex("by_conversation", (q: any) => q.eq("conversationId", cid))
-        .collect();
-      const participantIds = participants.map((p: any) => p.userId);
-      const existingKey = participantKey(participantIds);
-      if (existingKey === key && participantIds.length === fullSet.length) {
-        // Exact match; reuse existing conversation
-        return { conversationId: cid, deduped: true } as const;
-      }
-    }
-
-    // No existing exact conversation; create new one.
-    const conversationId = await ctx.db.insert("conversations", {
-      title: args.title,
-      createdBy: creator,
-      createdAt: now,
-      updatedAt: now,
-      participantKey: key,
-    });
-
-    await Promise.all(
-      fullSet.map((userId) =>
-        ctx.db.insert("conversationParticipants", {
-          conversationId,
-          userId,
-          role: userId === creator ? "owner" : "member",
-          joinedAt: now,
-          lastReadAt: now,
-        })
-      )
-    );
-
-    return { conversationId, deduped: false } as const;
+// Convenience mutation matching ChatInterface naming
+export const getOrCreate = mutation({
+  args: { title: v.optional(v.string()), participantIds: v.array(v.string()) },
+  handler: async (ctx: any, args: { title?: string; participantIds: string[] }) => {
+    return await createConversation(ctx, args);
   },
 });
 
@@ -104,7 +166,7 @@ export const listMessages = query({
     const limit = args.limit ?? 50;
     const rows = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q: any) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q: any) => q.eq("conversationId", args.conversationId))
       .order("desc")
       .take(limit);
 
@@ -139,7 +201,7 @@ export const listMessagesWithProfiles = query({
     // Fetch messages (newest first) then reverse to chronological order
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q: any) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q: any) => q.eq("conversationId", args.conversationId))
       .order("desc")
       .take(limit);
 
@@ -215,10 +277,7 @@ export const sendMessage = mutation({
 
     // Create notifications for other participants if enabled in their settings
     try {
-      const participants = await ctx.db
-        .query("conversationParticipants")
-        .withIndex("by_conversation", (q: any) => q.eq("conversationId", args.conversationId))
-        .collect();
+      const participants = await getConversationParticipants(ctx, args.conversationId);
 
       // Load sender name for a nicer title if available
       const senderUser = await ctx.db
@@ -261,11 +320,27 @@ export const markRead = mutation({
     const userId = identity.subject as string;
     const now = Date.now();
 
-    const membership = await ctx.db
-      .query("conversationParticipants")
-      .withIndex("by_conversation", (q: any) => q.eq("conversationId", args.conversationId))
-      .filter((q: any) => q.eq(q.field("userId"), userId))
-      .first();
+    const all = await ctx.db.query("conversationParticipants").collect();
+    const membership = all.find((p: any) => p.conversationId === args.conversationId && p.userId === userId);
+
+    if (membership) {
+      await ctx.db.patch(membership._id, { lastReadAt: now });
+    }
+    return { ok: true } as const;
+  },
+});
+
+// Alias for UI code
+export const markAsRead = mutation({
+  args: { conversationId: v.id("conversations") },
+  handler: async (ctx: any, args: { conversationId: string }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Unauthenticated");
+    const userId = identity.subject as string;
+    const now = Date.now();
+
+    const all = await ctx.db.query("conversationParticipants").collect();
+    const membership = all.find((p: any) => p.conversationId === args.conversationId && p.userId === userId);
 
     if (membership) {
       await ctx.db.patch(membership._id, { lastReadAt: now });
@@ -419,11 +494,10 @@ export const deleteMessage = mutation({
     if (!msg) throw new Error("Message not found");
 
     // Verify membership in the conversation
-    const membership = await ctx.db
-      .query("conversationParticipants")
-      .withIndex("by_conversation", (q: any) => q.eq("conversationId", msg.conversationId))
-      .filter((q: any) => q.eq(q.field("userId"), userId))
-      .first();
+    const allParticipants = await ctx.db.query("conversationParticipants").collect();
+    const membership = allParticipants
+      .filter((p: any) => p.conversationId === msg.conversationId && p.userId === userId)
+      .at(0);
 
     if (!membership && msg.senderId !== userId) {
       throw new Error("Unauthorized");
@@ -446,13 +520,10 @@ export const deleteConversation = mutation({
     if (!convo) throw new Error("Conversation not found");
 
     // Ensure user is a participant
-    const membership = await ctx.db
-      .query("conversationParticipants")
-      .withIndex("by_conversation", (q: any) =>
-        q.eq("conversationId", args.conversationId)
-      )
-      .filter((q: any) => q.eq(q.field("userId"), userId))
-      .first();
+    const allParticipants = await ctx.db.query("conversationParticipants").collect();
+    const membership = allParticipants
+      .filter((p: any) => p.conversationId === args.conversationId && p.userId === userId)
+      .at(0);
 
     if (!membership && convo.createdBy !== userId) {
       throw new Error("Unauthorized");
@@ -461,17 +532,15 @@ export const deleteConversation = mutation({
     // Delete messages
     const msgs = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q: any) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q: any) => q.eq("conversationId", args.conversationId))
       .collect();
     for (const m of msgs) {
       await ctx.db.delete(m._id);
     }
 
     // Delete participants
-    const parts = await ctx.db
-      .query("conversationParticipants")
-      .withIndex("by_conversation", (q: any) => q.eq("conversationId", args.conversationId))
-      .collect();
+    const allParticipants2 = await ctx.db.query("conversationParticipants").collect();
+    const parts = allParticipants2.filter((p: any) => p.conversationId === args.conversationId);
     for (const p of parts) {
       await ctx.db.delete(p._id);
     }
@@ -490,10 +559,8 @@ export const deleteConversation = mutation({
 export const participantsForConversation = query({
   args: { conversationId: v.id("conversations") },
   handler: async (ctx: any, args: { conversationId: string }) => {
-    const parts = await ctx.db
-      .query("conversationParticipants")
-      .withIndex("by_conversation", (q: any) => q.eq("conversationId", args.conversationId))
-      .collect();
+    const allParticipants = await ctx.db.query("conversationParticipants").collect();
+    const parts = allParticipants.filter((p: any) => p.conversationId === args.conversationId);
 
     const users = await Promise.all(parts.map(async (p: any) => {
       const user = await ctx.db
@@ -543,7 +610,7 @@ export const listForUserEnriched = query({
       // participants (excluding current user)
       const participants = await ctx.db
         .query("conversationParticipants")
-        .withIndex("by_conversation", (q: any) => q.eq("conversationId", c._id))
+        .withIndex("by_conversationId", (q: any) => q.eq("conversationId", c._id))
         .collect();
 
       const others = participants.filter((p: any) => p.userId !== userId);
@@ -569,7 +636,7 @@ export const listForUserEnriched = query({
       // last message
       const lastMsg = await ctx.db
         .query("messages")
-        .withIndex("by_conversation", (q: any) => q.eq("conversationId", c._id))
+        .withIndex("by_conversationId", (q: any) => q.eq("conversationId", c._id))
         .order("desc")
         .first();
 
@@ -578,7 +645,7 @@ export const listForUserEnriched = query({
       const lastReadAt = mine?.lastReadAt || 0;
       const unread = await ctx.db
         .query("messages")
-        .withIndex("by_conversation", (q: any) => q.eq("conversationId", c._id))
+        .withIndex("by_conversationId", (q: any) => q.eq("conversationId", c._id))
         .filter((q: any) => q.gt(q.field("createdAt"), lastReadAt))
         .collect();
       // Filter out messages sent by current user (only count messages from others)

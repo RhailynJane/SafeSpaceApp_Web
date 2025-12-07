@@ -142,7 +142,7 @@ export async function PATCH(req, { params }) {
         
         // Get the admin/team leader who accepted the referral to determine orgId
         const adminUser = await convex.query(api.users.getByClerkId, {
-          clerkId: userId,
+          clerkId: user.id,
         });
 
         console.log("Admin user:", adminUser);
@@ -157,16 +157,16 @@ export async function PATCH(req, { params }) {
           throw new Error("Admin user has no organization");
         }
 
-        // Get the assigned user's clerk ID
+        // Get the assigned user by their clerk ID
         const assignedUser = await convex.query(api.users.getByClerkId, {
-          clerkId: userId,
+          clerkId: user.id,
           targetClerkId: body.processed_by_user_id,
         });
 
         console.log("Assigned user:", assignedUser);
 
         const clientData = {
-          clerkId: userId,
+          clerkId: user.id,
           firstName: updated.clientFirstName,
           lastName: updated.clientLastName,
           email: updated.email,

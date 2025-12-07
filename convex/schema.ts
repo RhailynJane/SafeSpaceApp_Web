@@ -226,7 +226,7 @@ export default defineSchema({
 	appointments: defineTable({
 		// === CLIENT/USER REFERENCE ===
 		userId: v.optional(v.string()), // Clerk ID (mobile user or web client user)
-		clientId: v.optional(v.id("clients")), // Web client record
+		clientId: v.optional(v.string()), // Can be either a client ID or user ID (since clients list merges both)
 		
 		// === SUPPORT WORKER ===
 		supportWorkerId: v.optional(v.string()), // Clerk ID of support worker
@@ -446,6 +446,31 @@ export default defineSchema({
 	})
 		.index("by_resourceId", ["resourceId"])
 		.index("by_userId", ["userId"]),
+
+	// Safety Indicators - Track dangerous mental health patterns
+	safetyIndicators: defineTable({
+		clientId: v.optional(v.string()), // Clerk ID of client
+		source: v.string(), // 'mood_tracking' | 'journaling' | 'community_forum' | 'crisis_access'
+		indicatorType: v.string(), // 'severe_distress' | 'self_harm_mention' | 'suicidal_ideation' | 'dangerous_content' | 'crisis_resource_accessed'
+		severity: v.string(), // 'low' | 'medium' | 'high' | 'critical'
+		description: v.optional(v.string()), // Brief description of indicator
+		relatedData: v.optional(v.string()), // JSON with relevant context (e.g., mood entry ID, journal entry ID, forum post ID)
+		
+		reviewedBy: v.optional(v.string()), // Clerk ID of team leader/admin who reviewed
+		reviewedAt: v.optional(v.number()),
+		reviewNotes: v.optional(v.string()),
+		actionTaken: v.optional(v.string()), // e.g., 'contacted_client' | 'escalated' | 'monitored' | 'closed'
+		
+		orgId: v.optional(v.string()),
+		createdAt: v.number(),
+		updatedAt: v.number(),
+	})
+		.index("by_clientId", ["clientId"])
+		.index("by_source", ["source"])
+		.index("by_severity", ["severity"])
+		.index("by_createdAt", ["createdAt"])
+		.index("by_orgId", ["orgId"])
+		.index("by_client_and_severity", ["clientId", "severity"]),
 
 	// ============================================
 	// UNIFIED NOTIFICATIONS (Mobile + Web)

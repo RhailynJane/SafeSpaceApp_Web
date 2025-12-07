@@ -61,6 +61,10 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
   const [clients, setClients] = useState([]);
   const [notes, setNotes] = useState([]);
   const [crisisEvents, setCrisisEvents] = useState([]);
+  const [crisisStats, setCrisisStats] = useState(null);
+  const [crisisEventLog, setCrisisEventLog] = useState([]);
+  const [safetyStats, setSafetyStats] = useState(null);
+  const [highRiskClients, setHighRiskClients] = useState([]);
   const [schedule, setSchedule] = useState([]);
   const [assignableUsers, setAssignableUsers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
@@ -163,6 +167,11 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       if (crisisRes.ok) {
         const crisisData = await crisisRes.json();
         setCrisisEvents(Array.isArray(crisisData) ? crisisData : []);
+        // Handle new crisis data structure
+        if (crisisData?.crisisStats) setCrisisStats(crisisData.crisisStats);
+        if (crisisData?.eventLog) setCrisisEventLog(crisisData.eventLog);
+        if (crisisData?.safetyStats) setSafetyStats(crisisData.safetyStats);
+        if (crisisData?.highRiskClients) setHighRiskClients(crisisData.highRiskClients);
       } else {
       }
 
@@ -244,7 +253,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       address: c.address || "",
       status: (c.status || "active").replace(/^[a-z]/, (m) => m.toUpperCase()),
       risk_level: (c.riskLevel || "low").replace(/^[a-z]/, (m) => m.toUpperCase()),
-      last_session_date: c.lastSessionDate ? new Date(c.lastSessionDate).toISOString() : new Date(c.createdAt).toISOString(),
+      last_session_date: c.lastSessionDate
+        ? new Date(c.lastSessionDate).toISOString()
+        : c.createdAt
+          ? new Date(c.createdAt).toISOString()
+          : c._creationTime
+            ? new Date(c._creationTime).toISOString()
+            : "",
       // Additional personal information
       age: c.age || "",
       date_of_birth: c.dateOfBirth || "",
@@ -309,45 +324,25 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     
     console.log("📅 Mapped appointments:", allAppts);
     
-    // Update schedule state with all appointments from Convex
-    setSchedule(allAppts);
-  }, [convexAllAppts, convexClients]);
+    // Update schedule state with all appointments from Convex - only if data changed
+    setSchedule((prev) => {
+      try {
+        if (JSON.stringify(prev) === JSON.stringify(allAppts)) return prev;
+      } catch {
+        // Ignore stringify errors
+      }
+      return allAppts;
+    });
+  }, [convexAllAppts?.length, convexClients?.length]);
 
   useEffect(() => {
     if (!convexNotes || !convexClients) return;
     
     console.log("📝 Convex notes received:", convexNotes.length);
     
-    // Map notes
+    // Map notes - do not depend on assignableUsers to avoid render loop
     const mappedNotes = convexNotes.map((n) => {
       const found = convexClients.find(c => c._id === n.clientId);
-      
-      // Enhanced author resolution with multiple matching strategies
-      let authorUser = null;
-      if (assignableUsers && assignableUsers.length > 0) {
-        // Try multiple matching strategies
-        authorUser = assignableUsers.find(u => 
-          u.clerkId === n.authorUserId || 
-          u._id === n.authorUserId ||
-          u.id === n.authorUserId
-        );
-        
-        // If still not found, try case-insensitive email match
-        if (!authorUser && n.authorUserId && n.authorUserId.includes('@')) {
-          authorUser = assignableUsers.find(u => 
-            u.email && u.email.toLowerCase() === n.authorUserId.toLowerCase()
-          );
-        }
-      }
-      
-      // Debug logging for troubleshooting
-      if (!authorUser && n.authorUserId) {
-        console.log('🔍 Author not found for note:', {
-          noteId: n._id,
-          authorUserId: n.authorUserId,
-          availableUsers: assignableUsers?.map(u => ({ id: u._id, clerkId: u.clerkId, email: u.email, name: `${u.firstName || u.first_name} ${u.lastName || u.last_name}` }))
-        });
-      }
       
       return {
         id: n._id,
@@ -363,19 +358,23 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         risk_assessment: n.riskAssessment || "",
         next_steps: n.nextSteps || "",
         activities: n.activities || [],
-        // Author information for reports
         author_user_id: n.authorUserId,
-        author_name: authorUser ? 
-          `${authorUser.firstName || authorUser.first_name || ''} ${authorUser.lastName || authorUser.last_name || ''}`.trim() :
-          (n.authorUserId ? `User (${n.authorUserId.substring(0, 8)}...)` : 'Unknown Author'),
+        author_name: n.authorUserId ? `User (${n.authorUserId.substring(0, 8)}...)` : 'Unknown Author',
       };
     });
     
     console.log("📝 Mapped notes:", mappedNotes);
     
-    // Always update notes with fresh data from Convex
-    setNotes(mappedNotes);
-  }, [convexNotes, convexClients, assignableUsers]);
+    // Update notes - only if data actually changed
+    setNotes((prev) => {
+      try {
+        if (JSON.stringify(prev) === JSON.stringify(mappedNotes)) return prev;
+      } catch {
+        // Ignore stringify errors
+      }
+      return mappedNotes;
+    });
+  }, [convexNotes?.length, convexClients?.length]);
 
   const handleAddAppointment = (newAppointment) => {
     console.log("✅ Appointment added successfully:", newAppointment);
@@ -458,6 +457,36 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
 
   const handleDeleteNote = async (noteId) => {
     openModal('deleteNote', { _id: noteId });
+  };
+
+  // Track crisis calls and resource access
+  const handleCrisisResourceClick = async (resourceTitle, resourceNumber, action = 'call') => {
+    try {
+      const response = await fetch('/api/crisis-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'trackResourceAccess',
+          resourceTitle,
+          resourceNumber,
+          action,
+        }),
+      });
+      
+      if (response.ok) {
+        console.log(`Crisis resource accessed: ${resourceTitle} (${action})`);
+        // Trigger a re-fetch of crisis stats
+        const crisisRes = await fetch('/api/crisis-events');
+        if (crisisRes.ok) {
+          const crisisData = await crisisRes.json();
+          if (crisisData?.crisisStats) setCrisisStats(crisisData.crisisStats);
+          if (crisisData?.eventLog) setCrisisEventLog(crisisData.eventLog);
+          if (crisisData?.safetyStats) setSafetyStats(crisisData.safetyStats);
+        }
+      }
+    } catch (error) {
+      console.error('Error tracking crisis resource:', error);
+    }
   };
 
   const confirmDeleteNote = async () => {
@@ -1495,7 +1524,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   <div key={note.id} className="border border-border rounded-lg p-4 bg-card">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium text-card-foreground">{note.client.client_first_name} {note.client.client_last_name}</h4>
-                      <span className="text-sm text-muted-foreground">{new Date(note.note_date).toLocaleDateString()}</span>
+                      <span className="text-sm text-muted-foreground">{new Date(note.note_date + 'T00:00:00').toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center gap-4 mb-2">
                       <p className="text-sm text-muted-foreground">{note.session_type}</p>
@@ -1588,8 +1617,36 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                       <Calendar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Crisis Events</p>
-                      <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{crisisEvents.length}</p>
+                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Crisis Accessed</p>
+                      <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{crisisStats?.totalCrisisAccessed || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-950/30">
+                <CardContent className="p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-full">
+                      <Phone className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-purple-800 dark:text-purple-200">Calls Made</p>
+                      <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{crisisStats?.callsCount || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30">
+                <CardContent className="p-6">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded-full">
+                      <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Safety Alerts</p>
+                      <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{safetyStats?.totalIndicators || 0}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -1606,14 +1663,20 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => window.open('tel:911')}>
+                  <Button className="bg-red-600 hover:bg-red-700 h-16" onClick={() => {
+                    handleCrisisResourceClick('Emergency Services', '911', 'call');
+                    window.open('tel:911');
+                  }}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Emergency Services</div>
                       <div className="text-xs">911</div>
                     </div>
                   </Button>
-                  <Button variant="outline" className="border-red-300 h-16 bg-transparent dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20" onClick={() => window.open('tel:988')}>
+                  <Button variant="outline" className="border-red-300 h-16 bg-transparent dark:border-red-700 dark:text-red-200 dark:hover:bg-red-900/20" onClick={() => {
+                    handleCrisisResourceClick('Crisis Hotline', '988', 'call');
+                    window.open('tel:988');
+                  }}>
                     <div className="text-center">
                       <Phone className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-sm">Crisis Hotline</div>
@@ -1772,6 +1835,126 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                         </div>
                       );
                     })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Safety Indicators - Dangerous Patterns */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Safety Stats Summary */}
+              <Card className="border-yellow-200 dark:border-yellow-800">
+                <CardHeader>
+                  <CardTitle className="text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Dangerous Patterns Detected
+                  </CardTitle>
+                  <CardDescription className="dark:text-gray-400">Safety alerts from mood tracking, journaling, and community forum</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                      <div className="text-sm font-medium text-red-800 dark:text-red-200">Critical</div>
+                      <div className="text-2xl font-bold text-red-900 dark:text-red-100">{safetyStats?.criticalCount || 0}</div>
+                    </div>
+                    <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-800">
+                      <div className="text-sm font-medium text-orange-800 dark:text-orange-200">High Risk</div>
+                      <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">{safetyStats?.highCount || 0}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-yellow-200 dark:border-yellow-800">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Detection Sources</p>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Mood Tracking</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{safetyStats?.moodTrackingCount || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Journaling</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{safetyStats?.journalingCount || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Community Forum</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{safetyStats?.communityForumCount || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600 dark:text-gray-400">Crisis Access</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100">{safetyStats?.crisisAccessCount || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* High Risk Clients */}
+              <Card className="border-red-200 dark:border-red-800">
+                <CardHeader>
+                  <CardTitle className="text-red-800 dark:text-red-200 flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5" />
+                    Clients Requiring Attention
+                  </CardTitle>
+                  <CardDescription className="dark:text-gray-400">Clients with critical or high-risk safety indicators</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-64">
+                    <div className="space-y-3">
+                      {highRiskClients && highRiskClients.length > 0 ? (
+                        highRiskClients.slice(0, 10).map((client, idx) => {
+                          const clientInfo = clients.find(c => c.id === client.clientId || c.clerkId === client.clientId);
+                          return (
+                            <div key={idx} className="border border-red-200 rounded-lg p-3 bg-red-50 dark:border-red-800 dark:bg-red-950/20">
+                              <div className="flex items-start justify-between mb-2">
+                                <h4 className="font-medium text-red-900 dark:text-red-100">
+                                  {clientInfo ? `${clientInfo.client_first_name} ${clientInfo.client_last_name}` : client.clientId}
+                                </h4>
+                                <Badge variant="destructive" className="text-xs">{client.indicatorCount} alerts</Badge>
+                              </div>
+                              <div className="text-xs text-red-700 dark:text-red-300 space-y-1">
+                                {client.types?.slice(0, 2).map((type, i) => (
+                                  <div key={i}>• {type}</div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                          <CheckCircle className="h-12 w-12 mx-auto mb-2 text-green-500 dark:text-green-400" />
+                          <p>No high-risk clients at this time</p>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Safety Indicators */}
+            {crisisEventLog && crisisEventLog.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Phone className="h-5 w-5" />
+                    Crisis Resource Access Log
+                  </CardTitle>
+                  <CardDescription>Recent crisis hotline and emergency resource usage (last 30 days)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {crisisEventLog.slice(0, 10).map((event, idx) => (
+                      <div key={idx} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-800/50 dark:border-gray-700 text-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{event.resourceTitle}</span>
+                          <Badge className={
+                            event.action === 'call' ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200' :
+                            event.action === 'visit' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200' :
+                            'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                          }>{event.action.charAt(0).toUpperCase() + event.action.slice(1)}</Badge>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 text-xs">{new Date(event.createdAt).toLocaleDateString()} at {new Date(event.createdAt).toLocaleTimeString()}</p>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
