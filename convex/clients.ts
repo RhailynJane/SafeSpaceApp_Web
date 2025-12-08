@@ -961,13 +961,14 @@ export const getClientDetailedLogs = query({
 
     let allActivities: any[] = [];
 
-    // Fetch moods
+    // Fetch moods - ONLY shared with support worker
     if (activityType === "all" || activityType === "moods") {
       const moods = await ctx.db
         .query("moods")
         .filter((q) => 
           q.and(
             q.eq(q.field("userId"), clientUserId),
+            q.eq(q.field("shareWithSupportWorker"), true),
             q.gte(q.field("createdAt"), defaultStart),
             q.lte(q.field("createdAt"), defaultEnd)
           )
@@ -988,9 +989,31 @@ export const getClientDetailedLogs = query({
       })));
     }
 
-    // Fetch journals (when implemented)
+    // Fetch journals - ONLY shared with support worker
     if (activityType === "all" || activityType === "journals") {
-      // Placeholder for journals - will be implemented
+      const journals = await ctx.db
+        .query("journalEntries")
+        .filter((q) => 
+          q.and(
+            q.eq(q.field("clerkId"), clientUserId),
+            q.eq(q.field("shareWithSupportWorker"), true),
+            q.gte(q.field("createdAt"), defaultStart),
+            q.lte(q.field("createdAt"), defaultEnd)
+          )
+        )
+        .collect();
+
+      allActivities.push(...journals.map(j => ({
+        _id: j._id,
+        type: "journal" as const,
+        title: j.title,
+        content: j.content,
+        emotionType: j.emotionType,
+        tags: j.tags,
+        shareWithSupportWorker: j.shareWithSupportWorker,
+        createdAt: j.createdAt,
+        emoji: j.emoji,
+      })));
     }
 
     // Fetch crisis calls
