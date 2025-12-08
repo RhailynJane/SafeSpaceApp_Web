@@ -51,6 +51,7 @@ import type * as storage from "../storage.js";
 import type * as supportWorkers from "../supportWorkers.js";
 import type * as systemAlerts from "../systemAlerts.js";
 import type * as systemHealth from "../systemHealth.js";
+import type * as twilio from "../twilio.js";
 import type * as users from "../users.js";
 import type * as videoCallSessions from "../videoCallSessions.js";
 
@@ -104,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   supportWorkers: typeof supportWorkers;
   systemAlerts: typeof systemAlerts;
   systemHealth: typeof systemHealth;
+  twilio: typeof twilio;
   users: typeof users;
   videoCallSessions: typeof videoCallSessions;
 }>;

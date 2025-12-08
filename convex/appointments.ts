@@ -144,6 +144,29 @@ export const create = mutation({
       }
     }
 
+    // Prevent duplicate bookings for the same client at the same date/time
+    const userIdForDupCheck = clientClerkId
+      ?? (typeof args.clientDbId === "string" ? args.clientDbId : null)
+      ?? (typeof args.clientId === "string" ? args.clientId : null);
+
+    if (userIdForDupCheck && appointmentDate && appointmentTime) {
+      const sameDay = await ctx.db
+        .query("appointments")
+        .withIndex("by_user_and_date", iq => iq.eq("userId", userIdForDupCheck).eq("appointmentDate", appointmentDate))
+        .collect();
+
+      const conflict = sameDay.find(a =>
+        (a.appointmentTime || a.time) === appointmentTime &&
+        a.status !== "cancelled" &&
+        a.status !== "completed"
+      );
+
+      if (conflict) {
+        // Keep message generic for clients
+        throw new Error("This time slot is unavailable. Please choose another.");
+      }
+    }
+
     const now = Date.now();
 
     const appointmentId = await ctx.db.insert("appointments", {
@@ -182,6 +205,27 @@ export const create = mutation({
       details: JSON.stringify({ orgId, assignedWorkerClerkId, appointmentDate, appointmentTime, type: args.type }),
       timestamp: now,
     });
+
+    // Record appointment_created activity for the client
+    if (clientClerkId) {
+      try {
+        await ctx.db.insert("activities", {
+          userId: clientClerkId,
+          activityType: "appointment_created",
+          metadata: {
+            appointmentId,
+            appointmentDate,
+            appointmentTime,
+            type: args.type,
+            supportWorkerId: assignedWorkerClerkId,
+            timestamp: now,
+          },
+          createdAt: now,
+        });
+      } catch (e) {
+        console.error("Failed to record appointment_created activity:", e);
+      }
+    }
 
     return appointmentId;
   },
@@ -256,6 +300,23 @@ export const createAppointment = mutation({
         console.log("Could not check worker availability:", e);
       }
     }
+
+    // Prevent duplicate bookings for the same client at the same date/time
+    const sameDay = await ctx.db
+      .query("appointments")
+      .withIndex("by_user_and_date", (q) => q.eq("userId", args.userId).eq("appointmentDate", args.date))
+      .collect();
+
+    const conflict = sameDay.find((a) =>
+      (a.appointmentTime || a.time) === args.time &&
+      a.status !== "cancelled" &&
+      a.status !== "completed"
+    );
+
+    if (conflict) {
+      // Keep message generic for clients
+      throw new Error("This time slot is unavailable. Please choose another.");
+    }
     
     const appointmentId = await ctx.db.insert("appointments", {
       // Client linking - store both userId and clientId for compatibility
@@ -281,6 +342,25 @@ export const createAppointment = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Record appointment_created activity for the client
+    try {
+      await ctx.db.insert("activities", {
+        userId: args.userId,
+        activityType: "appointment_created",
+        metadata: {
+          appointmentId,
+          appointmentDate: args.date,
+          appointmentTime: args.time,
+          type: args.type,
+          supportWorkerId: supportWorkerClerkId,
+          timestamp: now,
+        },
+        createdAt: now,
+      });
+    } catch (e) {
+      console.error("Failed to record appointment_created activity:", e);
+    }
 
     return { id: appointmentId };
   },
@@ -318,32 +398,66 @@ export const listByDate = query({
     // Filter out cancelled appointments
     items = items.filter(a => a.status !== "cancelled");
 
-    // Enrich with client names if available
     const withNames = await Promise.all(
       items.map(async (a) => {
         let clientName: string | undefined = undefined;
-        if (a.clientId) {
-          const client = await ctx.db
-            .query("clients")
-            .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
-            .collect();
-          const found = client.find((c) => c._id === (a as any).clientId);
-          if (found) clientName = `${found.firstName || ""} ${found.lastName || ""}`.trim();
+        const idToLookup = a.clientId || (a as any).userId;
+
+        // Primary: users by Clerk ID (mobile users)
+        if (typeof idToLookup === "string" && idToLookup.startsWith("user_")) {
+          const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (iq) => iq.eq("clerkId", idToLookup))
+            .first();
+          if (user) {
+            const name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+            clientName = name || undefined;
+          }
+
+          // Fallback: clients in same org by clerkId/email
+          if (!clientName) {
+            const clients = await ctx.db
+              .query("clients")
+              .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
+              .collect();
+            const byClerk = clients.find((c) => c.clerkId === idToLookup);
+            if (byClerk) {
+              const name = `${byClerk.firstName || ""} ${byClerk.lastName || ""}`.trim();
+              clientName = name || undefined;
+            } else if (user?.email) {
+              const byEmail = clients.find((c) => c.email === user.email);
+              if (byEmail) {
+                const name = `${byEmail.firstName || ""} ${byEmail.lastName || ""}`.trim();
+                clientName = name || undefined;
+              }
+            }
+          }
         }
+
+        // Secondary: direct clients doc by ID when not a Clerk ID
+        if (!clientName && typeof idToLookup === "string" && !idToLookup.startsWith("user_")) {
+          try {
+            const doc = await ctx.db.get(idToLookup as any);
+            if (doc && "firstName" in doc) {
+              const d: any = doc;
+              const name = `${d.firstName || ""} ${d.lastName || ""}`.trim();
+              clientName = name || undefined;
+            }
+          } catch (_e) {
+            // ignore
+          }
+        }
+
         return { ...a, clientName };
       })
     );
 
-    if (orgId) {
-      return withNames.filter(a => a.orgId === orgId);
-    }
     return withNames;
   },
 });
 
 /**
  * Query to list all appointments for an organization (no date filter)
- * Useful for modals that need to show complete appointment history
  */
 export const list = query({
   args: {
@@ -351,12 +465,9 @@ export const list = query({
     orgId: v.optional(v.string()),
   },
   handler: async (ctx, { clerkId, orgId }) => {
-    // Viewing appointments is permitted broadly among staff
     await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_APPOINTMENTS);
 
     let items = await ctx.db.query("appointments").collect();
-
-    // Filter by org if provided
     if (orgId) {
       items = items.filter(a => a.orgId === orgId);
     }
@@ -364,68 +475,53 @@ export const list = query({
     // Exclude cancelled appointments
     items = items.filter(a => a.status !== "cancelled");
 
-    // Enrich with client names if available
     const withNames = await Promise.all(
       items.map(async (a) => {
         let clientName: string | undefined = undefined;
-        const idToLookup = a.clientId || (a as any).userId; // Use userId as fallback
-        
-        if (idToLookup) {
-          let client: any = null;
-          
-          // Try to find client by database ID first (only if it looks like a valid ID)
-          if (typeof idToLookup === 'string' && !idToLookup.startsWith('user_')) {
-            try {
-              const doc = await ctx.db.get(idToLookup as any);
-              if (doc && 'firstName' in doc) {
-                client = doc;
+        const idToLookup = a.clientId || (a as any).userId;
+
+        if (typeof idToLookup === "string" && idToLookup.startsWith("user_")) {
+          const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (iq) => iq.eq("clerkId", idToLookup))
+            .first();
+          if (user) {
+            const name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+            clientName = name || undefined;
+          }
+
+          if (!clientName) {
+            const clients = await ctx.db
+              .query("clients")
+              .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
+              .collect();
+            const byClerk = clients.find((c) => c.clerkId === idToLookup);
+            if (byClerk) {
+              const name = `${byClerk.firstName || ""} ${byClerk.lastName || ""}`.trim();
+              clientName = name || undefined;
+            } else if (user?.email) {
+              const byEmail = clients.find((c) => c.email === user.email);
+              if (byEmail) {
+                const name = `${byEmail.firstName || ""} ${byEmail.lastName || ""}`.trim();
+                clientName = name || undefined;
               }
-            } catch (e) {
-              // Invalid ID format, continue to next method
             }
-          }
-          
-          // If not found and ID looks like a Clerk ID, try looking up by clerkId
-          if (!client && typeof idToLookup === 'string' && idToLookup.startsWith('user_')) {
-            try {
-              const clients = await ctx.db
-                .query("clients")
-                .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
-                .collect();
-              // Try matching by clerkId field
-              client = clients.find((c) => c.clerkId === idToLookup);
-              // If still not found, try by email lookup
-              if (!client) {
-                const users = await ctx.db
-                  .query("users")
-                  .withIndex("by_clerkId", (iq) => iq.eq("clerkId", idToLookup))
-                  .first();
-                if (users?.email) {
-                  client = clients.find((c) => c.email === users.email);
-                }
-              }
-            } catch (e) {
-              // Continue if lookup fails
-            }
-          }
-          
-          // Also try looking up by database ID if we still don't have it
-          if (!client && a.orgId) {
-            try {
-              const clients = await ctx.db
-                .query("clients")
-                .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId))
-                .collect();
-              client = clients.find((c) => c._id === idToLookup as any);
-            } catch (e) {
-              // Continue if lookup fails
-            }
-          }
-          
-          if (client && 'firstName' in client) {
-            clientName = `${client.firstName || ""} ${client.lastName || ""}`.trim();
           }
         }
+
+        if (!clientName && typeof idToLookup === "string" && !idToLookup.startsWith("user_")) {
+          try {
+            const doc = await ctx.db.get(idToLookup as any);
+            if (doc && "firstName" in doc) {
+              const d: any = doc;
+              const name = `${d.firstName || ""} ${d.lastName || ""}`.trim();
+              clientName = name || undefined;
+            }
+          } catch (_e) {
+            // ignore
+          }
+        }
+
         return { ...a, clientName };
       })
     );
@@ -518,41 +614,36 @@ export const getPastAppointments = query({
     limit: v.optional(v.number())
   },
   handler: async (ctx, { userId, limit = 50 }) => {
-    // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
-    
-    // Get appointments with past dates (before today)
+
+    // Past dates
     const pastDates = await ctx.db
       .query("appointments")
-      .withIndex("by_user_and_date", (q) => 
-        q.eq("userId", userId).lt("appointmentDate", today)
-      )
+      .withIndex("by_user_and_date", (q) => q.eq("userId", userId).lt("appointmentDate", today))
       .collect();
-    
-    // Get appointments with completed/cancelled/no_show status (regardless of date)
+
+    // Completed/cancelled/no_show regardless of date
     const completedStatuses = await ctx.db
       .query("appointments")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .filter((q) => 
+      .filter((q) =>
         q.or(
           q.eq(q.field("status"), "completed"),
           q.eq(q.field("status"), "cancelled"),
-          q.eq(q.field("status"), "no_show")
+          q.eq(q.field("status"), "no_show"),
         )
       )
       .collect();
-    
-    // Combine and deduplicate
+
     const combined = [...pastDates, ...completedStatuses];
     const uniqueMap = new Map(combined.map(apt => [apt._id, apt]));
     const unique = Array.from(uniqueMap.values());
-    
-    // Sort by date then time (descending)
+
     const sorted = unique
       .sort((a, b) => {
-        const dateCompare = b.appointmentDate.localeCompare(a.appointmentDate);
+        const dateCompare = (b.appointmentDate || b.date || '').localeCompare(a.appointmentDate || a.date || '');
         if (dateCompare !== 0) return dateCompare;
-        return (b.appointmentTime || "").localeCompare(a.appointmentTime || "");
+        return (b.appointmentTime || b.time || '').localeCompare(a.appointmentTime || a.time || '');
       })
       .slice(0, limit);
 
@@ -561,7 +652,7 @@ export const getPastAppointments = query({
 });
 
 /**
- * Get appointment statistics for a user (mobile app)
+ * Get appointment statistics
  */
 export const getAppointmentStats = query({
   args: { userId: v.string() },
@@ -571,20 +662,19 @@ export const getAppointmentStats = query({
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .collect();
 
-    const today = new Date().toISOString().split('T')[0];
-    
-    const upcoming = appointments.filter(apt => 
-      (apt.status === "scheduled" || apt.status === "confirmed") && 
-      apt.appointmentDate >= today
+    const today = new Date().toISOString().split('T')[0]!;
+
+    const upcoming = appointments.filter(apt =>
+      (apt.status === "scheduled" || apt.status === "confirmed") &&
+      (apt.appointmentDate || apt.date || '') >= today
     );
     const completed = appointments.filter(apt => apt.status === "completed");
     const cancelled = appointments.filter(apt => apt.status === "cancelled");
 
-    // Find next appointment
     const sortedUpcoming = upcoming.sort((a, b) => {
-      const dateCompare = a.appointmentDate.localeCompare(b.appointmentDate);
+      const dateCompare = (a.appointmentDate || a.date || '').localeCompare(b.appointmentDate || b.date || '');
       if (dateCompare !== 0) return dateCompare;
-      return (a.appointmentTime || "").localeCompare(b.appointmentTime || "");
+      return (a.appointmentTime || a.time || '').localeCompare(b.appointmentTime || b.time || '');
     });
 
     return {

@@ -225,17 +225,13 @@ export const getOrganizationMetrics = query({
     // Count users per organization
     const orgMetrics = await Promise.all(
       organizations.map(async (org) => {
-        // Count users from users table
-        const orgUsers = users.filter((u) => u.orgId === org.slug);
+        // Users table is the source of truth for active/total users
+        const orgUsers = users.filter((u) => u.orgId === org.slug && u.status !== "deleted");
         const activeOrgUsers = orgUsers.filter((u) => u.status === "active");
-        
-        // Count clients from clients table
-        const orgClients = clients.filter((c) => c.orgId === org.slug && c.status !== "deleted");
-        const activeOrgClients = orgClients.filter((c) => c.status === "active");
-        
-        // Total = users + clients
-        const totalUsers = orgUsers.length + orgClients.length;
-        const activeUsers = activeOrgUsers.length + activeOrgClients.length;
+
+        // Total/active users exclude clients to avoid double counting
+        const totalUsers = orgUsers.length;
+        const activeUsers = activeOrgUsers.length;
 
         // Get recent audit logs for this org
         const recentActivity = await ctx.db
@@ -247,8 +243,8 @@ export const getOrganizationMetrics = query({
         return {
           orgId: org._id,
           orgName: org.name,
-          totalUsers: totalUsers,
-          activeUsers: activeUsers,
+          totalUsers,
+          activeUsers,
           recentActivityCount: recentActivity.length,
           status: org.status,
         };

@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import TimePickerDialog from './TimePickerDialog';
 
 // Import Dialog components from a UI library (likely Shadcn UI based on component names)
 import {
@@ -73,6 +74,8 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
 
   // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
+  // State for time picker dialog visibility
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
   // State for appointment time
   const [appointment_time, setAppointmentTime] = useState("");
   // State for the selected client's ID
@@ -341,14 +344,14 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 Time
               </Label>
-              <Input
-                id="time"
-                type="time"
-                value={appointment_time}
-                onChange={(e) => setAppointmentTime(e.target.value)}
-                required
-                className="h-11"
-              />
+              <Button
+                type="button"
+                onClick={() => setTimePickerOpen(true)}
+                variant="outline"
+                className="w-full h-11 justify-start text-left font-normal"
+              >
+                {appointment_time || 'Select time'}
+              </Button>
             </div>
           </div>
 
@@ -440,6 +443,14 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
           </div>
         </form>
       </DialogContent>
+
+      {/* Time Picker Dialog */}
+      <TimePickerDialog
+        open={timePickerOpen}
+        onOpenChange={setTimePickerOpen}
+        value={appointment_time}
+        onSelect={setAppointmentTime}
+      />
     </Dialog>
   );
 }

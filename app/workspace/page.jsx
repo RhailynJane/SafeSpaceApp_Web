@@ -315,13 +315,23 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       const found = convexClients.find(c => c._id === a.clientId);
       let first = "";
       let last = "";
+
       if (found) {
         first = found.firstName || "";
         last = found.lastName || "";
-      } else if (a.clientName) {
-        const parts = String(a.clientName).trim().split(" ");
-        first = parts[0] || "";
-        last = parts.slice(1).join(" ") || "";
+      } else {
+        // If this is a user-based appointment (mobile), try assignable users by clerkId
+        const workerMatch = Array.isArray(assignableUsers)
+          ? assignableUsers.find(u => u.clerkId === a.clientId)
+          : null;
+        if (workerMatch) {
+          first = workerMatch.first_name || "";
+          last = workerMatch.last_name || "";
+        } else if (a.clientName) {
+          const parts = String(a.clientName).trim().split(" ");
+          first = parts[0] || "";
+          last = parts.slice(1).join(" ") || "";
+        }
       }
       return {
         id: a._id,
