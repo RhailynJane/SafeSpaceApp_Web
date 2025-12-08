@@ -825,3 +825,477 @@ export const getSupportWorkerLoad = query({
     return workerLoads.sort((a, b) => a.clientCount - b.clientCount);
   },
 });
+
+/**
+ * Get client statistics (mood shared, journal shared, crisis calls)
+ * Returns counts for each client with recent activity data
+ */
+export const getClientStatistics = query({
+  args: {
+    clerkId: v.string(),
+    orgId: v.string(),
+  },
+  handler: async (ctx, { clerkId, orgId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    // Get all clients in this organization
+    const clientsFromClientsTable = await ctx.db
+      .query("clients")
+      .filter((q) => q.eq(q.field("orgId"), orgId))
+      .collect();
+
+    const clientsFromUsersTable = await ctx.db
+      .query("users")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("roleId"), "client"),
+          q.eq(q.field("orgId"), orgId)
+        )
+      )
+      .collect();
+
+    // Get all client clerkIds
+    const allClientIds = [
+      ...clientsFromClientsTable.map(c => c.clerkId).filter(Boolean),
+      ...clientsFromUsersTable.map(c => c.clerkId)
+    ];
+
+    // Get statistics for each client
+    const stats = await Promise.all(
+      allClientIds.map(async (userId) => {
+        // Count moods shared with support worker
+        const moodsShared = await ctx.db
+          .query("moods")
+          .filter((q) => 
+            q.and(
+              q.eq(q.field("userId"), userId),
+              q.eq(q.field("shareWithSupportWorker"), true)
+            )
+          )
+          .collect();
+
+        // Count journals shared with support worker
+        // Note: Journal functionality to be implemented
+        const journalsShared: any[] = [];
+
+        // Count crisis calls (check activities table for crisis-related activities)
+        const crisisCalls = await ctx.db
+          .query("activities")
+          .filter((q) => 
+            q.and(
+              q.eq(q.field("userId"), userId),
+              q.eq(q.field("activityType"), "crisis_support")
+            )
+          )
+          .collect();
+
+        // Get client info
+        let clientInfo = clientsFromClientsTable.find(c => c.clerkId === userId);
+        if (!clientInfo) {
+          const userRecord = clientsFromUsersTable.find(u => u.clerkId === userId);
+          if (userRecord) {
+            clientInfo = {
+              _id: userRecord._id as any,
+              _creationTime: userRecord._creationTime,
+              clerkId: userRecord.clerkId,
+              firstName: userRecord.firstName,
+              lastName: userRecord.lastName,
+              email: userRecord.email,
+              assignedUserId: userRecord.assignedUserId,
+              createdAt: userRecord.createdAt,
+              updatedAt: userRecord.updatedAt,
+            } as any;
+          }
+        }
+
+        if (!clientInfo) return null;
+
+        return {
+          clientId: userId,
+          _id: clientInfo._id,
+          firstName: clientInfo.firstName || "Unknown",
+          lastName: clientInfo.lastName || "",
+          email: clientInfo.email,
+          assignedUserId: clientInfo.assignedUserId,
+          moodSharedCount: moodsShared.length,
+          journalSharedCount: journalsShared.length,
+          crisisCallCount: crisisCalls.length,
+          totalSharedCount: moodsShared.length + journalsShared.length,
+          // Get recent moods for risk analysis
+          recentMoods: moodsShared.slice(-5).map(m => ({
+            type: m.moodType,
+            intensity: m.intensity,
+            createdAt: m.createdAt,
+            notes: m.notes,
+          })),
+          // Get recent journals for risk analysis
+          recentJournals: [],  // To be implemented when journals table is added
+        };
+      })
+    );
+
+    return stats.filter(Boolean);
+  },
+});
+
+/**
+ * Get detailed activity logs for a specific client (for Analytics "View More")
+ * Includes all moods, journals, and crisis calls with filtering options
+ */
+export const getClientDetailedLogs = query({
+  args: {
+    clerkId: v.string(),
+    clientUserId: v.string(), // The client's clerkId
+    startDate: v.optional(v.number()), // Unix timestamp
+    endDate: v.optional(v.number()), // Unix timestamp
+    activityType: v.optional(v.string()), // "moods" | "journals" | "crisis" | "all"
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, { clerkId, clientUserId, startDate, endDate, activityType = "all", limit = 50, offset = 0 }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const now = Date.now();
+    const defaultStart = startDate || (now - 90 * 24 * 60 * 60 * 1000); // Last 90 days
+    const defaultEnd = endDate || now;
+
+    let allActivities: any[] = [];
+
+    // Fetch moods
+    if (activityType === "all" || activityType === "moods") {
+      const moods = await ctx.db
+        .query("moods")
+        .filter((q) => 
+          q.and(
+            q.eq(q.field("userId"), clientUserId),
+            q.gte(q.field("createdAt"), defaultStart),
+            q.lte(q.field("createdAt"), defaultEnd)
+          )
+        )
+        .collect();
+
+      allActivities.push(...moods.map(m => ({
+        _id: m._id,
+        type: "mood" as const,
+        moodType: m.moodType,
+        intensity: m.intensity,
+        notes: m.notes,
+        factors: m.factors,
+        shareWithSupportWorker: m.shareWithSupportWorker,
+        createdAt: m.createdAt,
+        emoji: m.moodEmoji,
+        label: m.moodLabel,
+      })));
+    }
+
+    // Fetch journals (when implemented)
+    if (activityType === "all" || activityType === "journals") {
+      // Placeholder for journals - will be implemented
+    }
+
+    // Fetch crisis calls
+    if (activityType === "all" || activityType === "crisis") {
+      const crisisCalls = await ctx.db
+        .query("activities")
+        .filter((q) => 
+          q.and(
+            q.eq(q.field("userId"), clientUserId),
+            q.eq(q.field("activityType"), "crisis_support"),
+            q.gte(q.field("createdAt"), defaultStart),
+            q.lte(q.field("createdAt"), defaultEnd)
+          )
+        )
+        .collect();
+
+      allActivities.push(...crisisCalls.map(c => ({
+        _id: c._id,
+        type: "crisis" as const,
+        metadata: c.metadata,
+        createdAt: c.createdAt,
+      })));
+    }
+
+    // Sort by date descending
+    allActivities.sort((a, b) => b.createdAt - a.createdAt);
+
+    // Paginate
+    const paginatedActivities = allActivities.slice(offset, offset + limit);
+
+    return {
+      activities: paginatedActivities,
+      total: allActivities.length,
+      hasMore: offset + limit < allActivities.length,
+    };
+  },
+});
+
+/**
+ * Get AI-powered analytics and recommendations for a client
+ */
+export const getClientAnalytics = query({
+  args: {
+    clerkId: v.string(),
+    clientUserId: v.string(),
+  },
+  handler: async (ctx, { clerkId, clientUserId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const now = Date.now();
+    const last30Days = now - 30 * 24 * 60 * 60 * 1000;
+    const last7Days = now - 7 * 24 * 60 * 60 * 1000;
+
+    // Get all moods
+    const allMoods = await ctx.db
+      .query("moods")
+      .filter((q) => q.eq(q.field("userId"), clientUserId))
+      .collect();
+
+    const recentMoods = allMoods.filter(m => m.createdAt >= last30Days);
+    const weekMoods = allMoods.filter(m => m.createdAt >= last7Days);
+
+    // Get crisis calls
+    const crisisCalls = await ctx.db
+      .query("activities")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("userId"), clientUserId),
+          q.eq(q.field("activityType"), "crisis_support")
+        )
+      )
+      .collect();
+
+    const recentCrisis = crisisCalls.filter(c => c.createdAt >= last30Days);
+
+    // Analyze mood patterns
+    const moodScores = {
+      "ecstatic": 5,
+      "very-happy": 5,
+      "happy": 4,
+      "content": 4,
+      "neutral": 3,
+      "annoyed": 2,
+      "sad": 2,
+      "displeased": 2,
+      "frustrated": 1,
+      "very-sad": 1,
+      "angry": 1,
+      "furious": 1,
+    };
+
+    const avgMoodScore = recentMoods.length > 0
+      ? recentMoods.reduce((sum, m) => sum + (moodScores[m.moodType] || 3), 0) / recentMoods.length
+      : 3;
+
+    const weekAvgScore = weekMoods.length > 0
+      ? weekMoods.reduce((sum, m) => sum + (moodScores[m.moodType] || 3), 0) / weekMoods.length
+      : 3;
+
+    // Count negative moods
+    const negativeMoods = recentMoods.filter(m => 
+      ["frustrated", "very-sad", "angry", "furious", "sad", "displeased"].includes(m.moodType)
+    );
+
+    // Analyze factors
+    const allFactors: { [key: string]: number } = {};
+    const factorsByMood: { [key: string]: string[] } = {}; // Track which factors appear with which moods
+    recentMoods.forEach(m => {
+      (m.factors || []).forEach((f: string) => {
+        allFactors[f] = (allFactors[f] || 0) + 1;
+        if (!factorsByMood[m.moodType]) factorsByMood[m.moodType] = [];
+        if (!factorsByMood[m.moodType].includes(f)) factorsByMood[m.moodType].push(f);
+      });
+    });
+    const topFactors = Object.entries(allFactors)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([factor, count]) => ({ factor, count }));
+
+    // Engagement metrics
+    const sharedCount = allMoods.filter(m => m.shareWithSupportWorker).length;
+    const shareRate = allMoods.length > 0 ? (sharedCount / allMoods.length) * 100 : 0;
+
+    // Analyze mood variability and patterns
+    const moodCounts: { [key: string]: number } = {};
+    recentMoods.forEach(m => {
+      moodCounts[m.moodType] = (moodCounts[m.moodType] || 0) + 1;
+    });
+
+    // Check for mood swings (rapid changes)
+    let moodSwings = 0;
+    for (let i = 1; i < recentMoods.length; i++) {
+      const prev = moodScores[recentMoods[i - 1].moodType] || 3;
+      const curr = moodScores[recentMoods[i].moodType] || 3;
+      if (Math.abs(prev - curr) >= 2) moodSwings++;
+    }
+
+    // Analyze notes for concerning content
+    const concerningKeywords = ["suicidal", "suicide", "self-harm", "harm myself", "end it", "give up", "hopeless", "worthless", "can't go on"];
+    const moodsWithConcerns = recentMoods.filter(m => 
+      m.notes && concerningKeywords.some(keyword => m.notes!.toLowerCase().includes(keyword))
+    );
+
+    // Check for consistency of negative patterns
+    const consecutiveNegativeDays: string[][] = [];
+    let currentStreak: string[] = [];
+    recentMoods.forEach(m => {
+      if (["frustrated", "very-sad", "angry", "furious", "sad", "displeased"].includes(m.moodType)) {
+        currentStreak.push(m.moodType);
+      } else if (currentStreak.length >= 3) {
+        consecutiveNegativeDays.push([...currentStreak]);
+        currentStreak = [];
+      } else {
+        currentStreak = [];
+      }
+    });
+    if (currentStreak.length >= 3) consecutiveNegativeDays.push(currentStreak);
+
+    // Generate risk level with enhanced analysis
+    let riskLevel: "low" | "moderate" | "high" | "critical" = "low";
+    let riskFactors: string[] = [];
+
+    if (moodsWithConcerns.length > 0) {
+      riskLevel = "critical";
+      riskFactors.push(`⚠️ CRISIS ALERT: ${moodsWithConcerns.length} entries contain concerning language about self-harm or suicidal ideation`);
+    } else if (recentCrisis.length > 0) {
+      riskLevel = "critical";
+      riskFactors.push(`${recentCrisis.length} crisis call(s) in last 30 days - indicates acute distress`);
+    } else if (negativeMoods.length >= 15) {
+      riskLevel = "high";
+      riskFactors.push(`Predominantly negative mood pattern: ${negativeMoods.length} negative entries out of ${recentMoods.length} total (${Math.round((negativeMoods.length/recentMoods.length)*100)}%)`);
+    } else if (avgMoodScore < 2.5) {
+      riskLevel = "high";
+      riskFactors.push(`Persistently low emotional state: average mood score ${avgMoodScore.toFixed(1)}/5 over 30 days`);
+    } else if (negativeMoods.length >= 10) {
+      riskLevel = "high";
+      riskFactors.push(`Significant negative mood frequency: ${negativeMoods.length} negative entries in last 30 days`);
+    } else if (consecutiveNegativeDays.length > 0) {
+      riskLevel = "moderate";
+      riskFactors.push(`${consecutiveNegativeDays.length} period(s) of consecutive negative moods detected - may indicate sustained distress`);
+    } else if (negativeMoods.length >= 5) {
+      riskLevel = "moderate";
+      riskFactors.push(`${negativeMoods.length} negative moods in last 30 days - monitor for escalation`);
+    }
+
+    if (weekAvgScore < avgMoodScore - 0.5) {
+      riskFactors.push(`Recent mood decline: Last 7 days avg (${weekAvgScore.toFixed(1)}) significantly lower than 30-day avg (${avgMoodScore.toFixed(1)})`);
+      if (riskLevel === "low") riskLevel = "moderate";
+      if (riskLevel === "moderate" && weekAvgScore < 2) riskLevel = "high";
+    }
+
+    if (moodSwings >= 5) {
+      riskFactors.push(`High mood instability: ${moodSwings} significant mood swings observed (±2 points or more)`);
+      if (riskLevel === "low") riskLevel = "moderate";
+    }
+
+    if (recentMoods.length < 3 && allMoods.length > 0) {
+      riskFactors.push("⚠️ Low recent engagement - client has gone quiet, may need proactive check-in");
+    } else if (recentMoods.length === 0) {
+      riskFactors.push("⚠️ No mood tracking activity in 30 days - client may be disengaged or in crisis");
+      if (riskLevel === "low") riskLevel = "moderate";
+    }
+
+    if (shareRate < 30 && recentMoods.length >= 5) {
+      riskFactors.push(`Low sharing rate (${Math.round(shareRate)}%) - client may be withholding information or feeling disconnected`);
+    }
+
+    // Generate comprehensive, actionable recommendations
+    const recommendations: string[] = [];
+
+    if (moodsWithConcerns.length > 0) {
+      recommendations.push("🚨 IMMEDIATE ACTION REQUIRED: Contact client ASAP to assess suicide risk. Review concerning entries and activate crisis protocol");
+      recommendations.push("Conduct comprehensive safety assessment. Discuss safety planning, remove means, and involve crisis team if necessary");
+      recommendations.push("Document all entries with concerning language. Consider hospitalization or intensive outpatient program");
+    } else if (riskLevel === "critical") {
+      recommendations.push("⚠️ URGENT: Schedule immediate follow-up call within 24 hours to assess current safety and functioning");
+      recommendations.push("Review all crisis call details thoroughly. Identify triggers, warning signs, and protective factors");
+      recommendations.push("Develop or update crisis safety plan with specific coping strategies, emergency contacts, and when to use crisis resources");
+      recommendations.push("Consider increasing frequency of check-ins to 2-3x weekly until stabilization");
+    }
+
+    if (riskLevel === "high") {
+      recommendations.push("Schedule in-person session within 48 hours to conduct comprehensive mental health assessment");
+      recommendations.push("Evaluate need for medication review, psychiatric consultation, or higher level of care");
+      recommendations.push("Assess social support system and daily functioning (sleep, appetite, work/school performance)");
+    }
+
+    if (consecutiveNegativeDays.length > 0) {
+      recommendations.push(`Address sustained negative mood periods: ${consecutiveNegativeDays.length} streak(s) of 3+ consecutive negative days identified. Explore environmental factors, life stressors, or underlying depression`);
+    }
+
+    if (negativeMoods.length >= 5 && topFactors.length > 0) {
+      const topThreeFactors = topFactors.slice(0, 3).map(f => `${f.factor} (${f.count}x)`).join(", ");
+      recommendations.push(`Deep dive into recurring mood triggers: Top factors are ${topThreeFactors}. Develop specific coping strategies for each`);
+      
+      // Provide factor-specific recommendations
+      topFactors.slice(0, 3).forEach(f => {
+        const moods = factorsByMood[Object.keys(factorsByMood).find(m => factorsByMood[m].includes(f.factor)) || ""] || [];
+        if (f.factor.toLowerCase().includes("work") || f.factor.toLowerCase().includes("school")) {
+          recommendations.push(`Work/school stress identified (${f.count} mentions): Explore work-life balance, time management skills, and boundary-setting with supervisors/teachers`);
+        } else if (f.factor.toLowerCase().includes("family") || f.factor.toLowerCase().includes("relationship")) {
+          recommendations.push(`Relationship strain detected (${f.count} mentions): Consider family/couples therapy, communication skills training, or conflict resolution strategies`);
+        } else if (f.factor.toLowerCase().includes("sleep") || f.factor.toLowerCase().includes("tired")) {
+          recommendations.push(`Sleep issues noted (${f.count} mentions): Assess for sleep disorders. Recommend sleep hygiene education, circadian rhythm regulation, possible sleep study`);
+        } else if (f.factor.toLowerCase().includes("financial") || f.factor.toLowerCase().includes("money")) {
+          recommendations.push(`Financial stress present (${f.count} mentions): Connect with financial counseling resources, budgeting tools, or social services support`);
+        }
+      });
+    }
+
+    if (moodSwings >= 5) {
+      recommendations.push(`Address mood instability (${moodSwings} significant swings): Screen for bipolar spectrum, emotional dysregulation, or environmental stressors. Consider DBT skills for emotion regulation`);
+    }
+
+    if (weekAvgScore < avgMoodScore - 0.5) {
+      recommendations.push(`Recent decline requires attention: Investigate what changed in the past week (life events, medication changes, seasonal factors, sleep disruption)`);
+    }
+
+    if (recentMoods.length < 3 && allMoods.length > 0) {
+      recommendations.push("Client engagement dropping: Reach out to check if they're struggling too much to track, lost motivation, or experiencing app barriers. Offer support re-engaging with self-monitoring");
+    } else if (recentMoods.length === 0) {
+      recommendations.push("⚠️ Complete disengagement: Priority outreach needed. Client may be in crisis, burned out, or feeling hopeless. Use multiple contact methods (call, text, home visit if appropriate)");
+    }
+
+    if (shareRate < 30 && recentMoods.length >= 5) {
+      recommendations.push(`Low sharing indicates possible trust barriers: Explore therapeutic relationship, confidentiality concerns, shame/stigma, or fear of judgment. Rebuild rapport`);
+    }
+
+    if (recentMoods.length >= 10 && avgMoodScore >= 3.5 && negativeMoods.length <= 3) {
+      recommendations.push("✅ Client showing positive mood patterns: Reinforce current coping strategies. Explore what's working well to maintain gains. Consider gradual reduction in session frequency");
+      recommendations.push("Continue current support approach: Client is actively engaging and maintaining mood stability. Monitor for maintenance of progress");
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push("Client appears stable: Continue regular check-ins and maintain current support level");
+      recommendations.push("Encourage continued mood tracking to identify early warning signs of any changes");
+    }
+
+    // Trend analysis
+    const trend = weekAvgScore > avgMoodScore + 0.3 ? "improving" 
+                : weekAvgScore < avgMoodScore - 0.3 ? "declining" 
+                : "stable";
+
+    return {
+      riskLevel,
+      riskFactors,
+      recommendations,
+      metrics: {
+        totalMoods: allMoods.length,
+        recentMoods: recentMoods.length,
+        sharedMoods: sharedCount,
+        shareRate: Math.round(shareRate),
+        avgMoodScore: Number(avgMoodScore.toFixed(2)),
+        weekAvgScore: Number(weekAvgScore.toFixed(2)),
+        trend,
+        negativeMoodCount: negativeMoods.length,
+        crisisCallCount: crisisCalls.length,
+        recentCrisisCount: recentCrisis.length,
+        moodSwings,
+        consecutiveNegativeStreaks: consecutiveNegativeDays.length,
+      },
+      topFactors,
+      moodDistribution: Object.entries(moodCounts)
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count),
+    };
+  },
+});

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 
 // Mapping helpers for UI expectations - Extended mood grid
 const moodMeta: Record<string, { emoji: string; label: string }> = {
@@ -106,10 +107,34 @@ export const recordMood = mutation({
 		// If sharing with support worker, get client info and send notification
 		if (args.shareWithSupportWorker) {
 			try {
-				const client = await ctx.db
+				// Check both clients table and users table for client data
+				let client = await ctx.db
 					.query("clients")
 					.withIndex("by_clerkId", (iq) => iq.eq("clerkId", args.userId))
 					.first();
+
+				// If not in clients table, check users table
+				if (!client) {
+					const userRecord = await ctx.db
+						.query("users")
+						.withIndex("by_clerkId", (iq) => iq.eq("clerkId", args.userId))
+						.first();
+					
+					if (userRecord && userRecord.roleId === "client" && userRecord.assignedUserId) {
+						client = {
+							_id: userRecord._id as any,
+							_creationTime: userRecord._creationTime,
+							clerkId: userRecord.clerkId,
+							firstName: userRecord.firstName,
+							lastName: userRecord.lastName,
+							email: userRecord.email,
+							assignedUserId: userRecord.assignedUserId,
+							orgId: userRecord.orgId,
+							createdAt: userRecord.createdAt,
+							updatedAt: userRecord.updatedAt,
+						} as any;
+					}
+				}
 
 				if (client && client.assignedUserId) {
 					// Get support worker details
@@ -117,6 +142,12 @@ export const recordMood = mutation({
 						.query("users")
 						.withIndex("by_clerkId", (iq) => iq.eq("clerkId", client.assignedUserId))
 						.first();
+
+					console.log("[recordMood] Creating notification for support worker:", {
+						supportWorkerId: client.assignedUserId,
+						supportWorkerEmail: supportWorker?.email,
+						clientName: `${client.firstName} ${client.lastName}`,
+					});
 
 					// Create in-app notification
 					await ctx.db.insert("notifications", {
@@ -130,27 +161,20 @@ export const recordMood = mutation({
 						createdAt: now,
 					});
 
-					// Send email notification if support worker has email
+				// Send email notification if support worker has email
 					if (supportWorker && supportWorker.email) {
-						console.log("[recordMood] Sending email notification to:", supportWorker.email);
-						await ctx.db.insert("notifications", {
-							userId: supportWorker.clerkId,
-							type: "mood_shared_email",
-							title: "Mood Entry Shared - Email Sent",
-							message: `Email notification sent to ${supportWorker.email}`,
-							isRead: true,
-							relatedId: moodId,
-							orgId: args.orgId || client.orgId,
-							createdAt: now,
-						});
-						// Log for email service to pick up
-						console.log("[recordMood] 📧 Email notification prepared", {
-							to: supportWorker.email,
-							subject: `${client.firstName} ${client.lastName} shared mood entry with you`,
-							clientName: `${client.firstName} ${client.lastName}`,
-							moodType: args.moodType,
-							workerName: `${supportWorker.firstName || ""} ${supportWorker.lastName || ""}`,
-						});
+					try {
+						// Schedule email to be sent asynchronously
+						await ctx.scheduler.runAfter(0, (api as any).email.sendIssueEmail, {
+								to: supportWorker.email,
+								subject: `${client.firstName} ${client.lastName} shared a mood entry with you`,
+								text: `Hi ${supportWorker.firstName || "Support Worker"},\n\n${client.firstName} ${client.lastName} has shared a new mood entry with you.\n\nMood: ${args.moodType}\n\nPlease log in to SafeSpace to review the details and provide support as needed.\n\nBest regards,\nSafeSpace Team`,
+								html: `<p>Hi ${supportWorker.firstName || "Support Worker"},</p><p><strong>${client.firstName} ${client.lastName}</strong> has shared a new mood entry with you.</p><p><strong>Mood:</strong> ${args.moodType}</p><p>Please log in to SafeSpace to review the details and provide support as needed.</p>`,
+							});
+							console.log("[recordMood] ✅ Email scheduled to:", supportWorker.email);
+						} catch (emailError) {
+							console.error("[recordMood] Failed to schedule email:", emailError);
+						}
 					}
 				}
 			} catch (error) {
@@ -218,12 +242,18 @@ export const updateMood = mutation({
 
 					// Send email notification
 					if (supportWorker && supportWorker.email) {
-						console.log("[updateMood] 📧 Email notification prepared", {
-							to: supportWorker.email,
-							subject: `${client.firstName} ${client.lastName} shared mood entry with you`,
-							clientName: `${client.firstName} ${client.lastName}`,
-							workerName: `${supportWorker.firstName || ""} ${supportWorker.lastName || ""}`,
-						});
+						try {
+							// Schedule email to be sent asynchronously
+							await ctx.scheduler.runAfter(0, (api as any).email.sendIssueEmail, {
+								to: supportWorker.email,
+								subject: `${client.firstName} ${client.lastName} shared a mood entry with you`,
+							text: `Hi ${supportWorker.firstName || "Support Worker"},\n\n${client.firstName} ${client.lastName} has shared their mood entry with you.\n\nMood: ${existing.moodType || "Not specified"}\n\nPlease log in to SafeSpace to review the details and provide support as needed.\n\nBest regards,\nSafeSpace Team`,
+							html: `<p>Hi ${supportWorker.firstName || "Support Worker"},</p><p><strong>${client.firstName} ${client.lastName}</strong> has shared their mood entry with you.</p><p><strong>Mood:</strong> ${existing.moodType || "Not specified"}</p><p>Please log in to SafeSpace to review the details and provide support as needed.</p>`,
+							});
+							console.log("[updateMood] ✅ Email scheduled to:", supportWorker.email);
+						} catch (emailError) {
+							console.error("[updateMood] Failed to schedule email:", emailError);
+						}
 					}
 				}
 			} catch (error) {
@@ -242,6 +272,20 @@ export const deleteMood = mutation({
 	handler: async (ctx, { id }) => {
 		const existing = await ctx.db.get(id);
 		if (!existing) return { success: false, error: "Mood not found" };
+		
+		// Delete related notifications
+		try {
+			const relatedNotifications = await ctx.db
+				.query("notifications")
+				.filter((q) => q.eq(q.field("relatedId"), id))
+				.collect();
+			
+			await Promise.all(relatedNotifications.map((n) => ctx.db.delete(n._id)));
+			console.log(`[deleteMood] Deleted ${relatedNotifications.length} related notifications`);
+		} catch (error) {
+			console.error("[deleteMood] Error deleting notifications:", error);
+		}
+		
 		await ctx.db.delete(id);
 		return { success: true };
 	},
