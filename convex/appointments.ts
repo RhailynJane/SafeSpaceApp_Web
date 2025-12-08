@@ -184,6 +184,105 @@ export const create = mutation({
 });
 
 /**
+ * Create an appointment from mobile app (alternate signature)
+ * Mobile apps use this endpoint with different field names/conventions
+ */
+export const createAppointment = mutation({
+  args: {
+    userId: v.string(), // Client's Clerk ID
+    supportWorker: v.string(), // Support worker name
+    supportWorkerId: v.optional(v.string()), // Support worker Clerk ID (optional, looked up by name)
+    date: v.string(), // YYYY-MM-DD
+    time: v.string(), // HH:mm
+    duration: v.optional(v.number()), // Duration in minutes
+    type: v.string(), // 'video' | 'phone' | 'in_person'
+    notes: v.optional(v.string()),
+    meetingLink: v.optional(v.string()),
+    specialization: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    orgId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    // Resolve support worker Clerk ID if not provided
+    let supportWorkerClerkId = args.supportWorkerId;
+    let supportWorkerAvatar = args.avatarUrl;
+    
+    if (!supportWorkerClerkId) {
+      // Look up support worker by Clerk ID or name
+      const workers = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q: any) => q.eq("clerkId", args.supportWorker))
+        .collect();
+      if (workers.length > 0) {
+        supportWorkerClerkId = workers[0].clerkId;
+        supportWorkerAvatar = supportWorkerAvatar || workers[0].profileImageUrl;
+      } else {
+        // If not found by Clerk ID, try by email as fallback
+        const workersByEmail = await ctx.db
+          .query("users")
+          .withIndex("by_email", (q: any) => q.eq("email", args.supportWorker))
+          .collect();
+        if (workersByEmail.length > 0) {
+          supportWorkerClerkId = workersByEmail[0].clerkId;
+          supportWorkerAvatar = supportWorkerAvatar || workersByEmail[0].profileImageUrl;
+        }
+      }
+    }
+
+    // Check support worker availability if we have their record
+    if (supportWorkerClerkId) {
+      try {
+        const worker = await ctx.db
+          .query("users")
+          .withIndex("by_clerkId", (q: any) => q.eq("clerkId", supportWorkerClerkId))
+          .first();
+        
+        if (worker && worker.availability) {
+          const appointmentDate = new Date(args.date);
+          const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const daySlot = worker.availability.find((slot: any) => slot.day === dayOfWeek);
+          
+          if (!daySlot?.enabled) {
+            console.warn(`Support worker ${supportWorkerClerkId} is not available on ${dayOfWeek}`);
+          }
+        }
+      } catch (e) {
+        console.log("Could not check worker availability:", e);
+      }
+    }
+    
+    const appointmentId = await ctx.db.insert("appointments", {
+      // Client linking - store both userId and clientId for compatibility
+      userId: args.userId,
+      clientId: args.userId,
+      // Support worker linking
+      supportWorker: args.supportWorker,
+      supportWorkerId: supportWorkerClerkId,
+      avatarUrl: supportWorkerAvatar,
+      // Date/time in both formats for cross-platform compatibility
+      date: args.date,
+      time: args.time,
+      appointmentDate: args.date,
+      appointmentTime: args.time,
+      // Other details
+      duration: args.duration || 60,
+      type: args.type,
+      status: "scheduled",
+      notes: args.notes,
+      meetingLink: args.meetingLink,
+      specialization: args.specialization,
+      orgId: args.orgId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { id: appointmentId };
+  },
+});
+
+/**
  * Lightweight query to list appointments by date for an org or user
  */
 export const listByDate = query({
