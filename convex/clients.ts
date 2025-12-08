@@ -1299,3 +1299,191 @@ export const getClientAnalytics = query({
     };
   },
 });
+
+/**
+ * Get journal analytics for a client
+ */
+export const getJournalAnalytics = query({
+  args: {
+    clerkId: v.string(),
+    clientUserId: v.string(),
+  },
+  handler: async (ctx, { clerkId, clientUserId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const now = Date.now();
+    const last30Days = now - 30 * 24 * 60 * 60 * 1000;
+    const last7Days = now - 7 * 24 * 60 * 60 * 1000;
+
+    // NOTE: Journal table not yet implemented - using empty arrays for now
+    const allJournals: any[] = [];
+    const recentJournals: any[] = [];
+    const last7DaysJournals: any[] = [];
+
+    // Placeholder implementation until journals table is created
+    const sharedJournals: any[] = [];
+    const shareRate = 0;
+    const avgWordsPerEntry = 0;
+
+    // Determine risk level based on journal analysis
+    let riskLevel = 'moderate';
+    let riskFactors: string[] = [
+      'Journal tracking feature coming soon',
+      'No journaling data available yet',
+    ];
+
+    // Generate recommendations
+    const recommendations: string[] = [
+      'Journal feature is currently in development',
+      'Once available, regular journaling will provide valuable insights into emotional patterns',
+      'Journaling helps identify triggers and develop coping strategies',
+      'Encourage client to use other available mood tracking tools in the meantime',
+    ];
+
+    // Get top themes
+    const topThemes: any[] = [];
+
+    // Get engagement trend
+    const last7DaysCount = 0;
+    const prev7DaysCount = 0;
+
+    let trend = 'stable';
+
+    return {
+      riskLevel,
+      riskFactors,
+      recommendations,
+      metrics: {
+        totalJournals: 0,
+        recentJournals: 0,
+        sharedJournals: 0,
+        shareRate: 0,
+        avgWordsPerEntry: 0,
+        trend,
+      },
+      topThemes,
+      engagementTrend: {
+        last7Days: last7DaysCount,
+        previous7Days: prev7DaysCount,
+        trend,
+      },
+    };
+  },
+});
+
+/**
+ * Get crisis support analytics for a client
+ */
+export const getCrisisAnalytics = query({
+  args: {
+    clerkId: v.string(),
+    clientUserId: v.string(),
+  },
+  handler: async (ctx, { clerkId, clientUserId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const now = Date.now();
+    const last30Days = now - 30 * 24 * 60 * 60 * 1000;
+    const last7Days = now - 7 * 24 * 60 * 60 * 1000;
+
+    // Get all crisis calls/activities
+    const allCrisis = await ctx.db
+      .query("activities")
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("userId"), clientUserId),
+          q.eq(q.field("activityType"), "crisis_support")
+        )
+      )
+      .collect();
+
+    const recentCrisis = allCrisis.filter(c => c.createdAt >= last30Days);
+    const last7DaysCrisis = allCrisis.filter(c => c.createdAt >= last7Days);
+    const last24HoursCrisis = allCrisis.filter(c => c.createdAt >= (now - 24 * 60 * 60 * 1000));
+
+    // Determine risk level
+    let riskLevel = 'low';
+    let riskFactors: string[] = [];
+
+    if (last24HoursCrisis.length > 0) {
+      riskLevel = 'critical';
+      riskFactors.push(`Crisis support needed in last 24 hours (${last24HoursCrisis.length} incident${last24HoursCrisis.length !== 1 ? 's' : ''})`);
+    } else if (last7DaysCrisis.length > 0) {
+      riskLevel = 'high';
+      riskFactors.push(`Multiple crisis incidents in past 7 days (${last7DaysCrisis.length})`);
+    } else if (recentCrisis.length > 1) {
+      riskLevel = 'moderate';
+      riskFactors.push(`Recurring crisis patterns: ${recentCrisis.length} incidents in 30 days`);
+    }
+
+    // Analyze crisis frequency pattern
+    const crisisFrequency = recentCrisis.length > 0 ? (recentCrisis.length / 30).toFixed(2) : '0';
+    
+    // Get crisis reasons/categories from metadata
+    const crisisReasons: Record<string, number> = {};
+    for (const crisis of recentCrisis) {
+      const reason = crisis.metadata?.reason || 'unspecified';
+      crisisReasons[reason] = (crisisReasons[reason] || 0) + 1;
+    }
+
+    // Generate recommendations
+    const recommendations: string[] = [];
+
+    if (last24HoursCrisis.length > 0) {
+      recommendations.push('🚨 URGENT: Immediate follow-up session required');
+      recommendations.push('Assess current safety and suicide/harm risk');
+      recommendations.push('Consider psychiatric evaluation or hospitalization if needed');
+      recommendations.push('Activate crisis support plan and emergency contacts');
+    } else if (last7DaysCrisis.length > 0) {
+      recommendations.push('Schedule priority session within 24-48 hours');
+      recommendations.push('Review and strengthen crisis coping strategies');
+      recommendations.push('Ensure crisis resources and hotline numbers are accessible');
+      recommendations.push('Coordinate with psychiatry/medical team if applicable');
+    } else if (recentCrisis.length > 1) {
+      recommendations.push('Discuss crisis triggers during next session');
+      recommendations.push('Develop stronger early warning system for client');
+      recommendations.push('Teach distress tolerance and emotion regulation skills');
+      recommendations.push('Build comprehensive safety plan with specific coping steps');
+    } else if (allCrisis.length === 0) {
+      recommendations.push('Client has no crisis history - continue regular support');
+      recommendations.push('Teach proactive coping skills to maintain stability');
+    }
+
+    // Get crisis trend
+    const prev7DaysCrisisCount = allCrisis.filter(c => 
+      c.createdAt >= (last7Days - 7 * 24 * 60 * 60 * 1000) && 
+      c.createdAt < last7Days
+    ).length;
+
+    let trend = 'stable';
+    if (last7DaysCrisis.length > prev7DaysCrisisCount * 1.2) trend = 'increasing';
+    else if (last7DaysCrisis.length < prev7DaysCrisisCount * 0.8) trend = 'decreasing';
+
+    // Get top crisis reasons
+    const topReasons = Object.entries(crisisReasons)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([reason, count]) => ({ reason, count }));
+
+    return {
+      riskLevel,
+      riskFactors,
+      recommendations,
+      metrics: {
+        totalCrisisCalls: allCrisis.length,
+        crisisInLast30Days: recentCrisis.length,
+        crisisInLast7Days: last7DaysCrisis.length,
+        crisisInLast24Hours: last24HoursCrisis.length,
+        crisisFrequency: parseFloat(crisisFrequency),
+        trend,
+      },
+      topReasons,
+      timeline: {
+        last24Hours: last24HoursCrisis.length,
+        last7Days: last7DaysCrisis.length,
+        last30Days: recentCrisis.length,
+        allTime: allCrisis.length,
+      },
+    };
+  },
+});

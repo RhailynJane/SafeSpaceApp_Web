@@ -26,6 +26,14 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
   const [activityFilter, setActivityFilter] = useState("all");
   const [dateRange, setDateRange] = useState("30"); // days
   
+  // Journal analytics
+  const [journalAnalyticsClient, setJournalAnalyticsClient] = useState(null);
+  const [showJournalAnalytics, setShowJournalAnalytics] = useState(false);
+  
+  // Crisis analytics
+  const [crisisAnalyticsClient, setCrisisAnalyticsClient] = useState(null);
+  const [showCrisisAnalytics, setShowCrisisAnalytics] = useState(false);
+  
   const bulkAssignClients = useMutation(api.clients.bulkAssignClients);
   const assignToSupportWorker = useMutation(api.clients.assignToSupportWorker);
 
@@ -38,6 +46,16 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
   const handleDetailedLogsDialogChange = useCallback((open) => {
     setShowDetailedLogs(open);
     if (!open) setDetailedLogsClient(null);
+  }, []);
+
+  const handleJournalAnalyticsDialogChange = useCallback((open) => {
+    setShowJournalAnalytics(open);
+    if (!open) setJournalAnalyticsClient(null);
+  }, []);
+
+  const handleCrisisAnalyticsDialogChange = useCallback((open) => {
+    setShowCrisisAnalytics(open);
+    if (!open) setCrisisAnalyticsClient(null);
   }, []);
 
   // Memoize date calculations to prevent infinite re-renders
@@ -73,6 +91,20 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
     api.clients.getClientAnalytics,
     showAnalytics && analyticsClient?.clerkId && user?.id ? 
       { clerkId: user.id, clientUserId: analyticsClient.clerkId } : "skip"
+  );
+
+  // Fetch journal analytics
+  const journalAnalytics = useQuery(
+    api.clients.getJournalAnalytics,
+    showJournalAnalytics && journalAnalyticsClient?.clerkId && user?.id ?
+      { clerkId: user.id, clientUserId: journalAnalyticsClient.clerkId } : "skip"
+  );
+
+  // Fetch crisis analytics
+  const crisisAnalytics = useQuery(
+    api.clients.getCrisisAnalytics,
+    showCrisisAnalytics && crisisAnalyticsClient?.clerkId && user?.id ?
+      { clerkId: user.id, clientUserId: crisisAnalyticsClient.clerkId } : "skip"
   );
 
   // Fetch detailed logs when viewing detailed view
@@ -362,7 +394,45 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                         className="gap-1"
                       >
                         <TrendingUp className="h-3 w-3" />
-                        Analytics
+                        Mood
+                      </Button>
+
+                      {/* Journal Analytics Button */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setJournalAnalyticsClient({
+                            firstName: client.firstName,
+                            lastName: client.lastName,
+                            email: client.email,
+                            clerkId: client.clerkId
+                          });
+                          setShowJournalAnalytics(true);
+                        }}
+                        className="gap-1"
+                      >
+                        <BookOpen className="h-3 w-3" />
+                        Journal
+                      </Button>
+
+                      {/* Crisis Analytics Button */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setCrisisAnalyticsClient({
+                            firstName: client.firstName,
+                            lastName: client.lastName,
+                            email: client.email,
+                            clerkId: client.clerkId
+                          });
+                          setShowCrisisAnalytics(true);
+                        }}
+                        className="gap-1"
+                      >
+                        <Phone className="h-3 w-3" />
+                        Crisis
                       </Button>
                       
                       {/* Assigned Worker */}
@@ -834,6 +904,463 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                     <p className="text-muted-foreground">
                       No activities found for the selected filters.
                     </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Journal Analytics Dialog */}
+      <Dialog open={showJournalAnalytics} onOpenChange={handleJournalAnalyticsDialogChange}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Journal Analytics: {journalAnalyticsClient?.firstName} {journalAnalyticsClient?.lastName}
+            </DialogTitle>
+            <DialogDescription>
+              Comprehensive journaling patterns, themes, and risk assessment
+            </DialogDescription>
+          </DialogHeader>
+
+          {journalAnalyticsClient && journalAnalytics && (
+            <div className="space-y-6">
+              {/* Risk Level Badge */}
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase">Risk Assessment</p>
+                    <Badge className={`mt-2 px-4 py-1 text-sm font-bold ${
+                      journalAnalytics.riskLevel === 'critical' ? 'bg-red-600 hover:bg-red-700' :
+                      journalAnalytics.riskLevel === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
+                      journalAnalytics.riskLevel === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                      'bg-green-600 hover:bg-green-700'
+                    }`}>
+                      {journalAnalytics.riskLevel}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase">Trend</p>
+                    <div className={`mt-2 px-3 py-1 rounded-md font-semibold text-sm ${
+                      journalAnalytics.metrics.trend === 'improving' ? 'bg-green-100 text-green-800' :
+                      journalAnalytics.metrics.trend === 'declining' ? 'bg-red-100 text-red-800' :
+                      'bg-slate-200 text-slate-800'
+                    }`}>
+                      {journalAnalytics.metrics.trend === 'improving' && '↑ '}
+                      {journalAnalytics.metrics.trend === 'declining' && '↓ '}
+                      {journalAnalytics.metrics.trend === 'stable' && '→ '}
+                      {journalAnalytics.metrics.trend}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Journal Metrics */}
+              <div className="grid grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <BookOpen className="h-4 w-4 text-purple-600" />
+                      Total
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {journalAnalytics.metrics.totalJournals}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">All entries</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-blue-600" />
+                      Recent
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {journalAnalytics.metrics.recentJournals}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-teal-600" />
+                      Shared
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-teal-600">
+                      {journalAnalytics.metrics.sharedJournals}
+                    </div>
+                    <p className="text-xs text-teal-600 font-medium mt-1">
+                      {journalAnalytics.metrics.shareRate}% shared
+                    </p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4 text-indigo-600" />
+                      Avg Words
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-indigo-600">
+                      {journalAnalytics.metrics.avgWordsPerEntry}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Per entry</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Risk Factors */}
+              {journalAnalytics.riskFactors.length > 0 && (
+                <Card className={`border-2 ${
+                  journalAnalytics.riskLevel === 'critical' ? 'border-red-300 bg-red-50' :
+                  journalAnalytics.riskLevel === 'high' ? 'border-orange-300 bg-orange-50' :
+                  journalAnalytics.riskLevel === 'moderate' ? 'border-yellow-300 bg-yellow-50' :
+                  'border-green-300 bg-green-50'
+                }`}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className={`text-base flex items-center gap-2 ${
+                      journalAnalytics.riskLevel === 'critical' || journalAnalytics.riskLevel === 'high' 
+                        ? 'text-red-900' 
+                        : journalAnalytics.riskLevel === 'moderate'
+                        ? 'text-yellow-900'
+                        : 'text-green-900'
+                    }`}>
+                      {journalAnalytics.riskLevel === 'critical' && <AlertTriangle className="h-5 w-5" />}
+                      {journalAnalytics.riskLevel === 'high' && <AlertTriangle className="h-5 w-5" />}
+                      {journalAnalytics.riskLevel === 'moderate' && <AlertTriangle className="h-5 w-5" />}
+                      {journalAnalytics.riskLevel === 'low' && <CheckCircle className="h-5 w-5 text-green-700" />}
+                      Key Risk Indicators
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {journalAnalytics.riskFactors.map((factor, idx) => (
+                        <div key={idx} className={`p-3 rounded-lg border-l-4 ${
+                          journalAnalytics.riskLevel === 'critical' || journalAnalytics.riskLevel === 'high'
+                            ? 'bg-red-100 text-red-900 border-l-red-600'
+                            : journalAnalytics.riskLevel === 'moderate'
+                            ? 'bg-yellow-100 text-yellow-900 border-l-yellow-600'
+                            : 'bg-green-100 text-green-900 border-l-green-600'
+                        }`}>
+                          <p className="text-sm font-medium leading-relaxed">{factor}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Recommendations */}
+              {journalAnalytics.recommendations.length > 0 && (
+                <Card className="border-slate-300 bg-slate-50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2 text-slate-900">
+                      <CheckCircle className="h-5 w-5 text-blue-600" />
+                      Recommended Actions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {journalAnalytics.recommendations.map((rec, idx) => (
+                        <div key={idx} className="flex gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                            {idx + 1}
+                          </div>
+                          <p className="text-sm text-slate-700 leading-relaxed pt-0.5">{rec}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Top Themes */}
+              {journalAnalytics.topThemes.length > 0 && (
+                <Card className="border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base text-slate-900">Top Themes</CardTitle>
+                    <CardDescription>Most frequently mentioned topics (Last 30 Days)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {journalAnalytics.topThemes.map((theme, idx) => {
+                        const maxCount = Math.max(...journalAnalytics.topThemes.map(t => t.count));
+                        const percentage = (theme.count / maxCount) * 100;
+                        return (
+                          <div key={idx} className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-semibold text-slate-900 capitalize">{theme.theme}</span>
+                              <Badge className="bg-purple-600 text-white border-0">{theme.count}x</Badge>
+                            </div>
+                            <div className="w-full bg-slate-300 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all" 
+                                style={{width: `${percentage}%`}}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Engagement Trend */}
+              {journalAnalytics.engagementTrend && (
+                <Card className="border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base text-slate-900">Engagement Trend</CardTitle>
+                    <CardDescription>7-day comparison of journaling activity</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-end gap-4">
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-slate-600 uppercase mb-2">Previous 7 Days</p>
+                        <div className="flex items-center gap-2">
+                          <div className="text-2xl font-bold text-slate-700">{journalAnalytics.engagementTrend.previous7Days}</div>
+                          <span className="text-xs text-slate-600">entries</span>
+                        </div>
+                      </div>
+                      <div className={`text-2xl font-bold ${
+                        journalAnalytics.engagementTrend.trend === 'improving' ? 'text-green-600' :
+                        journalAnalytics.engagementTrend.trend === 'declining' ? 'text-red-600' :
+                        'text-slate-600'
+                      }`}>
+                        {journalAnalytics.engagementTrend.trend === 'improving' && '↑'}
+                        {journalAnalytics.engagementTrend.trend === 'declining' && '↓'}
+                        {journalAnalytics.engagementTrend.trend === 'stable' && '→'}
+                      </div>
+                      <div className="flex-1 text-right">
+                        <p className="text-xs font-semibold text-slate-600 uppercase mb-2">Last 7 Days</p>
+                        <div className="flex items-center gap-2 justify-end">
+                          <div className="text-2xl font-bold text-slate-700">{journalAnalytics.engagementTrend.last7Days}</div>
+                          <span className="text-xs text-slate-600">entries</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Crisis Analytics Dialog */}
+      <Dialog open={showCrisisAnalytics} onOpenChange={handleCrisisAnalyticsDialogChange}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Crisis Support Analytics: {crisisAnalyticsClient?.firstName} {crisisAnalyticsClient?.lastName}
+            </DialogTitle>
+            <DialogDescription>
+              Crisis incidents, risk assessment, and intervention tracking
+            </DialogDescription>
+          </DialogHeader>
+
+          {crisisAnalyticsClient && crisisAnalytics && (
+            <div className="space-y-6">
+              {/* Risk Level Badge */}
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase">Risk Assessment</p>
+                    <Badge className={`mt-2 px-4 py-1 text-sm font-bold ${
+                      crisisAnalytics.riskLevel === 'critical' ? 'bg-red-600 hover:bg-red-700' :
+                      crisisAnalytics.riskLevel === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
+                      crisisAnalytics.riskLevel === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                      'bg-green-600 hover:bg-green-700'
+                    }`}>
+                      {crisisAnalytics.riskLevel}
+                    </Badge>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 uppercase">Trend</p>
+                    <div className={`mt-2 px-3 py-1 rounded-md font-semibold text-sm ${
+                      crisisAnalytics.metrics.trend === 'increasing' ? 'bg-red-100 text-red-800' :
+                      crisisAnalytics.metrics.trend === 'decreasing' ? 'bg-green-100 text-green-800' :
+                      'bg-slate-200 text-slate-800'
+                    }`}>
+                      {crisisAnalytics.metrics.trend === 'increasing' && '↑ '}
+                      {crisisAnalytics.metrics.trend === 'decreasing' && '↓ '}
+                      {crisisAnalytics.metrics.trend === 'stable' && '→ '}
+                      {crisisAnalytics.metrics.trend}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Crisis Timeline Metrics */}
+              <div className="grid grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-red-600" />
+                      All Time
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-600">
+                      {crisisAnalytics.timeline.allTime}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Total incidents</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-orange-600" />
+                      30 Days
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {crisisAnalytics.timeline.last30Days}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">Recent incidents</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                      7 Days
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {crisisAnalytics.timeline.last7Days}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">This week</p>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-red-700" />
+                      24 Hours
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-red-700">
+                      {crisisAnalytics.timeline.last24Hours}
+                    </div>
+                    <p className="text-xs text-red-600 font-medium mt-1">
+                      {crisisAnalytics.timeline.last24Hours > 0 ? 'Immediate action' : 'Stable'}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Risk Factors */}
+              {crisisAnalytics.riskFactors.length > 0 && (
+                <Card className={`border-2 ${
+                  crisisAnalytics.riskLevel === 'critical' ? 'border-red-300 bg-red-50' :
+                  crisisAnalytics.riskLevel === 'high' ? 'border-orange-300 bg-orange-50' :
+                  crisisAnalytics.riskLevel === 'moderate' ? 'border-yellow-300 bg-yellow-50' :
+                  'border-green-300 bg-green-50'
+                }`}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className={`text-base flex items-center gap-2 ${
+                      crisisAnalytics.riskLevel === 'critical' || crisisAnalytics.riskLevel === 'high' 
+                        ? 'text-red-900' 
+                        : crisisAnalytics.riskLevel === 'moderate'
+                        ? 'text-yellow-900'
+                        : 'text-green-900'
+                    }`}>
+                      {crisisAnalytics.riskLevel === 'critical' && <AlertTriangle className="h-5 w-5" />}
+                      {crisisAnalytics.riskLevel === 'high' && <AlertTriangle className="h-5 w-5" />}
+                      {crisisAnalytics.riskLevel === 'moderate' && <AlertTriangle className="h-5 w-5" />}
+                      {crisisAnalytics.riskLevel === 'low' && <CheckCircle className="h-5 w-5 text-green-700" />}
+                      Key Risk Indicators
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {crisisAnalytics.riskFactors.map((factor, idx) => (
+                        <div key={idx} className={`p-3 rounded-lg border-l-4 ${
+                          crisisAnalytics.riskLevel === 'critical' || crisisAnalytics.riskLevel === 'high'
+                            ? 'bg-red-100 text-red-900 border-l-red-600'
+                            : crisisAnalytics.riskLevel === 'moderate'
+                            ? 'bg-yellow-100 text-yellow-900 border-l-yellow-600'
+                            : 'bg-green-100 text-green-900 border-l-green-600'
+                        }`}>
+                          <p className="text-sm font-medium leading-relaxed">{factor}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Recommendations */}
+              {crisisAnalytics.recommendations.length > 0 && (
+                <Card className="border-slate-300 bg-slate-50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2 text-slate-900">
+                      <CheckCircle className="h-5 w-5 text-blue-600" />
+                      Recommended Actions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {crisisAnalytics.recommendations.map((rec, idx) => (
+                        <div key={idx} className="flex gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
+                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                            {idx + 1}
+                          </div>
+                          <p className="text-sm text-slate-700 leading-relaxed pt-0.5">{rec}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Top Crisis Reasons */}
+              {crisisAnalytics.topReasons.length > 0 && (
+                <Card className="border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base text-slate-900">Top Crisis Triggers</CardTitle>
+                    <CardDescription>Most frequently cited reasons for crisis support (Last 30 Days)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {crisisAnalytics.topReasons.map((reason, idx) => {
+                        const maxCount = Math.max(...crisisAnalytics.topReasons.map(r => r.count));
+                        const percentage = (reason.count / maxCount) * 100;
+                        return (
+                          <div key={idx} className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-semibold text-slate-900 capitalize">{reason.reason}</span>
+                              <Badge className="bg-red-600 text-white border-0">{reason.count}x</Badge>
+                            </div>
+                            <div className="w-full bg-slate-300 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all" 
+                                style={{width: `${percentage}%`}}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </CardContent>
                 </Card>
               )}
