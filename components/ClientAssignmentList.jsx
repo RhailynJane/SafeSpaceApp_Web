@@ -881,6 +881,28 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                                 )}
                               </div>
                             )}
+                            {activity.type === 'journal' && (
+                              <div className="space-y-2">
+                                {activity.content && (
+                                  <p className="text-sm text-gray-700 leading-relaxed">{activity.content}</p>
+                                )}
+                                {activity.emotionType && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-600">Emotion:</span>
+                                    <Badge variant="outline" className="text-xs capitalize">{activity.emotionType}</Badge>
+                                  </div>
+                                )}
+                                {activity.tags && activity.tags.length > 0 && (
+                                  <div className="flex gap-1 flex-wrap">
+                                    {activity.tags.map((tag, i) => (
+                                      <Badge key={i} variant="outline" className="text-xs">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             {activity.type === 'crisis' && activity.metadata && (
                               <p className="text-sm text-gray-700">{JSON.stringify(activity.metadata)}</p>
                             )}
