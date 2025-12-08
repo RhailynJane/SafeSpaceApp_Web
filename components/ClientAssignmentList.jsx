@@ -932,25 +932,25 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Risk Assessment</p>
                     <Badge className={`mt-2 px-4 py-1 text-sm font-bold ${
-                      journalAnalytics.riskLevel === 'critical' ? 'bg-red-600 hover:bg-red-700' :
-                      journalAnalytics.riskLevel === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
-                      journalAnalytics.riskLevel === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                      journalAnalytics?.riskLevel === 'critical' ? 'bg-red-600 hover:bg-red-700' :
+                      journalAnalytics?.riskLevel === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
+                      journalAnalytics?.riskLevel === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
                       'bg-green-600 hover:bg-green-700'
                     }`}>
-                      {journalAnalytics.riskLevel}
+                      {journalAnalytics?.riskLevel || 'Loading...'}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Trend</p>
                     <div className={`mt-2 px-3 py-1 rounded-md font-semibold text-sm ${
-                      journalAnalytics.metrics.trend === 'improving' ? 'bg-green-100 text-green-800' :
-                      journalAnalytics.metrics.trend === 'declining' ? 'bg-red-100 text-red-800' :
+                      journalAnalytics?.metrics?.trend === 'improving' ? 'bg-green-100 text-green-800' :
+                      journalAnalytics?.metrics?.trend === 'declining' ? 'bg-red-100 text-red-800' :
                       'bg-slate-200 text-slate-800'
                     }`}>
-                      {journalAnalytics.metrics.trend === 'improving' && '↑ '}
-                      {journalAnalytics.metrics.trend === 'declining' && '↓ '}
-                      {journalAnalytics.metrics.trend === 'stable' && '→ '}
-                      {journalAnalytics.metrics.trend}
+                      {journalAnalytics?.metrics?.trend === 'improving' && '↑ '}
+                      {journalAnalytics?.metrics?.trend === 'declining' && '↓ '}
+                      {journalAnalytics?.metrics?.trend === 'stable' && '→ '}
+                      {journalAnalytics?.metrics?.trend || '...'}
                     </div>
                   </div>
                 </div>
@@ -967,7 +967,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-purple-600">
-                      {journalAnalytics.metrics.totalJournals}
+                      {journalAnalytics?.metrics?.totalJournals ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">All entries</p>
                   </CardContent>
@@ -982,7 +982,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-blue-600">
-                      {journalAnalytics.metrics.recentJournals}
+                      {journalAnalytics?.metrics?.recentJournals ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
                   </CardContent>
@@ -997,10 +997,10 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-teal-600">
-                      {journalAnalytics.metrics.sharedJournals}
+                      {journalAnalytics?.metrics?.sharedJournals ?? 0}
                     </div>
                     <p className="text-xs text-teal-600 font-medium mt-1">
-                      {journalAnalytics.metrics.shareRate}% shared
+                      {journalAnalytics?.metrics?.shareRate ?? 0}% shared
                     </p>
                   </CardContent>
                 </Card>
@@ -1014,7 +1014,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-indigo-600">
-                      {journalAnalytics.metrics.avgWordsPerEntry}
+                      {journalAnalytics?.metrics?.avgWordsPerEntry ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">Per entry</p>
                   </CardContent>
@@ -1022,35 +1022,35 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
               </div>
 
               {/* Risk Factors */}
-              {journalAnalytics.riskFactors.length > 0 && (
+              {journalAnalytics?.riskFactors?.length > 0 && (
                 <Card className={`border-2 ${
-                  journalAnalytics.riskLevel === 'critical' ? 'border-red-300 bg-red-50' :
-                  journalAnalytics.riskLevel === 'high' ? 'border-orange-300 bg-orange-50' :
-                  journalAnalytics.riskLevel === 'moderate' ? 'border-yellow-300 bg-yellow-50' :
+                  journalAnalytics?.riskLevel === 'critical' ? 'border-red-300 bg-red-50' :
+                  journalAnalytics?.riskLevel === 'high' ? 'border-orange-300 bg-orange-50' :
+                  journalAnalytics?.riskLevel === 'moderate' ? 'border-yellow-300 bg-yellow-50' :
                   'border-green-300 bg-green-50'
                 }`}>
                   <CardHeader className="pb-3">
                     <CardTitle className={`text-base flex items-center gap-2 ${
-                      journalAnalytics.riskLevel === 'critical' || journalAnalytics.riskLevel === 'high' 
+                      journalAnalytics?.riskLevel === 'critical' || journalAnalytics?.riskLevel === 'high' 
                         ? 'text-red-900' 
-                        : journalAnalytics.riskLevel === 'moderate'
+                        : journalAnalytics?.riskLevel === 'moderate'
                         ? 'text-yellow-900'
                         : 'text-green-900'
                     }`}>
-                      {journalAnalytics.riskLevel === 'critical' && <AlertTriangle className="h-5 w-5" />}
-                      {journalAnalytics.riskLevel === 'high' && <AlertTriangle className="h-5 w-5" />}
-                      {journalAnalytics.riskLevel === 'moderate' && <AlertTriangle className="h-5 w-5" />}
-                      {journalAnalytics.riskLevel === 'low' && <CheckCircle className="h-5 w-5 text-green-700" />}
+                      {journalAnalytics?.riskLevel === 'critical' && <AlertTriangle className="h-5 w-5" />}
+                      {journalAnalytics?.riskLevel === 'high' && <AlertTriangle className="h-5 w-5" />}
+                      {journalAnalytics?.riskLevel === 'moderate' && <AlertTriangle className="h-5 w-5" />}
+                      {journalAnalytics?.riskLevel === 'low' && <CheckCircle className="h-5 w-5 text-green-700" />}
                       Key Risk Indicators
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {journalAnalytics.riskFactors.map((factor, idx) => (
+                      {journalAnalytics?.riskFactors?.map((factor, idx) => (
                         <div key={idx} className={`p-3 rounded-lg border-l-4 ${
-                          journalAnalytics.riskLevel === 'critical' || journalAnalytics.riskLevel === 'high'
+                          journalAnalytics?.riskLevel === 'critical' || journalAnalytics?.riskLevel === 'high'
                             ? 'bg-red-100 text-red-900 border-l-red-600'
-                            : journalAnalytics.riskLevel === 'moderate'
+                            : journalAnalytics?.riskLevel === 'moderate'
                             ? 'bg-yellow-100 text-yellow-900 border-l-yellow-600'
                             : 'bg-green-100 text-green-900 border-l-green-600'
                         }`}>
@@ -1063,7 +1063,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
               )}
 
               {/* Recommendations */}
-              {journalAnalytics.recommendations.length > 0 && (
+              {journalAnalytics?.recommendations?.length > 0 && (
                 <Card className="border-slate-300 bg-slate-50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2 text-slate-900">
@@ -1073,7 +1073,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {journalAnalytics.recommendations.map((rec, idx) => (
+                      {journalAnalytics?.recommendations?.map((rec, idx) => (
                         <div key={idx} className="flex gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
                           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
                             {idx + 1}
@@ -1087,7 +1087,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
               )}
 
               {/* Top Themes */}
-              {journalAnalytics.topThemes.length > 0 && (
+              {journalAnalytics?.topThemes?.length > 0 && (
                 <Card className="border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base text-slate-900">Top Themes</CardTitle>
@@ -1095,8 +1095,8 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {journalAnalytics.topThemes.map((theme, idx) => {
-                        const maxCount = Math.max(...journalAnalytics.topThemes.map(t => t.count));
+                      {journalAnalytics?.topThemes?.map((theme, idx) => {
+                        const maxCount = Math.max(...(journalAnalytics?.topThemes?.map(t => t.count) || [1]));
                         const percentage = (theme.count / maxCount) * 100;
                         return (
                           <div key={idx} className="space-y-1.5">
@@ -1119,7 +1119,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
               )}
 
               {/* Engagement Trend */}
-              {journalAnalytics.engagementTrend && (
+              {journalAnalytics?.engagementTrend && (
                 <Card className="border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base text-slate-900">Engagement Trend</CardTitle>
@@ -1130,23 +1130,23 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                       <div className="flex-1">
                         <p className="text-xs font-semibold text-slate-600 uppercase mb-2">Previous 7 Days</p>
                         <div className="flex items-center gap-2">
-                          <div className="text-2xl font-bold text-slate-700">{journalAnalytics.engagementTrend.previous7Days}</div>
+                          <div className="text-2xl font-bold text-slate-700">{journalAnalytics?.engagementTrend?.previous7Days ?? 0}</div>
                           <span className="text-xs text-slate-600">entries</span>
                         </div>
                       </div>
                       <div className={`text-2xl font-bold ${
-                        journalAnalytics.engagementTrend.trend === 'improving' ? 'text-green-600' :
-                        journalAnalytics.engagementTrend.trend === 'declining' ? 'text-red-600' :
+                        journalAnalytics?.engagementTrend?.trend === 'improving' ? 'text-green-600' :
+                        journalAnalytics?.engagementTrend?.trend === 'declining' ? 'text-red-600' :
                         'text-slate-600'
                       }`}>
-                        {journalAnalytics.engagementTrend.trend === 'improving' && '↑'}
-                        {journalAnalytics.engagementTrend.trend === 'declining' && '↓'}
-                        {journalAnalytics.engagementTrend.trend === 'stable' && '→'}
+                        {journalAnalytics?.engagementTrend?.trend === 'improving' && '↑'}
+                        {journalAnalytics?.engagementTrend?.trend === 'declining' && '↓'}
+                        {journalAnalytics?.engagementTrend?.trend === 'stable' && '→'}
                       </div>
                       <div className="flex-1 text-right">
                         <p className="text-xs font-semibold text-slate-600 uppercase mb-2">Last 7 Days</p>
                         <div className="flex items-center gap-2 justify-end">
-                          <div className="text-2xl font-bold text-slate-700">{journalAnalytics.engagementTrend.last7Days}</div>
+                          <div className="text-2xl font-bold text-slate-700">{journalAnalytics?.engagementTrend?.last7Days ?? 0}</div>
                           <span className="text-xs text-slate-600">entries</span>
                         </div>
                       </div>
@@ -1179,25 +1179,25 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Risk Assessment</p>
                     <Badge className={`mt-2 px-4 py-1 text-sm font-bold ${
-                      crisisAnalytics.riskLevel === 'critical' ? 'bg-red-600 hover:bg-red-700' :
-                      crisisAnalytics.riskLevel === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
-                      crisisAnalytics.riskLevel === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                      crisisAnalytics?.riskLevel === 'critical' ? 'bg-red-600 hover:bg-red-700' :
+                      crisisAnalytics?.riskLevel === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
+                      crisisAnalytics?.riskLevel === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
                       'bg-green-600 hover:bg-green-700'
                     }`}>
-                      {crisisAnalytics.riskLevel}
+                      {crisisAnalytics?.riskLevel || 'Loading...'}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Trend</p>
                     <div className={`mt-2 px-3 py-1 rounded-md font-semibold text-sm ${
-                      crisisAnalytics.metrics.trend === 'increasing' ? 'bg-red-100 text-red-800' :
-                      crisisAnalytics.metrics.trend === 'decreasing' ? 'bg-green-100 text-green-800' :
+                      crisisAnalytics?.metrics?.trend === 'increasing' ? 'bg-red-100 text-red-800' :
+                      crisisAnalytics?.metrics?.trend === 'decreasing' ? 'bg-green-100 text-green-800' :
                       'bg-slate-200 text-slate-800'
                     }`}>
-                      {crisisAnalytics.metrics.trend === 'increasing' && '↑ '}
-                      {crisisAnalytics.metrics.trend === 'decreasing' && '↓ '}
-                      {crisisAnalytics.metrics.trend === 'stable' && '→ '}
-                      {crisisAnalytics.metrics.trend}
+                      {crisisAnalytics?.metrics?.trend === 'increasing' && '↑ '}
+                      {crisisAnalytics?.metrics?.trend === 'decreasing' && '↓ '}
+                      {crisisAnalytics?.metrics?.trend === 'stable' && '→ '}
+                      {crisisAnalytics?.metrics?.trend || '...'}
                     </div>
                   </div>
                 </div>
@@ -1214,7 +1214,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-red-600">
-                      {crisisAnalytics.timeline.allTime}
+                      {crisisAnalytics?.timeline?.allTime ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">Total incidents</p>
                   </CardContent>
@@ -1229,7 +1229,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-orange-600">
-                      {crisisAnalytics.timeline.last30Days}
+                      {crisisAnalytics?.timeline?.last30Days ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">Recent incidents</p>
                   </CardContent>
@@ -1244,7 +1244,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-yellow-600">
-                      {crisisAnalytics.timeline.last7Days}
+                      {crisisAnalytics?.timeline?.last7Days ?? 0}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">This week</p>
                   </CardContent>
@@ -1259,45 +1259,45 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-red-700">
-                      {crisisAnalytics.timeline.last24Hours}
+                      {crisisAnalytics?.timeline?.last24Hours ?? 0}
                     </div>
                     <p className="text-xs text-red-600 font-medium mt-1">
-                      {crisisAnalytics.timeline.last24Hours > 0 ? 'Immediate action' : 'Stable'}
+                      {(crisisAnalytics?.timeline?.last24Hours ?? 0) > 0 ? 'Immediate action' : 'Stable'}
                     </p>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Risk Factors */}
-              {crisisAnalytics.riskFactors.length > 0 && (
+              {crisisAnalytics?.riskFactors?.length > 0 && (
                 <Card className={`border-2 ${
-                  crisisAnalytics.riskLevel === 'critical' ? 'border-red-300 bg-red-50' :
-                  crisisAnalytics.riskLevel === 'high' ? 'border-orange-300 bg-orange-50' :
-                  crisisAnalytics.riskLevel === 'moderate' ? 'border-yellow-300 bg-yellow-50' :
+                  crisisAnalytics?.riskLevel === 'critical' ? 'border-red-300 bg-red-50' :
+                  crisisAnalytics?.riskLevel === 'high' ? 'border-orange-300 bg-orange-50' :
+                  crisisAnalytics?.riskLevel === 'moderate' ? 'border-yellow-300 bg-yellow-50' :
                   'border-green-300 bg-green-50'
                 }`}>
                   <CardHeader className="pb-3">
                     <CardTitle className={`text-base flex items-center gap-2 ${
-                      crisisAnalytics.riskLevel === 'critical' || crisisAnalytics.riskLevel === 'high' 
+                      crisisAnalytics?.riskLevel === 'critical' || crisisAnalytics?.riskLevel === 'high' 
                         ? 'text-red-900' 
-                        : crisisAnalytics.riskLevel === 'moderate'
+                        : crisisAnalytics?.riskLevel === 'moderate'
                         ? 'text-yellow-900'
                         : 'text-green-900'
                     }`}>
-                      {crisisAnalytics.riskLevel === 'critical' && <AlertTriangle className="h-5 w-5" />}
-                      {crisisAnalytics.riskLevel === 'high' && <AlertTriangle className="h-5 w-5" />}
-                      {crisisAnalytics.riskLevel === 'moderate' && <AlertTriangle className="h-5 w-5" />}
-                      {crisisAnalytics.riskLevel === 'low' && <CheckCircle className="h-5 w-5 text-green-700" />}
+                      {crisisAnalytics?.riskLevel === 'critical' && <AlertTriangle className="h-5 w-5" />}
+                      {crisisAnalytics?.riskLevel === 'high' && <AlertTriangle className="h-5 w-5" />}
+                      {crisisAnalytics?.riskLevel === 'moderate' && <AlertTriangle className="h-5 w-5" />}
+                      {crisisAnalytics?.riskLevel === 'low' && <CheckCircle className="h-5 w-5 text-green-700" />}
                       Key Risk Indicators
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {crisisAnalytics.riskFactors.map((factor, idx) => (
+                      {crisisAnalytics?.riskFactors?.map((factor, idx) => (
                         <div key={idx} className={`p-3 rounded-lg border-l-4 ${
-                          crisisAnalytics.riskLevel === 'critical' || crisisAnalytics.riskLevel === 'high'
+                          crisisAnalytics?.riskLevel === 'critical' || crisisAnalytics?.riskLevel === 'high'
                             ? 'bg-red-100 text-red-900 border-l-red-600'
-                            : crisisAnalytics.riskLevel === 'moderate'
+                            : crisisAnalytics?.riskLevel === 'moderate'
                             ? 'bg-yellow-100 text-yellow-900 border-l-yellow-600'
                             : 'bg-green-100 text-green-900 border-l-green-600'
                         }`}>
@@ -1310,7 +1310,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
               )}
 
               {/* Recommendations */}
-              {crisisAnalytics.recommendations.length > 0 && (
+              {crisisAnalytics?.recommendations?.length > 0 && (
                 <Card className="border-slate-300 bg-slate-50">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2 text-slate-900">
@@ -1320,7 +1320,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {crisisAnalytics.recommendations.map((rec, idx) => (
+                      {crisisAnalytics?.recommendations?.map((rec, idx) => (
                         <div key={idx} className="flex gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
                           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
                             {idx + 1}
@@ -1334,7 +1334,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
               )}
 
               {/* Top Crisis Reasons */}
-              {crisisAnalytics.topReasons.length > 0 && (
+              {crisisAnalytics?.topReasons?.length > 0 && (
                 <Card className="border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base text-slate-900">Top Crisis Triggers</CardTitle>
@@ -1342,8 +1342,8 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {crisisAnalytics.topReasons.map((reason, idx) => {
-                        const maxCount = Math.max(...crisisAnalytics.topReasons.map(r => r.count));
+                      {crisisAnalytics?.topReasons?.map((reason, idx) => {
+                        const maxCount = Math.max(...(crisisAnalytics?.topReasons?.map(r => r.count) ?? [0]));
                         const percentage = (reason.count / maxCount) * 100;
                         return (
                           <div key={idx} className="space-y-1.5">
