@@ -560,53 +560,66 @@ export const getAppointment = query({
  */
 export const rescheduleAppointment = mutation({
   args: {
-    appointmentId: v.id("appointments"),
+    appointmentId: v.string(),
     newDate: v.string(),
     newTime: v.string(),
     reason: v.optional(v.string()),
   },
   handler: async (ctx, { appointmentId, newDate, newTime, reason }) => {
-    const appointment = await ctx.db.get(appointmentId);
-    if (!appointment) {
-      throw new Error("Appointment not found");
-    }
-    
-    const noteUpdate = reason 
-      ? `${appointment.notes || ''}\n\nRescheduled: ${reason}`.trim()
-      : appointment.notes;
-    
-    await ctx.db.patch(appointmentId, {
-      appointmentDate: newDate,
-      appointmentTime: newTime,
-      notes: noteUpdate,
-      updatedAt: Date.now(),
-    });
+    try {
+      const appointment = await ctx.db.get(appointmentId as any);
+      if (!appointment) {
+        throw new Error("Appointment not found");
+      }
+      
+      const existingNotes = (appointment as any).notes || '';
+      const noteUpdate = reason 
+        ? `${existingNotes}\n\nRescheduled: ${reason}`.trim()
+        : existingNotes;
+      
+      await ctx.db.patch(appointmentId as any, {
+        appointmentDate: newDate,
+        appointmentTime: newTime,
+        date: newDate,
+        time: newTime,
+        notes: noteUpdate,
+        updatedAt: Date.now(),
+      });
 
-    return { success: true };
+      return { success: true };
+    } catch (err) {
+      console.error('[rescheduleAppointment] Error:', err);
+      throw err;
+    }
   },
 });
 
 /**
- * Cancel appointment (mobile app)
+ * Cancel appointment (mobile app & web)
  */
 export const cancelAppointment = mutation({
   args: {
-    appointmentId: v.id("appointments"),
+    appointmentId: v.string(),
     cancellationReason: v.optional(v.string()),
   },
   handler: async (ctx, { appointmentId, cancellationReason }) => {
-    const appointment = await ctx.db.get(appointmentId);
-    if (!appointment) {
-      throw new Error("Appointment not found");
-    }
-    
-    await ctx.db.patch(appointmentId, {
-      status: "cancelled",
-      cancellationReason,
-      updatedAt: Date.now(),
-    });
+    try {
+      const appointment = await ctx.db.get(appointmentId as any);
+      if (!appointment) {
+        throw new Error("Appointment not found");
+      }
+      
+      await ctx.db.patch(appointmentId as any, {
+        status: "cancelled",
+        cancellationReason,
+        updatedAt: Date.now(),
+      });
 
-    return { success: true };
+      return { success: true };
+    } catch (err) {
+      console.error('[cancelAppointment] Error:', err);
+      throw err;
+    }
   },
 });
 

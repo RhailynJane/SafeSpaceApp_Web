@@ -61,13 +61,16 @@ export default function ViewDetailsModal({ appointment, onClose }) {
     
     try {
       setLoading(true)
-      await cancelMutation({
+      console.log('🚀 Calling cancelMutation with ID:', appointment._id);
+      const result = await cancelMutation({
         appointmentId: appointment._id,
         cancellationReason: 'Cancelled by support worker'
       })
+      console.log('✅ Cancel result:', result);
       setOpen(false)
       if (onClose) onClose()
     } catch (err) {
+      console.error('❌ Cancel error:', err);
       setError(err.message || 'Failed to cancel appointment')
     } finally {
       setLoading(false)
@@ -82,16 +85,19 @@ export default function ViewDetailsModal({ appointment, onClose }) {
 
     try {
       setLoading(true)
-      await rescheduleMutation({
+      console.log('🚀 Calling rescheduleMutation with ID:', appointment._id);
+      const result = await rescheduleMutation({
         appointmentId: appointment._id,
         newDate,
         newTime,
         reason: rescheduleReason
       })
+      console.log('✅ Reschedule result:', result);
       setIsRescheduleOpen(false)
       setOpen(false)
       if (onClose) onClose()
     } catch (err) {
+      console.error('❌ Reschedule error:', err);
       setError(err.message || 'Failed to reschedule appointment')
     } finally {
       setLoading(false)
