@@ -174,17 +174,33 @@ export async function POST(request) {
         console.warn("Error sending email:", emailErr);
       }
     } else {
-      // New user - create them first, then send invitation
-      console.log(`Creating new user for ${email}`);
-      const createBody = {
-        email_address: email,
+      // New user - create Clerk user with a random strong password so "Forgot password" works immediately.
+      console.log(`Creating new Clerk user for ${email}`);
+
+      const generatePassword = () => {
+        const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const lower = "abcdefghijkmnopqrstuvwxyz";
+        const digits = "23456789";
+        const symbols = "!@#$%^&*()_+[]{}";
+        const pick = (set) => set[Math.floor(Math.random() * set.length)];
+        let pwd = pick(upper) + pick(lower) + pick(digits) + pick(symbols);
+        const all = upper + lower + digits + symbols;
+        while (pwd.length < 16) pwd += pick(all);
+        return pwd;
       };
-      if (firstName) createBody.first_name = firstName;
-      if (lastName) createBody.last_name = lastName;
-      createBody.public_metadata = publicMetadata;
-      
-      console.log("Clerk user creation body:", createBody);
-      
+
+      const tempPassword = generatePassword();
+
+      const createBody = {
+        email_address: [email],
+        password: tempPassword,
+        first_name: firstName || undefined,
+        last_name: lastName || undefined,
+        public_metadata: publicMetadata,
+      };
+
+      console.log("Clerk user creation body (sanitized):", { ...createBody, password: "<hidden>" });
+
       const createRes = await fetch("https://api.clerk.com/v1/users", {
         method: "POST",
         headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
@@ -193,18 +209,16 @@ export async function POST(request) {
       const createData = await createRes.json();
       if (!createRes.ok) {
         console.error("Clerk user creation error:", createRes.status, createData);
-        return NextResponse.json({ 
+        return NextResponse.json({
           error: createData?.errors?.[0]?.message || "User creation failed",
-          detail: JSON.stringify(createData)
+          detail: JSON.stringify(createData),
         }, { status: createRes.status || 500 });
       }
       user = createData;
       console.log("New user created:", user.id);
 
-      // No need to generate magic links - users will use forgot password flow
+      // Send Brevo backup email with instructions to use "Forgot Password"
       magicLinkUrl = undefined;
-
-      // Send welcome email via Brevo
       try {
         const brevoKey = process.env.AUTH_BREVO_KEY;
         if (brevoKey) {
@@ -235,7 +249,7 @@ export async function POST(request) {
               `,
             }),
           });
-          
+
           if (emailRes.ok) {
             console.log("Welcome email sent via Brevo");
           } else {
