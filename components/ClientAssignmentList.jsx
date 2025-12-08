@@ -1171,7 +1171,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
             </DialogDescription>
           </DialogHeader>
 
-          {crisisAnalyticsClient && crisisAnalytics && (
+          {crisisAnalyticsClient && crisisAnalytics ? (
             <div className="space-y-6">
               {/* Risk Level Badge */}
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200">
@@ -1365,6 +1365,18 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                 </Card>
               )}
             </div>
+          ) : (
+            <Card className="border-slate-200 bg-slate-50">
+              <CardContent className="text-center py-12">
+                <div className="flex justify-center mb-4">
+                  <div className="p-4 bg-slate-200 rounded-full">
+                    <Phone className="h-10 w-10 text-slate-500" />
+                  </div>
+                </div>
+                <p className="text-slate-900 font-semibold text-base mb-2">Loading Analytics</p>
+                <p className="text-slate-600 text-sm">Fetching crisis support data...</p>
+              </CardContent>
+            </Card>
           )}
         </DialogContent>
       </Dialog>
