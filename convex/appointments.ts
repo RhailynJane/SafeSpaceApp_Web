@@ -46,11 +46,32 @@ export const create = mutation({
     let orgId = args.orgId ?? null as string | null;
     let client = null as any;
     let clientIdToUse = args.clientDbId ?? args.clientId ?? null;
+    let clientClerkId = null as string | null;
 
     if (clientIdToUse) {
       // Try to get the client from either clients or users table
       client = await ctx.db.get(clientIdToUse as any);
       if (client?.orgId) orgId = client.orgId;
+      
+      // If it's a clients table record, we need to find the clerkId (if user exists)
+      if (client?.status !== undefined && !client?.clerkId) {
+        // This is a clients record; try to find the user with matching email
+        if (client.email) {
+          const userMatch = await ctx.db
+            .query("users")
+            .withIndex("by_email", (q) => q.eq("email", client.email))
+            .first();
+          if (userMatch) {
+            clientClerkId = userMatch.clerkId;
+          }
+        }
+      } else if (client?.clerkId) {
+        // It's already a user record with clerkId
+        clientClerkId = client.clerkId;
+      } else if (typeof clientIdToUse === 'string' && clientIdToUse.startsWith('user_')) {
+        // It's already a Clerk ID
+        clientClerkId = clientIdToUse;
+      }
     }
 
     // Auto-assign support worker for CMHA if not provided
@@ -110,7 +131,7 @@ export const create = mutation({
         // Check worker availability for the scheduled time
         if (worker.availability && appointmentTime && appointmentDate) {
           const appointmentDateObj = new Date(appointmentDate);
-          const dayOfWeek = appointmentDateObj.toLocaleDateString('en-US', { weekday: 'lowercase' });
+          const dayOfWeek = appointmentDateObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
           const daySlot = worker.availability.find((slot: any) => slot.day?.toLowerCase() === dayOfWeek);
           if (daySlot && !daySlot.enabled) {
             console.warn(`Worker ${assignedWorkerClerkId} is not available on ${dayOfWeek}`);
@@ -133,8 +154,10 @@ export const create = mutation({
       notes: args.notes,
       meetingLink: args.meetingLink,
       // Client linking - store both formats
+      // clientId is the database record ID (clients or users table)
       clientId: (args.clientDbId as any) ?? args.clientId,
-      userId: (args.clientDbId as any) ?? args.clientId, // Mobile compatibility
+      // userId is the Clerk ID for mobile app sync
+      userId: clientClerkId || ((args.clientDbId as any) ?? args.clientId),
       // Support worker info for mobile sync
       supportWorkerId: assignedWorkerClerkId ?? undefined,
       supportWorker: supportWorkerName ?? undefined,
