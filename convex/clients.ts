@@ -353,6 +353,7 @@ export const getById = query({
   },
 });
 
+
 export const listByOrg = query({
   args: { orgId: v.string() },
   handler: async (ctx, { orgId }) => {
@@ -361,5 +362,293 @@ export const listByOrg = query({
       .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
       .collect();
     return items;
+  },
+});
+
+/**
+ * Assign client to support worker with load balancing
+ * Finds the support worker with the least number of assigned clients
+ * and assigns the client to them
+ */
+export const assignToSupportWorker = mutation({
+  args: {
+    clientId: v.id("clients"),
+    clerkId: v.string(),
+    supportWorkerId: v.optional(v.string()), // If provided, assign to specific worker
+  },
+  handler: async (ctx, { clientId, clerkId, supportWorkerId }) => {
+    // Verify permission to assign
+    await requirePermission(ctx, clerkId, PERMISSIONS.ASSIGN_CLIENTS);
+
+    // Get the client
+    const client = await ctx.db.get(clientId);
+    if (!client) throw new Error("Client not found");
+
+    // Get requester to determine org
+    const requester = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (iq) => iq.eq("clerkId", clerkId))
+      .first();
+    if (!requester) throw new Error("User not found");
+
+    const orgId = client.orgId || requester.orgId;
+    if (!orgId) throw new Error("Unable to determine organization");
+
+    let assignedWorkerId = supportWorkerId;
+
+    // If no specific worker provided, find the one with lowest load
+    if (!assignedWorkerId) {
+      // Get all active support workers in the org
+      const workers = (
+        await ctx.db
+          .query("users")
+          .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+          .collect()
+      ).filter(
+        (u) =>
+          (u.roleId === "support_worker" || u.roleId === "peer_support") &&
+          (u.status ?? "active") === "active" &&
+          !!u.clerkId
+      );
+
+      if (workers.length === 0) {
+        throw new Error("No available support workers in this organization");
+      }
+
+      // Calculate load for each worker (number of assigned clients)
+      const loads: Record<string, number> = {};
+      for (const worker of workers) {
+        const assignedClients = await ctx.db
+          .query("clients")
+          .withIndex("by_assignedUser", (iq) => iq.eq("assignedUserId", worker.clerkId))
+          .collect();
+        loads[worker.clerkId] = assignedClients.length;
+      }
+
+      // Find worker with minimum load
+      assignedWorkerId = workers.reduce((minWorker, worker) => {
+        return loads[worker.clerkId] < loads[minWorker.clerkId] ? worker : minWorker;
+      }).clerkId;
+    }
+
+    // Update client with assigned worker
+    await ctx.db.patch(clientId, {
+      assignedUserId: assignedWorkerId,
+      updatedAt: Date.now(),
+    });
+
+    // Get the assigned worker for notification
+    const assignedWorker = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (iq) => iq.eq("clerkId", assignedWorkerId))
+      .first();
+
+    return {
+      success: true,
+      clientId,
+      assignedWorkerId,
+      assignedWorkerName: assignedWorker ? `${assignedWorker.firstName || ""} ${assignedWorker.lastName || ""}`.trim() : "Support Worker",
+    };
+  },
+});
+
+/**
+ * Bulk assign unassigned clients to support workers with load balancing
+ */
+export const bulkAssignClients = mutation({
+  args: {
+    orgId: v.string(),
+    clerkId: v.string(),
+  },
+  handler: async (ctx, { orgId, clerkId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.ASSIGN_CLIENTS);
+
+    // Get all unassigned clients in org
+    const unassignedClients = (
+      await ctx.db
+        .query("clients")
+        .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+        .collect()
+    ).filter((c) => !c.assignedUserId);
+
+    if (unassignedClients.length === 0) {
+      return { success: true, assigned: 0, message: "No unassigned clients found" };
+    }
+
+    // Get all active support workers
+    const workers = (
+      await ctx.db
+        .query("users")
+        .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+        .collect()
+    ).filter(
+      (u) =>
+        (u.roleId === "support_worker" || u.roleId === "peer_support") &&
+        (u.status ?? "active") === "active" &&
+        !!u.clerkId
+    );
+
+    if (workers.length === 0) {
+      throw new Error("No available support workers in this organization");
+    }
+
+    // Calculate initial loads
+    const loads: Record<string, number> = {};
+    for (const worker of workers) {
+      const assignedClients = await ctx.db
+        .query("clients")
+        .withIndex("by_assignedUser", (iq) => iq.eq("assignedUserId", worker.clerkId))
+        .collect();
+      loads[worker.clerkId] = assignedClients.length;
+    }
+
+    // Assign clients to worker with lowest current load
+    let assignedCount = 0;
+    for (const client of unassignedClients) {
+      // Find worker with minimum load
+      const minWorkerId = Object.keys(loads).reduce((min, id) =>
+        loads[id] < loads[min] ? id : min
+      );
+
+      await ctx.db.patch(client._id, {
+        assignedUserId: minWorkerId,
+        updatedAt: Date.now(),
+      });
+
+      loads[minWorkerId]++;
+      assignedCount++;
+    }
+
+    return {
+      success: true,
+      assigned: assignedCount,
+      message: `Successfully assigned ${assignedCount} clients`,
+    };
+  },
+});
+
+/**
+ * Get unassigned clients in an organization
+ */
+export const getUnassignedClients = query({
+  args: { clerkId: v.string(), orgId: v.string() },
+  handler: async (ctx, { clerkId, orgId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const unassignedClients = (
+      await ctx.db
+        .query("clients")
+        .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+        .collect()
+    ).filter((c) => !c.assignedUserId);
+
+    return unassignedClients;
+  },
+});
+
+/**
+ * Get all clients with their assigned support worker details
+ */
+export const getClientAssignments = query({
+  args: { clerkId: v.string(), orgId: v.string() },
+  handler: async (ctx, { clerkId, orgId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const clients = await ctx.db
+      .query("clients")
+      .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+      .collect();
+
+    // Enrich with support worker details
+    const enrichedClients = await Promise.all(
+      clients.map(async (client) => {
+        let assignedWorker = null;
+        if (client.assignedUserId) {
+          assignedWorker = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (iq) => iq.eq("clerkId", client.assignedUserId))
+            .first();
+        }
+        return {
+          ...client,
+          assignedWorker: assignedWorker
+            ? {
+                clerkId: assignedWorker.clerkId,
+                firstName: assignedWorker.firstName,
+                lastName: assignedWorker.lastName,
+                email: assignedWorker.email,
+              }
+            : null,
+        };
+      })
+    );
+
+    return enrichedClients;
+  },
+});
+
+/**
+ * Get clients assigned to a specific support worker
+ */
+export const getClientsByAssignedWorker = query({
+  args: { clerkId: v.string(), workerClerkId: v.string() },
+  handler: async (ctx, { clerkId, workerClerkId }) => {
+    // Get requester's org
+    const requester = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (iq) => iq.eq("clerkId", clerkId))
+      .first();
+    if (!requester) throw new Error("User not found");
+
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const clients = await ctx.db
+      .query("clients")
+      .withIndex("by_assignedUser", (iq) => iq.eq("assignedUserId", workerClerkId))
+      .collect();
+
+    return clients;
+  },
+});
+
+/**
+ * Get support worker load (count of assigned clients)
+ */
+export const getSupportWorkerLoad = query({
+  args: { clerkId: v.string(), orgId: v.string() },
+  handler: async (ctx, { clerkId, orgId }) => {
+    await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
+
+    const workers = (
+      await ctx.db
+        .query("users")
+        .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+        .collect()
+    ).filter(
+      (u) =>
+        (u.roleId === "support_worker" || u.roleId === "peer_support") &&
+        (u.status ?? "active") === "active" &&
+        !!u.clerkId
+    );
+
+    const workerLoads = await Promise.all(
+      workers.map(async (worker) => {
+        const assignedClients = await ctx.db
+          .query("clients")
+          .withIndex("by_assignedUser", (iq) => iq.eq("assignedUserId", worker.clerkId))
+          .collect();
+
+        return {
+          clerkId: worker.clerkId,
+          firstName: worker.firstName,
+          lastName: worker.lastName,
+          email: worker.email,
+          clientCount: assignedClients.length,
+          clients: assignedClients,
+        };
+      })
+    );
+
+    return workerLoads.sort((a, b) => a.clientCount - b.clientCount);
   },
 });

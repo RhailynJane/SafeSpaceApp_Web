@@ -34,6 +34,7 @@ import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 
 import SendbirdChat from "@/components/SendbirdChat";
 import ChatInterface from "@/components/chat/ChatInterface";
+import { ClientAssignmentList } from "@/components/ClientAssignmentList";
 
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
@@ -722,6 +723,17 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       doc.text(`${k}: ${v}`, margin.left, y); y += lineHeight;
     });
 
+    const formatVal = (val) => {
+      if (val === null || val === undefined) return '';
+      if (Array.isArray(val)) return val.map(formatVal).join(', ');
+      if (typeof val === 'object') {
+        return Object.entries(val)
+          .map(([kk, vv]) => `${kk}: ${formatVal(vv)}`)
+          .join(', ');
+      }
+      return String(val);
+    };
+
     // Section: Summary Metrics (tabular style)
     y += 4;
     doc.setTextColor(0);
@@ -734,9 +746,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       if (k === 'rangeStart' || k === 'rangeEnd') return;
       if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
         rows.push([k, '']);
-        Object.entries(v).forEach(([sk, sv]) => rows.push([`  ${sk}`, String(sv)]));
+        Object.entries(v).forEach(([sk, sv]) => rows.push([`  ${sk}`, formatVal(sv)]));
       } else {
-        rows.push([k, String(v)]);
+        rows.push([k, formatVal(v)]);
       }
     });
     // Draw rows with simple two-column layout
@@ -803,12 +815,23 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     const wb = XLSX.utils.book_new();
     
     // Main summary sheet
+    const formatVal = (val) => {
+      if (val === null || val === undefined) return '';
+      if (Array.isArray(val)) return val.map(formatVal).join(', ');
+      if (typeof val === 'object') {
+        return Object.entries(val)
+          .map(([kk, vv]) => `${kk}: ${formatVal(vv)}`)
+          .join(', ');
+      }
+      return String(val);
+    };
+
     const flat = [];
     Object.entries(reportData).forEach(([k,v]) => {
       if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
-        Object.entries(v).forEach(([sk, sv]) => flat.push({ key: `${k}.${sk}`, value: sv }));
+        Object.entries(v).forEach(([sk, sv]) => flat.push({ key: `${k}.${sk}`, value: formatVal(sv) }));
       } else {
-        flat.push({ key: k, value: v });
+        flat.push({ key: k, value: formatVal(v) });
       }
     });
     const ws = XLSX.utils.json_to_sheet(flat);
@@ -862,6 +885,17 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
       new Paragraph({ text: `Date Range: ${reportData.rangeStart} to ${reportData.rangeEnd}` }),
     ];
 
+    const formatVal = (val) => {
+      if (val === null || val === undefined) return '';
+      if (Array.isArray(val)) return val.map(formatVal).join(', ');
+      if (typeof val === 'object') {
+        return Object.entries(val)
+          .map(([kk, vv]) => `${kk}: ${formatVal(vv)}`)
+          .join(', ');
+      }
+      return String(val);
+    };
+
     // Summary Metrics table (two-column)
     const rows = [];
     Object.entries(reportData).forEach(([k, v]) => {
@@ -874,13 +908,13 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         Object.entries(v).forEach(([sk, sv]) => {
           rows.push(new TableRow({ children: [
             new TableCell({ children: [new Paragraph({ text: `  ${sk}` })] }),
-            new TableCell({ children: [new Paragraph({ text: String(sv) })] }),
+            new TableCell({ children: [new Paragraph({ text: formatVal(sv) })] }),
           ]}));
         });
       } else {
         rows.push(new TableRow({ children: [
           new TableCell({ children: [new Paragraph({ text: k })] }),
-          new TableCell({ children: [new Paragraph({ text: String(v) })] }),
+          new TableCell({ children: [new Paragraph({ text: formatVal(v) })] }),
         ]}));
       }
     });
@@ -1304,6 +1338,9 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         {/* Clients Tab */}
         {defaultTab === "Clients" && (
           <div className="space-y-6">
+          {/* Client Assignments Section */}
+          <ClientAssignmentList orgId={dbUserRec?.orgId} />
+
           <Card className="border-border bg-card">
             <CardHeader>
               <CardTitle className="text-card-foreground">Client Management</CardTitle>

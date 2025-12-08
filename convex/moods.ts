@@ -78,6 +78,7 @@ export const recordMood = mutation({
 		factors: v.optional(v.array(v.string())),
 		notes: v.optional(v.string()),
 		shareWithSupportWorker: v.optional(v.boolean()),
+		orgId: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const meta = moodMeta[args.moodType];
@@ -102,6 +103,32 @@ export const recordMood = mutation({
 			createdAt: now,
 		});
 
+		// If sharing with support worker, get client info and send notification
+		if (args.shareWithSupportWorker) {
+			try {
+				const client = await ctx.db
+					.query("clients")
+					.withIndex("by_clerkId", (iq) => iq.eq("clerkId", args.userId))
+					.first();
+
+				if (client && client.assignedUserId) {
+					await ctx.db.insert("notifications", {
+						userId: client.assignedUserId,
+						type: "mood_shared",
+						title: "Mood Entry Shared",
+						message: `${client.firstName || "Client"} ${client.lastName || ""} shared their mood entry (${args.moodType}) with you`,
+						isRead: false,
+						relatedId: moodId,
+						orgId: args.orgId || client.orgId,
+						createdAt: now,
+					});
+				}
+			} catch (error) {
+				// Log but don't fail if notification creation fails
+				console.error("[recordMood] Failed to create notification:", error);
+			}
+		}
+
 		return { success: true, id: moodId };
 	},
 });
@@ -115,6 +142,7 @@ export const updateMood = mutation({
 		factors: v.optional(v.array(v.string())),
 		notes: v.optional(v.string()),
 		shareWithSupportWorker: v.optional(v.boolean()),
+		orgId: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const existing = await ctx.db.get(args.id);
@@ -130,6 +158,32 @@ export const updateMood = mutation({
 		if (args.factors) updates.factors = args.factors;
 		if (args.notes !== undefined) updates.notes = args.notes;
 		if (args.shareWithSupportWorker !== undefined) updates.shareWithSupportWorker = args.shareWithSupportWorker;
+		
+		// If share status is being toggled to true and wasn't previously shared, send notification
+		if (args.shareWithSupportWorker === true && !existing.shareWithSupportWorker) {
+			try {
+				const client = await ctx.db
+					.query("clients")
+					.withIndex("by_clerkId", (iq) => iq.eq("clerkId", existing.userId))
+					.first();
+
+				if (client && client.assignedUserId) {
+					await ctx.db.insert("notifications", {
+						userId: client.assignedUserId,
+						type: "mood_shared",
+						title: "Mood Entry Shared",
+						message: `${client.firstName || "Client"} ${client.lastName || ""} shared their mood entry with you`,
+						isRead: false,
+						relatedId: args.id,
+						orgId: args.orgId || client.orgId,
+						createdAt: Date.now(),
+					});
+				}
+			} catch (error) {
+				console.error("[updateMood] Failed to create notification:", error);
+			}
+		}
+		
 		await ctx.db.patch(args.id, updates);
 		return { success: true };
 	},

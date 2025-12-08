@@ -63,6 +63,7 @@ export const createEntry = mutation({
     templateId: v.optional(v.number()),
     tags: v.optional(v.array(v.string())),
     shareWithSupportWorker: v.optional(v.boolean()),
+    orgId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -82,6 +83,32 @@ export const createEntry = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // If sharing with support worker, send notification
+    if (args.shareWithSupportWorker) {
+      try {
+        const client = await ctx.db
+          .query("clients")
+          .withIndex("by_clerkId", (iq) => iq.eq("clerkId", userId))
+          .first();
+
+        if (client && client.assignedUserId) {
+          await ctx.db.insert("notifications", {
+            userId: client.assignedUserId,
+            type: "journal_shared",
+            title: "Journal Entry Shared",
+            message: `${client.firstName || "Client"} ${client.lastName || ""} shared a journal entry with you: ${args.title}`,
+            isRead: false,
+            relatedId: id,
+            orgId: args.orgId || client.orgId,
+            createdAt: now,
+          });
+        }
+      } catch (error) {
+        console.error("[createEntry] Failed to create notification:", error);
+      }
+    }
+
     const created = await ctx.db.get(id);
     return { success: true as const, entry: toClient(created) };
   },
@@ -97,6 +124,7 @@ export const updateEntry = mutation({
     templateId: v.optional(v.number()),
     tags: v.optional(v.array(v.string())),
     shareWithSupportWorker: v.optional(v.boolean()),
+    orgId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.id);
@@ -108,6 +136,32 @@ export const updateEntry = mutation({
     }
 
     const now = Date.now();
+
+    // If share status is being toggled to true, send notification
+    if (args.shareWithSupportWorker === true && !existing.shareWithSupportWorker) {
+      try {
+        const client = await ctx.db
+          .query("clients")
+          .withIndex("by_clerkId", (iq) => iq.eq("clerkId", existing.clerkId))
+          .first();
+
+        if (client && client.assignedUserId) {
+          await ctx.db.insert("notifications", {
+            userId: client.assignedUserId,
+            type: "journal_shared",
+            title: "Journal Entry Shared",
+            message: `${client.firstName || "Client"} ${client.lastName || ""} shared a journal entry with you: ${args.title || existing.title}`,
+            isRead: false,
+            relatedId: args.id,
+            orgId: args.orgId || client.orgId,
+            createdAt: now,
+          });
+        }
+      } catch (error) {
+        console.error("[updateEntry] Failed to create notification:", error);
+      }
+    }
+
     await ctx.db.patch(args.id, {
       ...(args.title !== undefined ? { title: args.title } : {}),
       ...(args.content !== undefined ? { content: args.content } : {}),
