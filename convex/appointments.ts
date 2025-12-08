@@ -540,11 +540,18 @@ export const getAppointmentStats = query({
  * Get single appointment by ID (mobile app)
  */
 export const getAppointment = query({
-  args: { appointmentId: v.optional(v.id("appointments")) },
+  args: { appointmentId: v.optional(v.string()) },
   handler: async (ctx, { appointmentId }) => {
-    if (!appointmentId) return null;
-    const appointment = await ctx.db.get(appointmentId);
-    return appointment || null;
+    if (!appointmentId || appointmentId === "undefined") return null;
+    try {
+      // Try to treat it as a Convex ID first
+      const appointment = await ctx.db.get(appointmentId as any);
+      return appointment || null;
+    } catch (e) {
+      // If it fails, try to find by string ID in database
+      console.log("Could not fetch appointment by ID:", appointmentId, e);
+      return null;
+    }
   },
 });
 
