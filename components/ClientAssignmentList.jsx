@@ -932,25 +932,25 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Risk Assessment</p>
                     <Badge className={`mt-2 px-4 py-1 text-sm font-bold ${
-                      journalAnalytics?.riskLevel === 'critical' ? 'bg-red-600 hover:bg-red-700' :
-                      journalAnalytics?.riskLevel === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
-                      journalAnalytics?.riskLevel === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                      (journalAnalytics?.riskLevel || 'low') === 'critical' ? 'bg-red-600 hover:bg-red-700' :
+                      (journalAnalytics?.riskLevel || 'low') === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
+                      (journalAnalytics?.riskLevel || 'low') === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
                       'bg-green-600 hover:bg-green-700'
                     }`}>
-                      {journalAnalytics?.riskLevel || 'Loading...'}
+                      {journalAnalytics?.riskLevel || 'low'}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Trend</p>
                     <div className={`mt-2 px-3 py-1 rounded-md font-semibold text-sm ${
-                      journalAnalytics?.metrics?.trend === 'improving' ? 'bg-green-100 text-green-800' :
-                      journalAnalytics?.metrics?.trend === 'declining' ? 'bg-red-100 text-red-800' :
+                      (journalAnalytics?.metrics?.trend || 'stable') === 'improving' ? 'bg-green-100 text-green-800' :
+                      (journalAnalytics?.metrics?.trend || 'stable') === 'declining' ? 'bg-red-100 text-red-800' :
                       'bg-slate-200 text-slate-800'
                     }`}>
-                      {journalAnalytics?.metrics?.trend === 'improving' && '↑ '}
-                      {journalAnalytics?.metrics?.trend === 'declining' && '↓ '}
-                      {journalAnalytics?.metrics?.trend === 'stable' && '→ '}
-                      {journalAnalytics?.metrics?.trend || '...'}
+                      {(journalAnalytics?.metrics?.trend || 'stable') === 'improving' && '↑ '}
+                      {(journalAnalytics?.metrics?.trend || 'stable') === 'declining' && '↓ '}
+                      {(journalAnalytics?.metrics?.trend || 'stable') === 'stable' && '→ '}
+                      {journalAnalytics?.metrics?.trend || 'stable'}
                     </div>
                   </div>
                 </div>
@@ -1179,25 +1179,25 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Risk Assessment</p>
                     <Badge className={`mt-2 px-4 py-1 text-sm font-bold ${
-                      crisisAnalytics?.riskLevel === 'critical' ? 'bg-red-600 hover:bg-red-700' :
-                      crisisAnalytics?.riskLevel === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
-                      crisisAnalytics?.riskLevel === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                      (crisisAnalytics?.riskLevel || 'low') === 'critical' ? 'bg-red-600 hover:bg-red-700' :
+                      (crisisAnalytics?.riskLevel || 'low') === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
+                      (crisisAnalytics?.riskLevel || 'low') === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
                       'bg-green-600 hover:bg-green-700'
                     }`}>
-                      {crisisAnalytics?.riskLevel || 'Loading...'}
+                      {crisisAnalytics?.riskLevel || 'low'}
                     </Badge>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Trend</p>
                     <div className={`mt-2 px-3 py-1 rounded-md font-semibold text-sm ${
-                      crisisAnalytics?.metrics?.trend === 'increasing' ? 'bg-red-100 text-red-800' :
-                      crisisAnalytics?.metrics?.trend === 'decreasing' ? 'bg-green-100 text-green-800' :
+                      (crisisAnalytics?.metrics?.trend || 'stable') === 'increasing' ? 'bg-red-100 text-red-800' :
+                      (crisisAnalytics?.metrics?.trend || 'stable') === 'decreasing' ? 'bg-green-100 text-green-800' :
                       'bg-slate-200 text-slate-800'
                     }`}>
-                      {crisisAnalytics?.metrics?.trend === 'increasing' && '↑ '}
-                      {crisisAnalytics?.metrics?.trend === 'decreasing' && '↓ '}
-                      {crisisAnalytics?.metrics?.trend === 'stable' && '→ '}
-                      {crisisAnalytics?.metrics?.trend || '...'}
+                      {(crisisAnalytics?.metrics?.trend || 'stable') === 'increasing' && '↑ '}
+                      {(crisisAnalytics?.metrics?.trend || 'stable') === 'decreasing' && '↓ '}
+                      {(crisisAnalytics?.metrics?.trend || 'stable') === 'stable' && '→ '}
+                      {crisisAnalytics?.metrics?.trend || 'stable'}
                     </div>
                   </div>
                 </div>
