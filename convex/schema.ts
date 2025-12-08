@@ -961,23 +961,5 @@ export default defineSchema({
 		.index("by_org_active", ["orgId", "active"])
 		.index("by_active", ["active"])
 		.index("by_createdAt", ["createdAt"]),
-
-	// Journal entries for emotional reflection and processing
-	journals: defineTable({
-		userId: v.string(), // clerkId of the user who wrote the journal
-		content: v.string(), // The journal entry text
-		themes: v.optional(v.array(v.string())), // Auto-detected themes (relationships, work, health, etc.)
-		sentiment: v.optional(v.string()), // 'positive' | 'neutral' | 'negative'
-		wordCount: v.optional(v.number()), // Length of the entry
-		shareWithSupportWorker: v.optional(v.boolean()), // Whether shared with assigned support worker
-		sharedWith: v.optional(v.array(v.string())), // Array of clerkIds with access
-		tags: v.optional(v.array(v.string())), // User-defined tags
-		mood: v.optional(v.string()), // Associated mood at time of writing
-		createdAt: v.number(),
-		updatedAt: v.optional(v.number()),
-	})
-		.index("by_user", ["userId"])
-		.index("by_user_created", ["userId", "createdAt"])
-		.index("by_shared", ["shareWithSupportWorker"]),
 });
 

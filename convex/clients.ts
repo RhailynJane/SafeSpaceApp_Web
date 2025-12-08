@@ -1315,35 +1315,37 @@ export const getJournalAnalytics = query({
     const last30Days = now - 30 * 24 * 60 * 60 * 1000;
     const last7Days = now - 7 * 24 * 60 * 60 * 1000;
 
-    // Get all journals
+    // Get all journals using clerkId (the clientUserId is already a clerkId)
     const allJournals = await ctx.db
-      .query("journals")
-      .filter((q) => q.eq(q.field("userId"), clientUserId))
+      .query("journalEntries")
+      .filter((q) => q.eq(q.field("clerkId"), clientUserId))
       .collect();
 
     const recentJournals = allJournals.filter(j => j.createdAt >= last30Days);
     const last7DaysJournals = allJournals.filter(j => j.createdAt >= last7Days);
 
     // Analyze engagement metrics
-    const sharedJournals = allJournals.filter(j => j.shareWithSupportWorker);
+    const sharedJournals = allJournals.filter(j => j.shareWithSupportWorker === true);
     const shareRate = allJournals.length > 0 ? (sharedJournals.length / allJournals.length) * 100 : 0;
+    
+    // Calculate word count from content
     const avgWordsPerEntry = recentJournals.length > 0
-      ? Math.round(recentJournals.reduce((sum, j) => sum + (j.wordCount || 0), 0) / recentJournals.length)
+      ? Math.round(recentJournals.reduce((sum, j) => sum + (j.content?.split(/\s+/).length || 0), 0) / recentJournals.length)
       : 0;
 
-    // Analyze themes from journals
+    // Analyze themes from tags and emotion type
     const themeCounts: { [key: string]: number } = {};
-    const sentimentCounts: { [key: string]: number } = {};
+    const emotionCounts: { [key: string]: number } = {};
     const concerningKeywords = ["suicidal", "suicide", "self-harm", "harm myself", "end it", "give up", "hopeless", "worthless", "can't go on"];
     
     let journalsWithConcerns = 0;
     recentJournals.forEach(j => {
-      (j.themes || []).forEach((theme: string) => {
-        themeCounts[theme] = (themeCounts[theme] || 0) + 1;
+      (j.tags || []).forEach((tag: string) => {
+        themeCounts[tag] = (themeCounts[tag] || 0) + 1;
       });
       
-      if (j.sentiment) {
-        sentimentCounts[j.sentiment] = (sentimentCounts[j.sentiment] || 0) + 1;
+      if (j.emotionType) {
+        emotionCounts[j.emotionType] = (emotionCounts[j.emotionType] || 0) + 1;
       }
 
       if (j.content && concerningKeywords.some(keyword => j.content.toLowerCase().includes(keyword))) {
@@ -1357,10 +1359,19 @@ export const getJournalAnalytics = query({
       .slice(0, 5)
       .map(([theme, count]) => ({ theme, count }));
 
-    // Analyze sentiment trend
-    const sentimentScore = (sentimentCounts["positive"] || 0) * 1 + 
-                          (sentimentCounts["neutral"] || 0) * 0 + 
-                          (sentimentCounts["negative"] || 0) * -1;
+    // Analyze emotion trend (using emotionType as sentiment indicator)
+    const negativeEmotions = ["frustrated", "sad", "angry", "anxious", "depressed", "overwhelmed"];
+    const positiveEmotions = ["happy", "content", "grateful", "excited", "peaceful", "calm"];
+    
+    const negativeCount = recentJournals.filter(j => 
+      negativeEmotions.some(e => j.emotionType?.toLowerCase().includes(e))
+    ).length;
+    
+    const positiveCount = recentJournals.filter(j => 
+      positiveEmotions.some(e => j.emotionType?.toLowerCase().includes(e))
+    ).length;
+
+    const sentimentScore = positiveCount * 1 + negativeCount * -1;
     const avgSentiment = recentJournals.length > 0 ? sentimentScore / recentJournals.length : 0;
 
     // Check engagement consistency
@@ -1387,9 +1398,9 @@ export const getJournalAnalytics = query({
     } else if (recentJournals.length < 3) {
       riskLevel = "moderate";
       riskFactors.push(`Low journaling frequency: Only ${recentJournals.length} entries in 30 days - may indicate avoidance or emotional suppression`);
-    } else if ((sentimentCounts["negative"] || 0) >= recentJournals.length * 0.6) {
+    } else if (negativeCount >= recentJournals.length * 0.6) {
       riskLevel = "high";
-      riskFactors.push(`Predominantly negative journaling: ${Math.round(((sentimentCounts["negative"] || 0) / recentJournals.length) * 100)}% of entries show negative sentiment`);
+      riskFactors.push(`Predominantly negative journaling: ${Math.round((negativeCount / recentJournals.length) * 100)}% of entries show negative emotion`);
     } else if (avgSentiment < -0.3) {
       riskLevel = "moderate";
       riskFactors.push(`Negative sentiment trend: Recent entries lean negative - suggests emotional distress or processing difficult experiences`);
@@ -1426,7 +1437,7 @@ export const getJournalAnalytics = query({
       recommendations.push("Set specific journaling routine: Suggest consistent time (morning reflection, evening gratitude, or weekly deep dive) to build consistency");
     }
 
-    if ((sentimentCounts["negative"] || 0) >= recentJournals.length * 0.6) {
+    if (negativeCount >= recentJournals.length * 0.6) {
       recommendations.push("Address predominant negative themes: Explore what's driving recurring negative thoughts. Consider CBT/DBT interventions for thought patterns");
       recommendations.push("Balance reflection with wellbeing: Suggest adding gratitude practice or positive experiences to journaling routine");
     }
@@ -1495,9 +1506,9 @@ export const getJournalAnalytics = query({
         trend,
         engagementDays: recentEngagementDays,
         avgSentiment: Number(avgSentiment.toFixed(2)),
-        negativeEntries: sentimentCounts["negative"] || 0,
-        positiveEntries: sentimentCounts["positive"] || 0,
-        neutralEntries: sentimentCounts["neutral"] || 0,
+        negativeEntries: negativeCount,
+        positiveEntries: positiveCount,
+        neutralEntries: recentJournals.length - negativeCount - positiveCount,
       },
       topThemes,
       engagementTrend: {
