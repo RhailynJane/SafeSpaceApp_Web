@@ -931,13 +931,13 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                 <div className="flex items-center gap-4">
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Risk Assessment</p>
-                    <Badge className={`mt-2 px-4 py-1 text-sm font-bold ${
+                    <Badge className={`mt-2 px-4 py-1 text-sm font-bold text-white ${
                       (journalAnalytics?.riskLevel || 'low') === 'critical' ? 'bg-red-600 hover:bg-red-700' :
                       (journalAnalytics?.riskLevel || 'low') === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
                       (journalAnalytics?.riskLevel || 'low') === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
                       'bg-green-600 hover:bg-green-700'
                     }`}>
-                      {journalAnalytics?.riskLevel || 'low'}
+                      {(journalAnalytics?.riskLevel || 'low').charAt(0).toUpperCase() + (journalAnalytics?.riskLevel || 'low').slice(1)}
                     </Badge>
                   </div>
                   <div>
@@ -1063,28 +1063,30 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
               )}
 
               {/* Recommendations */}
-              {journalAnalytics?.recommendations?.length > 0 && (
-                <Card className="border-slate-300 bg-slate-50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2 text-slate-900">
-                      <CheckCircle className="h-5 w-5 text-blue-600" />
-                      Recommended Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {journalAnalytics?.recommendations?.map((rec, idx) => (
+              <Card className="border-slate-300 bg-slate-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2 text-slate-900">
+                    <CheckCircle className="h-5 w-5 text-blue-600" />
+                    Recommended Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {journalAnalytics?.recommendations && journalAnalytics?.recommendations?.length > 0 ? (
+                      journalAnalytics?.recommendations?.map((rec, idx) => (
                         <div key={idx} className="flex gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
                           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
                             {idx + 1}
                           </div>
                           <p className="text-sm text-slate-700 leading-relaxed pt-0.5">{rec}</p>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-600 italic">Journal feature is currently in development. Recommendations will be available once journaling data is collected.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Top Themes */}
               {journalAnalytics?.topThemes?.length > 0 && (
@@ -1178,13 +1180,13 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                 <div className="flex items-center gap-4">
                   <div>
                     <p className="text-xs font-semibold text-slate-600 uppercase">Risk Assessment</p>
-                    <Badge className={`mt-2 px-4 py-1 text-sm font-bold ${
+                    <Badge className={`mt-2 px-4 py-1 text-sm font-bold text-white ${
                       (crisisAnalytics?.riskLevel || 'low') === 'critical' ? 'bg-red-600 hover:bg-red-700' :
                       (crisisAnalytics?.riskLevel || 'low') === 'high' ? 'bg-orange-600 hover:bg-orange-700' :
                       (crisisAnalytics?.riskLevel || 'low') === 'moderate' ? 'bg-yellow-600 hover:bg-yellow-700' :
                       'bg-green-600 hover:bg-green-700'
                     }`}>
-                      {crisisAnalytics?.riskLevel || 'low'}
+                      {(crisisAnalytics?.riskLevel || 'low').charAt(0).toUpperCase() + (crisisAnalytics?.riskLevel || 'low').slice(1)}
                     </Badge>
                   </div>
                   <div>
@@ -1310,28 +1312,30 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
               )}
 
               {/* Recommendations */}
-              {crisisAnalytics?.recommendations?.length > 0 && (
-                <Card className="border-slate-300 bg-slate-50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2 text-slate-900">
-                      <CheckCircle className="h-5 w-5 text-blue-600" />
-                      Recommended Actions
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {crisisAnalytics?.recommendations?.map((rec, idx) => (
+              <Card className="border-slate-300 bg-slate-50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2 text-slate-900">
+                    <CheckCircle className="h-5 w-5 text-blue-600" />
+                    Recommended Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {crisisAnalytics?.recommendations && crisisAnalytics?.recommendations?.length > 0 ? (
+                      crisisAnalytics?.recommendations?.map((rec, idx) => (
                         <div key={idx} className="flex gap-3 p-3 bg-white rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
                           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
                             {idx + 1}
                           </div>
                           <p className="text-sm text-slate-700 leading-relaxed pt-0.5">{rec}</p>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-600 italic">No recent crisis incidents. Client appears stable.</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Top Crisis Reasons */}
               {crisisAnalytics?.topReasons?.length > 0 && (
