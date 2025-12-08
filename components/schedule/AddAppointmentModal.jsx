@@ -50,9 +50,16 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
     isLoaded && user?.id ? { clerkId: user.id } : 'skip'
   ) || [];
   const clientOptions = clientsProp && Array.isArray(clientsProp) ? clientsProp : clients;
+  
+  // State for appointment date, initialized to today's date in "YYYY-MM-DD" format
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const [appointment_date, setAppointmentDate] = useState(defaultDate || todayStr);
+  
+  // Fetch appointments for the SELECTED date to check for conflicts
   const listForDate = useQuery(
     api.appointments.listByDate,
-    isLoaded && user?.id ? { clerkId: user.id, date: new Date().toISOString().split('T')[0] } : 'skip'
+    isLoaded && user?.id && appointment_date ? { clerkId: user.id, date: appointment_date } : 'skip'
   );
   
   // Fetch user's availability settings
@@ -66,11 +73,6 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
 
   // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
-
-  // State for appointment date, initialized to today's date in "YYYY-MM-DD" format
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const [appointment_date, setAppointmentDate] = useState(defaultDate || todayStr);
   // State for appointment time
   const [appointment_time, setAppointmentTime] = useState("");
   // State for the selected client's ID

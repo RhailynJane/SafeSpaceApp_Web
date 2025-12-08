@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,18 +14,21 @@ import { api } from '@/convex/_generated/api';
 
 export default function SchedulePage() {
   const { user, isLoaded } = useUser();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // Fetch ALL appointments (not just today) to show full schedule
   const convexAppointments = useQuery(
-    api.appointments.listByDate,
-    isLoaded && user?.id ? { clerkId: user.id, date: todayStr } : 'skip'
+    api.appointments.list,
+    isLoaded && user?.id ? { clerkId: user.id } : 'skip'
   ) || [];
+  
   const [isAvailabilityModalOpen, setAvailabilityModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
-
   const [prefilledSlot, setPrefilledSlot] = useState(null);
 
   const handleAddAppointment = async (_newAppointment) => {
-    // No-op: AddAppointmentModal writes via Convex; useQuery will refresh automatically
+    // Trigger refetch by changing key
+    setRefreshTrigger(t => t + 1);
   };
 
   const handleSelectSlot = (slot) => {
@@ -36,9 +39,11 @@ export default function SchedulePage() {
     setSelectedAppointment(appointment);
   };
 
-  const handleDetailsClose = () => {
+  const handleDetailsClose = useCallback(() => {
     setSelectedAppointment(null);
-  };
+    // Trigger refetch when closing details (after cancel/reschedule)
+    setRefreshTrigger(t => t + 1);
+  }, []);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -46,19 +51,36 @@ export default function SchedulePage() {
         return "bg-teal-600 text-white";
       case "pending":
         return "bg-gray-400 text-white";
+      case "cancelled":
+        return "bg-red-500 text-white";
       default:
         return "bg-gray-400 text-white";
     }
   };
 
-  const mapped = (convexAppointments || []).map(a => ({
-    id: a._id,
-    clientName: a.clientName || '',
-    type: a.type || '',
-    date: a.appointmentDate,
-    time: a.appointmentTime || '',
-    status: a.status || 'scheduled',
-  }));
+  // Filter out cancelled appointments and include full data for details modal
+  const mapped = (convexAppointments || [])
+    .filter(a => a.status !== 'cancelled')
+    .map(a => ({
+      _id: a._id,
+      id: a._id,
+      clientName: a.clientName || '',
+      type: a.type || '',
+      date: a.appointmentDate,
+      time: a.appointmentTime || '',
+      status: a.status || 'scheduled',
+      // Include full appointment data for the modal
+      appointmentDate: a.appointmentDate,
+      appointmentTime: a.appointmentTime,
+      duration: a.duration,
+      details: a.notes,
+      client: a.client,
+    }))
+    .sort((a, b) => {
+      const dateA = new Date(a.date + ' ' + a.time);
+      const dateB = new Date(b.date + ' ' + b.time);
+      return dateA - dateB;
+    });
 
   return (
     <div className="space-y-6">
