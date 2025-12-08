@@ -38,15 +38,20 @@ export default function ViewDetailsModal({ appointment, onClose }) {
   let scheduledDisplay = ''
   try {
     if (scheduledDateStr && scheduledTimeStr) {
+      // Parse date components directly from YYYY-MM-DD string
+      const [year, month, day] = scheduledDateStr.split('-').map(Number)
       const [hh, mm] = scheduledTimeStr.split(':').map(Number)
-      const d = new Date(scheduledDateStr)
-      const scheduled = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hh || 0, mm || 0, 0)
+      
+      // Create date in local time without UTC conversion
+      const scheduled = new Date(year, month - 1, day, hh || 0, mm || 0, 0)
       const now = new Date()
       const diffMs = scheduled.getTime() - now.getTime()
       const diffMinutes = diffMs / 60000
-      // Enable join when within the 60 minutes before scheduled time (diffMinutes <= 60 and > -1440 safeguard)
+      // Enable join when within the 60 minutes before scheduled time
       canJoin = diffMinutes <= 60
-      scheduledDisplay = `${new Date(scheduledDateStr).toLocaleDateString()} at ${scheduledTimeStr}`
+      
+      // Format display without timezone conversion issues
+      scheduledDisplay = `${new Date(year, month - 1, day).toLocaleDateString()} at ${scheduledTimeStr}`
     }
   } catch {}
 

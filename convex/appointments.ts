@@ -27,6 +27,7 @@ export const create = mutation({
     orgId: v.optional(v.string()),
     clientDbId: v.optional(v.string()), // Can be either a client ID or user ID since clients list includes user records
     clientId: v.optional(v.string()), // keep legacy string id reference if used
+    clientClerkId: v.optional(v.string()), // Client's Clerk ID for proper userId resolution
     supportWorkerId: v.optional(v.string()), // Clerk ID; if omitted for CMHA, we auto-assign
     supportWorkerName: v.optional(v.string()), // Support worker name for mobile display
     supportWorkerAvatar: v.optional(v.string()), // Support worker avatar for mobile display
@@ -46,31 +47,34 @@ export const create = mutation({
     let orgId = args.orgId ?? null as string | null;
     let client = null as any;
     let clientIdToUse = args.clientDbId ?? args.clientId ?? null;
-    let clientClerkId = null as string | null;
+    let clientClerkId = args.clientClerkId ?? null; // Use passed clientClerkId if available
 
     if (clientIdToUse) {
       // Try to get the client from either clients or users table
       client = await ctx.db.get(clientIdToUse as any);
       if (client?.orgId) orgId = client.orgId;
       
-      // If it's a clients table record, we need to find the clerkId (if user exists)
-      if (client?.status !== undefined && !client?.clerkId) {
-        // This is a clients record; try to find the user with matching email
-        if (client.email) {
-          const userMatch = await ctx.db
-            .query("users")
-            .withIndex("by_email", (q) => q.eq("email", client.email))
-            .first();
-          if (userMatch) {
-            clientClerkId = userMatch.clerkId;
+      // Only try to resolve clientClerkId if not already provided
+      if (!clientClerkId) {
+        // If it's a clients table record, we need to find the clerkId (if user exists)
+        if (client?.status !== undefined && !client?.clerkId) {
+          // This is a clients record; try to find the user with matching email
+          if (client.email) {
+            const userMatch = await ctx.db
+              .query("users")
+              .withIndex("by_email", (q) => q.eq("email", client.email))
+              .first();
+            if (userMatch) {
+              clientClerkId = userMatch.clerkId;
+            }
           }
+        } else if (client?.clerkId) {
+          // It's already a user record with clerkId
+          clientClerkId = client.clerkId;
+        } else if (typeof clientIdToUse === 'string' && clientIdToUse.startsWith('user_')) {
+          // It's already a Clerk ID
+          clientClerkId = clientIdToUse;
         }
-      } else if (client?.clerkId) {
-        // It's already a user record with clerkId
-        clientClerkId = client.clerkId;
-      } else if (typeof clientIdToUse === 'string' && clientIdToUse.startsWith('user_')) {
-        // It's already a Clerk ID
-        clientClerkId = clientIdToUse;
       }
     }
 
@@ -309,7 +313,10 @@ export const listByDate = query({
         .withIndex("by_appointmentDate", iq => iq.eq("appointmentDate", date));
     }
 
-    const items = await q.collect();
+    let items = await q.collect();
+    
+    // Filter out cancelled appointments
+    items = items.filter(a => a.status !== "cancelled");
 
     // Enrich with client names if available
     const withNames = await Promise.all(
@@ -354,17 +361,70 @@ export const list = query({
       items = items.filter(a => a.orgId === orgId);
     }
 
+    // Exclude cancelled appointments
+    items = items.filter(a => a.status !== "cancelled");
+
     // Enrich with client names if available
     const withNames = await Promise.all(
       items.map(async (a) => {
         let clientName: string | undefined = undefined;
-        if (a.clientId) {
-          const client = await ctx.db
-            .query("clients")
-            .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
-            .collect();
-          const found = client.find((c) => c._id === (a as any).clientId);
-          if (found) clientName = `${found.firstName || ""} ${found.lastName || ""}`.trim();
+        const idToLookup = a.clientId || (a as any).userId; // Use userId as fallback
+        
+        if (idToLookup) {
+          let client: any = null;
+          
+          // Try to find client by database ID first (only if it looks like a valid ID)
+          if (typeof idToLookup === 'string' && !idToLookup.startsWith('user_')) {
+            try {
+              const doc = await ctx.db.get(idToLookup as any);
+              if (doc && 'firstName' in doc) {
+                client = doc;
+              }
+            } catch (e) {
+              // Invalid ID format, continue to next method
+            }
+          }
+          
+          // If not found and ID looks like a Clerk ID, try looking up by clerkId
+          if (!client && typeof idToLookup === 'string' && idToLookup.startsWith('user_')) {
+            try {
+              const clients = await ctx.db
+                .query("clients")
+                .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
+                .collect();
+              // Try matching by clerkId field
+              client = clients.find((c) => c.clerkId === idToLookup);
+              // If still not found, try by email lookup
+              if (!client) {
+                const users = await ctx.db
+                  .query("users")
+                  .withIndex("by_clerkId", (iq) => iq.eq("clerkId", idToLookup))
+                  .first();
+                if (users?.email) {
+                  client = clients.find((c) => c.email === users.email);
+                }
+              }
+            } catch (e) {
+              // Continue if lookup fails
+            }
+          }
+          
+          // Also try looking up by database ID if we still don't have it
+          if (!client && a.orgId) {
+            try {
+              const clients = await ctx.db
+                .query("clients")
+                .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId))
+                .collect();
+              client = clients.find((c) => c._id === idToLookup as any);
+            } catch (e) {
+              // Continue if lookup fails
+            }
+          }
+          
+          if (client && 'firstName' in client) {
+            clientName = `${client.firstName || ""} ${client.lastName || ""}`.trim();
+          }
         }
         return { ...a, clientName };
       })

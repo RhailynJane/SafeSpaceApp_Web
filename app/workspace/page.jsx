@@ -333,6 +333,8 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         type: a.type || "",
         duration: a.duration ? `${a.duration} min` : "",
         details: a.notes || "",
+        status: a.status || "scheduled", // Include status for mobile app filtering
+        clientName: a.clientName, // Pass through clientName from Convex
         client: { client_first_name: first, client_last_name: last },
       };
     });

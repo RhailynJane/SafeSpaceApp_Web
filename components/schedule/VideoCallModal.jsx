@@ -225,16 +225,16 @@ export default function VideoCallModal({ appointment, open, onOpenChange, curren
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md dark:bg-gray-900 dark:border-gray-800">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
+            <DialogTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
               <AlertCircle className="h-5 w-5" />
-              Video Call Unavailable
+              Video Consultation Coming Soon
             </DialogTitle>
             <DialogDescription className="dark:text-gray-400">
-              The video call feature is currently not configured.
+              This feature is still in development.
             </DialogDescription>
           </DialogHeader>
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
-            <p className="text-sm">{error || "Video calling is not enabled. Please contact your system administrator."}</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 px-4 py-3 rounded-lg">
+            <p className="text-sm">Video consultations are still under development. We'll let you know once this feature is available. Thank you for your patience!</p>
           </div>
           <div className="flex justify-end pt-4">
             <Button onClick={() => onOpenChange(false)} variant="outline" className="dark:border-gray-700">

@@ -227,6 +227,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
 
       // 5. API Call: Send a POST request to the appointments API endpoint
       // Create via Convex
+      const selectedClient = clientOptions.find((c) => String(c._id || c.id) === String(client_id));
       const createdId = await createAppt({
         clerkId: user.id,
         appointmentDate: appointment_date,
@@ -235,6 +236,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
         duration: durationInMinutes,
         notes: details,
         clientDbId: client_id ? client_id : undefined,
+        clientClerkId: selectedClient?.clerkId, // Pass clerk ID for proper userId resolution
       });
 
       // 8. Execute the 'onAdd' callback with enriched client name for optimistic UI
