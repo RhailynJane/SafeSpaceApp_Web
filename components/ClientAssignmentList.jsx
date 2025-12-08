@@ -1082,7 +1082,7 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                         </div>
                       ))
                     ) : (
-                      <p className="text-sm text-slate-600 italic">Journal feature is currently in development. Recommendations will be available once journaling data is collected.</p>
+                      <p className="text-sm text-slate-600 italic">No recommendations available yet.</p>
                     )}
                   </div>
                 </CardContent>
