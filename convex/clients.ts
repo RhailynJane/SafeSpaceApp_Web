@@ -1315,56 +1315,194 @@ export const getJournalAnalytics = query({
     const last30Days = now - 30 * 24 * 60 * 60 * 1000;
     const last7Days = now - 7 * 24 * 60 * 60 * 1000;
 
-    // NOTE: Journal table not yet implemented - using empty arrays for now
-    const allJournals: any[] = [];
-    const recentJournals: any[] = [];
-    const last7DaysJournals: any[] = [];
+    // Get all journals
+    const allJournals = await ctx.db
+      .query("journals")
+      .filter((q) => q.eq(q.field("userId"), clientUserId))
+      .collect();
 
-    // Placeholder implementation until journals table is created
-    const sharedJournals: any[] = [];
-    const shareRate = 0;
-    const avgWordsPerEntry = 0;
+    const recentJournals = allJournals.filter(j => j.createdAt >= last30Days);
+    const last7DaysJournals = allJournals.filter(j => j.createdAt >= last7Days);
 
-    // Determine risk level based on journal analysis
-    let riskLevel = 'moderate';
-    let riskFactors: string[] = [
-      'Journal tracking feature coming soon',
-      'No journaling data available yet',
-    ];
+    // Analyze engagement metrics
+    const sharedJournals = allJournals.filter(j => j.shareWithSupportWorker);
+    const shareRate = allJournals.length > 0 ? (sharedJournals.length / allJournals.length) * 100 : 0;
+    const avgWordsPerEntry = recentJournals.length > 0
+      ? Math.round(recentJournals.reduce((sum, j) => sum + (j.wordCount || 0), 0) / recentJournals.length)
+      : 0;
 
-    // Generate recommendations
-    const recommendations: string[] = [
-      'Journal feature is currently in development',
-      'Once available, regular journaling will provide valuable insights into emotional patterns',
-      'Journaling helps identify triggers and develop coping strategies',
-      'Encourage client to use other available mood tracking tools in the meantime',
-    ];
+    // Analyze themes from journals
+    const themeCounts: { [key: string]: number } = {};
+    const sentimentCounts: { [key: string]: number } = {};
+    const concerningKeywords = ["suicidal", "suicide", "self-harm", "harm myself", "end it", "give up", "hopeless", "worthless", "can't go on"];
+    
+    let journalsWithConcerns = 0;
+    recentJournals.forEach(j => {
+      (j.themes || []).forEach((theme: string) => {
+        themeCounts[theme] = (themeCounts[theme] || 0) + 1;
+      });
+      
+      if (j.sentiment) {
+        sentimentCounts[j.sentiment] = (sentimentCounts[j.sentiment] || 0) + 1;
+      }
+
+      if (j.content && concerningKeywords.some(keyword => j.content.toLowerCase().includes(keyword))) {
+        journalsWithConcerns++;
+      }
+    });
 
     // Get top themes
-    const topThemes: any[] = [];
+    const topThemes = Object.entries(themeCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([theme, count]) => ({ theme, count }));
 
-    // Get engagement trend
-    const last7DaysCount = 0;
-    const prev7DaysCount = 0;
+    // Analyze sentiment trend
+    const sentimentScore = (sentimentCounts["positive"] || 0) * 1 + 
+                          (sentimentCounts["neutral"] || 0) * 0 + 
+                          (sentimentCounts["negative"] || 0) * -1;
+    const avgSentiment = recentJournals.length > 0 ? sentimentScore / recentJournals.length : 0;
 
-    let trend = 'stable';
+    // Check engagement consistency
+    const recentEngagementDays = new Set(recentJournals.map(j => 
+      new Date(j.createdAt).toDateString()
+    )).size;
+
+    // Track previous 7 days engagement
+    const previous7DaysStart = last7Days - 7 * 24 * 60 * 60 * 1000;
+    const previous7DaysJournals = allJournals.filter(j => 
+      j.createdAt >= previous7DaysStart && j.createdAt < last7Days
+    );
+
+    // Generate risk level
+    let riskLevel: "low" | "moderate" | "high" | "critical" = "low";
+    let riskFactors: string[] = [];
+
+    if (journalsWithConcerns > 0) {
+      riskLevel = "critical";
+      riskFactors.push(`🚨 CRISIS ALERT: ${journalsWithConcerns} journal entry(ies) contain concerning language about self-harm or suicidal ideation`);
+    } else if (recentJournals.length === 0) {
+      riskLevel = "moderate";
+      riskFactors.push("⚠️ No journaling activity in last 30 days - client may be disengaged or struggling to express emotions");
+    } else if (recentJournals.length < 3) {
+      riskLevel = "moderate";
+      riskFactors.push(`Low journaling frequency: Only ${recentJournals.length} entries in 30 days - may indicate avoidance or emotional suppression`);
+    } else if ((sentimentCounts["negative"] || 0) >= recentJournals.length * 0.6) {
+      riskLevel = "high";
+      riskFactors.push(`Predominantly negative journaling: ${Math.round(((sentimentCounts["negative"] || 0) / recentJournals.length) * 100)}% of entries show negative sentiment`);
+    } else if (avgSentiment < -0.3) {
+      riskLevel = "moderate";
+      riskFactors.push(`Negative sentiment trend: Recent entries lean negative - suggests emotional distress or processing difficult experiences`);
+    }
+
+    if (recentEngagementDays <= 2 && recentJournals.length > 0) {
+      riskFactors.push(`⚠️ Low engagement consistency: Entries compressed into ${recentEngagementDays} day(s) only - may indicate crisis-driven journaling rather than regular reflection`);
+      if (riskLevel === "low") riskLevel = "moderate";
+    }
+
+    if (shareRate < 20 && allJournals.length >= 5) {
+      riskFactors.push(`Low sharing rate (${Math.round(shareRate)}%) - client may not feel safe or connected with support worker`);
+    }
+
+    if (avgWordsPerEntry < 50 && recentJournals.length >= 3) {
+      riskFactors.push(`Brief entries (avg ${avgWordsPerEntry} words) - may indicate limited emotional expression or superficial journaling`);
+    }
+
+    // Generate recommendations
+    const recommendations: string[] = [];
+
+    if (journalsWithConcerns > 0) {
+      recommendations.push("🚨 IMMEDIATE ACTION REQUIRED: Review concerning journal entries immediately. Assess suicide risk and activate crisis protocol");
+      recommendations.push("Schedule urgent crisis assessment. Discuss safety planning and consider hospitalization if risk is imminent");
+      recommendations.push("Increase monitoring frequency to daily check-ins until safety is assured");
+    }
+
+    if (recentJournals.length === 0) {
+      recommendations.push("⚠️ Priority outreach: Client has stopped journaling. Reach out to check on their wellbeing and re-engage with self-reflection practices");
+      recommendations.push("Explore barriers to journaling: Ask if app is hard to use, they lack privacy, or emotional avoidance is occurring");
+      recommendations.push("Consider alternative expression methods: art, music, voice notes, or guided journaling prompts if traditional writing feels blocked");
+    } else if (recentJournals.length < 3) {
+      recommendations.push(`Encourage regular journaling habit: Current frequency is low (${recentJournals.length} entries/month). Recommend daily 5-10 minute practice`);
+      recommendations.push("Set specific journaling routine: Suggest consistent time (morning reflection, evening gratitude, or weekly deep dive) to build consistency");
+    }
+
+    if ((sentimentCounts["negative"] || 0) >= recentJournals.length * 0.6) {
+      recommendations.push("Address predominant negative themes: Explore what's driving recurring negative thoughts. Consider CBT/DBT interventions for thought patterns");
+      recommendations.push("Balance reflection with wellbeing: Suggest adding gratitude practice or positive experiences to journaling routine");
+    }
+
+    if (topThemes.length > 0) {
+      const topThemesList = topThemes.slice(0, 3).map(t => `${t.theme} (${t.count}x)`).join(", ");
+      recommendations.push(`Key themes identified: ${topThemesList}. Develop targeted interventions addressing these recurring life domains`);
+      
+      // Theme-specific recommendations
+      topThemes.slice(0, 3).forEach(t => {
+        if (t.theme.toLowerCase().includes("work") || t.theme.toLowerCase().includes("job") || t.theme.toLowerCase().includes("career")) {
+          recommendations.push(`Work-related stress prominent: Explore workplace dynamics, work-life balance, and career goals. Consider workplace accommodations or job counseling`);
+        } else if (t.theme.toLowerCase().includes("relationship") || t.theme.toLowerCase().includes("family") || t.theme.toLowerCase().includes("friend")) {
+          recommendations.push(`Relationship issues recurring theme: Address communication patterns, boundaries, and attachment concerns. Recommend relationship counseling if applicable`);
+        } else if (t.theme.toLowerCase().includes("health") || t.theme.toLowerCase().includes("anxiety") || t.theme.toLowerCase().includes("depression")) {
+          recommendations.push(`Mental/physical health concerns noted: Ensure medical and psychiatric needs are addressed. Monitor for symptom escalation`);
+        } else if (t.theme.toLowerCase().includes("finances") || t.theme.toLowerCase().includes("money")) {
+          recommendations.push(`Financial stress documented: Connect client with financial counseling, budgeting resources, or assistance programs`);
+        }
+      });
+    }
+
+    if (recentEngagementDays <= 2 && recentJournals.length > 0) {
+      recommendations.push("Spread journaling over time: Encourage small, frequent entries rather than bulk entries. This creates accountability and improves insight");
+    }
+
+    if (shareRate < 20 && allJournals.length >= 5) {
+      recommendations.push(`Build trust and sharing: Current low sharing rate suggests safety concerns. Explore fears about judgment and rebuild therapeutic alliance`);
+      recommendations.push("Explain confidentiality clearly: Ensure client understands what gets shared, with whom, and how it will be used");
+    }
+
+    if (avgWordsPerEntry < 50 && recentJournals.length >= 3) {
+      recommendations.push("Deepen journaling practice: Encourage more detailed exploration. Use prompts like 'Why did that situation upset me?' or 'What am I avoiding feeling?'");
+    }
+
+    if (last7DaysJournals.length > previous7DaysJournals.length) {
+      recommendations.push("✅ Positive engagement trend: Client is journaling more recently. Reinforce this habit and explore what motivated the increase");
+    }
+
+    if (recentJournals.length >= 10 && Math.abs(avgSentiment) < 0.2) {
+      recommendations.push("✅ Client showing balanced emotional processing: Good mix of reflective entries. Continue current journaling support");
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push("Client journaling appears adequate: Maintain current support and encourage continued self-reflection");
+      recommendations.push("Monitor journal themes for early warning signs of deterioration in emotional state");
+    }
+
+    // Trend analysis
+    const trend = last7DaysJournals.length > previous7DaysJournals.length 
+      ? "improving"
+      : last7DaysJournals.length < previous7DaysJournals.length 
+      ? "declining"
+      : "stable";
 
     return {
       riskLevel,
       riskFactors,
       recommendations,
       metrics: {
-        totalJournals: 0,
-        recentJournals: 0,
-        sharedJournals: 0,
-        shareRate: 0,
-        avgWordsPerEntry: 0,
+        totalJournals: allJournals.length,
+        recentJournals: recentJournals.length,
+        sharedJournals: sharedJournals.length,
+        shareRate: Math.round(shareRate),
+        avgWordsPerEntry,
         trend,
+        engagementDays: recentEngagementDays,
+        avgSentiment: Number(avgSentiment.toFixed(2)),
+        negativeEntries: sentimentCounts["negative"] || 0,
+        positiveEntries: sentimentCounts["positive"] || 0,
+        neutralEntries: sentimentCounts["neutral"] || 0,
       },
       topThemes,
       engagementTrend: {
-        last7Days: last7DaysCount,
-        previous7Days: prev7DaysCount,
+        last7Days: last7DaysJournals.length,
+        previous7Days: previous7DaysJournals.length,
         trend,
       },
     };
