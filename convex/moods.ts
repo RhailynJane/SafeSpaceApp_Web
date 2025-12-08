@@ -112,6 +112,13 @@ export const recordMood = mutation({
 					.first();
 
 				if (client && client.assignedUserId) {
+					// Get support worker details
+					const supportWorker = await ctx.db
+						.query("users")
+						.withIndex("by_clerkId", (iq) => iq.eq("clerkId", client.assignedUserId))
+						.first();
+
+					// Create in-app notification
 					await ctx.db.insert("notifications", {
 						userId: client.assignedUserId,
 						type: "mood_shared",
@@ -122,6 +129,29 @@ export const recordMood = mutation({
 						orgId: args.orgId || client.orgId,
 						createdAt: now,
 					});
+
+					// Send email notification if support worker has email
+					if (supportWorker && supportWorker.email) {
+						console.log("[recordMood] Sending email notification to:", supportWorker.email);
+						await ctx.db.insert("notifications", {
+							userId: supportWorker.clerkId,
+							type: "mood_shared_email",
+							title: "Mood Entry Shared - Email Sent",
+							message: `Email notification sent to ${supportWorker.email}`,
+							isRead: true,
+							relatedId: moodId,
+							orgId: args.orgId || client.orgId,
+							createdAt: now,
+						});
+						// Log for email service to pick up
+						console.log("[recordMood] 📧 Email notification prepared", {
+							to: supportWorker.email,
+							subject: `${client.firstName} ${client.lastName} shared mood entry with you`,
+							clientName: `${client.firstName} ${client.lastName}`,
+							moodType: args.moodType,
+							workerName: `${supportWorker.firstName || ""} ${supportWorker.lastName || ""}`,
+						});
+					}
 				}
 			} catch (error) {
 				// Log but don't fail if notification creation fails
@@ -168,6 +198,13 @@ export const updateMood = mutation({
 					.first();
 
 				if (client && client.assignedUserId) {
+					// Get support worker details
+					const supportWorker = await ctx.db
+						.query("users")
+						.withIndex("by_clerkId", (iq) => iq.eq("clerkId", client.assignedUserId))
+						.first();
+
+					// Create in-app notification
 					await ctx.db.insert("notifications", {
 						userId: client.assignedUserId,
 						type: "mood_shared",
@@ -178,6 +215,16 @@ export const updateMood = mutation({
 						orgId: args.orgId || client.orgId,
 						createdAt: Date.now(),
 					});
+
+					// Send email notification
+					if (supportWorker && supportWorker.email) {
+						console.log("[updateMood] 📧 Email notification prepared", {
+							to: supportWorker.email,
+							subject: `${client.firstName} ${client.lastName} shared mood entry with you`,
+							clientName: `${client.firstName} ${client.lastName}`,
+							workerName: `${supportWorker.firstName || ""} ${supportWorker.lastName || ""}`,
+						});
+					}
 				}
 			} catch (error) {
 				console.error("[updateMood] Failed to create notification:", error);

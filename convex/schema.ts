@@ -98,6 +98,9 @@ export default defineSchema({
 		roleId: v.optional(v.string()), // Role slug: 'superadmin', 'admin', 'team_leader', 'support_worker', 'peer_support', 'client'
 		status: v.optional(v.string()), // 'active' | 'inactive' | 'suspended' | 'deleted'
 		
+		// === CLIENT ASSIGNMENT (for clients only) ===
+		assignedUserId: v.optional(v.string()), // Clerk ID of assigned support worker (only for roleId='client')
+		
 		// === WEB-SPECIFIC FIELDS ===
 		phoneNumber: v.optional(v.string()),
 		address: v.optional(v.string()),

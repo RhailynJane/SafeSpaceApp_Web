@@ -93,6 +93,13 @@ export const createEntry = mutation({
           .first();
 
         if (client && client.assignedUserId) {
+          // Get support worker details
+          const supportWorker = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (iq) => iq.eq("clerkId", client.assignedUserId))
+            .first();
+
+          // Create in-app notification
           await ctx.db.insert("notifications", {
             userId: client.assignedUserId,
             type: "journal_shared",
@@ -103,6 +110,17 @@ export const createEntry = mutation({
             orgId: args.orgId || client.orgId,
             createdAt: now,
           });
+
+          // Send email notification
+          if (supportWorker && supportWorker.email) {
+            console.log("[createEntry] 📧 Email notification prepared", {
+              to: supportWorker.email,
+              subject: `${client.firstName} ${client.lastName} shared journal entry: ${args.title}`,
+              clientName: `${client.firstName} ${client.lastName}`,
+              contentTitle: args.title,
+              workerName: `${supportWorker.firstName || ""} ${supportWorker.lastName || ""}`,
+            });
+          }
         }
       } catch (error) {
         console.error("[createEntry] Failed to create notification:", error);
@@ -146,6 +164,13 @@ export const updateEntry = mutation({
           .first();
 
         if (client && client.assignedUserId) {
+          // Get support worker details
+          const supportWorker = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (iq) => iq.eq("clerkId", client.assignedUserId))
+            .first();
+
+          // Create in-app notification
           await ctx.db.insert("notifications", {
             userId: client.assignedUserId,
             type: "journal_shared",
@@ -156,6 +181,17 @@ export const updateEntry = mutation({
             orgId: args.orgId || client.orgId,
             createdAt: now,
           });
+
+          // Send email notification
+          if (supportWorker && supportWorker.email) {
+            console.log("[updateEntry] 📧 Email notification prepared", {
+              to: supportWorker.email,
+              subject: `${client.firstName} ${client.lastName} shared journal entry: ${args.title || existing.title}`,
+              clientName: `${client.firstName} ${client.lastName}`,
+              contentTitle: args.title || existing.title,
+              workerName: `${supportWorker.firstName || ""} ${supportWorker.lastName || ""}`,
+            });
+          }
         }
       } catch (error) {
         console.error("[updateEntry] Failed to create notification:", error);

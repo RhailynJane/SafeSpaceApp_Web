@@ -81,11 +81,18 @@ export const list = query({
       createdAt: u.createdAt || u._creationTime,
       updatedAt: u.updatedAt || u._creationTime,
       clerkId: u.clerkId,
+      assignedUserId: (u as any).assignedUserId || "", // Support worker assignment
+    }));
+
+    // Normalize clientDocs to include assignedUserId field
+    const normalizedClientDocs = clientDocs.map((c) => ({
+      ...c,
+      assignedUserId: (c as any).assignedUserId || "", // Ensure field exists
     }));
 
     // Combine and deduplicate (prefer explicit clients table rows when emails collide)
     const combinedMap = new Map<string, any>();
-    for (const c of [...mappedUserClients, ...clientDocs]) {
+    for (const c of [...mappedUserClients, ...normalizedClientDocs]) {
       const key = (c.email || c._id || "").toString().toLowerCase();
       combinedMap.set(key, c);
     }
@@ -166,6 +173,39 @@ export const create = mutation({
     }
 
     const now = Date.now();
+    
+    // Determine assigned support worker (auto-assign to least-loaded worker)
+    let assignedUserId = args.assignedUserId; // Use provided assignment if given
+    
+    if (!assignedUserId && finalOrg) {
+      // Get all support workers in the org
+      const supportWorkers = await ctx.db
+        .query("users")
+        .withIndex("by_orgId", (iq) => iq.eq("orgId", finalOrg))
+        .collect();
+      
+      const swList = supportWorkers.filter((u) => u.roleId === "support_worker");
+      
+      if (swList.length > 0) {
+        // Count clients per support worker
+        const loads = {};
+        for (const sw of swList) {
+          const count = await ctx.db
+            .query("clients")
+            .withIndex("by_assignedUser", (iq) => iq.eq("assignedUserId", sw._id as any))
+            .collect();
+          loads[sw._id as any] = count.length;
+        }
+        
+        // Find worker with minimum load
+        const minWorker = swList.reduce((min, current) => 
+          loads[current._id as any] < loads[min._id as any] ? current : min
+        );
+        
+        assignedUserId = minWorker._id as any;
+      }
+    }
+    
     const id = await ctx.db.insert("clients", {
       firstName,
       lastName,
@@ -178,7 +218,7 @@ export const create = mutation({
       emergencyContactPhone: ePhone,
       status: "active",
       riskLevel: "low",
-      assignedUserId: args.assignedUserId,
+      assignedUserId: assignedUserId || undefined,
       orgId: finalOrg,
       createdAt: now,
       updatedAt: now,
@@ -372,7 +412,7 @@ export const listByOrg = query({
  */
 export const assignToSupportWorker = mutation({
   args: {
-    clientId: v.id("clients"),
+    clientId: v.string(), // Accept string ID (works for both clients and users tables)
     clerkId: v.string(),
     supportWorkerId: v.optional(v.string()), // If provided, assign to specific worker
   },
@@ -380,9 +420,48 @@ export const assignToSupportWorker = mutation({
     // Verify permission to assign
     await requirePermission(ctx, clerkId, PERMISSIONS.ASSIGN_CLIENTS);
 
-    // Get the client
-    const client = await ctx.db.get(clientId);
-    if (!client) throw new Error("Client not found");
+    // Try to get the client from clients table first
+    let client: any = null;
+    let isUserClient = false;
+    let clientTableId: any = null;
+
+    try {
+      // Try as clients table ID
+      clientTableId = clientId as any;
+      client = await ctx.db.get(clientTableId);
+    } catch (e) {
+      // Not a valid clients table ID
+    }
+
+    // If not found or wrong type, search both tables
+    if (!client) {
+      const allClients = await ctx.db.query("clients").collect();
+      const foundClient = allClients.find(c => c._id.toString() === clientId || c._id === clientId);
+      
+      if (foundClient) {
+        client = foundClient;
+        clientTableId = foundClient._id;
+      } else {
+        // Try users table
+        const allUsers = await ctx.db.query("users").collect();
+        const foundUser = allUsers.find(u => (u._id.toString() === clientId || u._id === clientId) && u.roleId === "client");
+        
+        if (foundUser) {
+          client = foundUser;
+          clientTableId = foundUser._id;
+          isUserClient = true;
+        }
+      }
+    }
+
+    if (!client) {
+      throw new Error("Client not found");
+    }
+
+    // Type check for user clients
+    if (isUserClient && (client as any).roleId !== "client") {
+      throw new Error("User is not a client");
+    }
 
     // Get requester to determine org
     const requester = await ctx.db
@@ -391,7 +470,7 @@ export const assignToSupportWorker = mutation({
       .first();
     if (!requester) throw new Error("User not found");
 
-    const orgId = client.orgId || requester.orgId;
+    const orgId = (client as any).orgId || requester.orgId;
     if (!orgId) throw new Error("Unable to determine organization");
 
     let assignedWorkerId = supportWorkerId;
@@ -415,14 +494,26 @@ export const assignToSupportWorker = mutation({
         throw new Error("No available support workers in this organization");
       }
 
-      // Calculate load for each worker (number of assigned clients)
+      // Calculate load for each worker (number of assigned clients from both sources)
       const loads: Record<string, number> = {};
       for (const worker of workers) {
-        const assignedClients = await ctx.db
+        const clientDocs = await ctx.db
           .query("clients")
           .withIndex("by_assignedUser", (iq) => iq.eq("assignedUserId", worker.clerkId))
           .collect();
-        loads[worker.clerkId] = assignedClients.length;
+        
+        const userClients = (
+          await ctx.db
+            .query("users")
+            .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+            .collect()
+        ).filter(
+          (u) =>
+            u.roleId === "client" &&
+            (u as any).assignedUserId === worker.clerkId
+        );
+
+        loads[worker.clerkId] = clientDocs.length + userClients.length;
       }
 
       // Find worker with minimum load
@@ -431,8 +522,8 @@ export const assignToSupportWorker = mutation({
       }).clerkId;
     }
 
-    // Update client with assigned worker
-    await ctx.db.patch(clientId, {
+    // Update client with assigned worker (use the actual table ID)
+    await ctx.db.patch(clientTableId, {
       assignedUserId: assignedWorkerId,
       updatedAt: Date.now(),
     });
@@ -463,13 +554,22 @@ export const bulkAssignClients = mutation({
   handler: async (ctx, { orgId, clerkId }) => {
     await requirePermission(ctx, clerkId, PERMISSIONS.ASSIGN_CLIENTS);
 
-    // Get all unassigned clients in org
-    const unassignedClients = (
+    // Get all unassigned clients from both sources (including empty strings)
+    const unassignedClientDocs = (
       await ctx.db
         .query("clients")
         .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
         .collect()
-    ).filter((c) => !c.assignedUserId);
+    ).filter((c) => !c.assignedUserId || c.assignedUserId.trim() === "");
+
+    const unassignedUserClients = (
+      await ctx.db
+        .query("users")
+        .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+        .collect()
+    ).filter((u) => u.roleId === "client" && (!(u as any).assignedUserId || (u as any).assignedUserId.trim() === ""));
+
+    const unassignedClients = [...unassignedClientDocs, ...unassignedUserClients];
 
     if (unassignedClients.length === 0) {
       return { success: true, assigned: 0, message: "No unassigned clients found" };
@@ -492,14 +592,26 @@ export const bulkAssignClients = mutation({
       throw new Error("No available support workers in this organization");
     }
 
-    // Calculate initial loads
+    // Calculate initial loads from both sources
     const loads: Record<string, number> = {};
     for (const worker of workers) {
-      const assignedClients = await ctx.db
+      const clientDocs = await ctx.db
         .query("clients")
         .withIndex("by_assignedUser", (iq) => iq.eq("assignedUserId", worker.clerkId))
         .collect();
-      loads[worker.clerkId] = assignedClients.length;
+      
+      const userClients = (
+        await ctx.db
+          .query("users")
+          .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+          .collect()
+      ).filter(
+        (u) =>
+          u.roleId === "client" &&
+          (u as any).assignedUserId === worker.clerkId
+      );
+
+      loads[worker.clerkId] = clientDocs.length + userClients.length;
     }
 
     // Assign clients to worker with lowest current load
@@ -554,10 +666,50 @@ export const getClientAssignments = query({
   handler: async (ctx, { clerkId, orgId }) => {
     await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_CLIENTS);
 
-    const clients = await ctx.db
+    // Get clients from both sources (clients table and users table with roleId="client")
+    const clientDocs = await ctx.db
       .query("clients")
       .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
       .collect();
+
+    const userClients = (
+      await ctx.db
+        .query("users")
+        .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+        .collect()
+    ).filter((u) => u.roleId === "client");
+
+    // Normalize and combine both sources
+    const normalizedClientDocs = clientDocs.map((c) => ({
+      ...c,
+      assignedUserId: (c as any).assignedUserId || "",
+    }));
+
+    const mappedUserClients = userClients.map((u) => ({
+      _id: u._id as any,
+      _creationTime: u._creationTime,
+      orgId: u.orgId,
+      firstName: u.firstName || "",
+      lastName: u.lastName || "",
+      email: u.email || "",
+      phone: (u as any).phoneNumber || "",
+      status: u.status || "active",
+      riskLevel: "low",
+      lastSessionDate: u.lastLogin || u.updatedAt || u.createdAt || u._creationTime,
+      createdAt: u.createdAt || u._creationTime,
+      updatedAt: u.updatedAt || u._creationTime,
+      clerkId: u.clerkId,
+      assignedUserId: (u as any).assignedUserId || "",
+    }));
+
+    // Combine and deduplicate
+    const combinedMap = new Map<string, any>();
+    for (const c of [...mappedUserClients, ...normalizedClientDocs]) {
+      const key = (c.email || c._id || "").toString().toLowerCase();
+      combinedMap.set(key, c);
+    }
+
+    const clients = Array.from(combinedMap.values());
 
     // Enrich with support worker details
     const enrichedClients = await Promise.all(
@@ -633,18 +785,39 @@ export const getSupportWorkerLoad = query({
 
     const workerLoads = await Promise.all(
       workers.map(async (worker) => {
-        const assignedClients = await ctx.db
+        // Get clients from both clients table and users table
+        const clientDocAssignments = await ctx.db
           .query("clients")
           .withIndex("by_assignedUser", (iq) => iq.eq("assignedUserId", worker.clerkId))
           .collect();
+
+        const userClientAssignments = (
+          await ctx.db
+            .query("users")
+            .withIndex("by_orgId", (iq) => iq.eq("orgId", orgId))
+            .collect()
+        ).filter(
+          (u) =>
+            u.roleId === "client" &&
+            (u as any).assignedUserId === worker.clerkId
+        );
+
+        // Combine and deduplicate
+        const allAssignedMap = new Map<string, any>();
+        for (const c of [...clientDocAssignments, ...userClientAssignments]) {
+          const key = (c.email || c._id || "").toString().toLowerCase();
+          allAssignedMap.set(key, c);
+        }
+
+        const allAssignedClients = Array.from(allAssignedMap.values());
 
         return {
           clerkId: worker.clerkId,
           firstName: worker.firstName,
           lastName: worker.lastName,
           email: worker.email,
-          clientCount: assignedClients.length,
-          clients: assignedClients,
+          clientCount: allAssignedClients.length,
+          clients: allAssignedClients,
         };
       })
     );

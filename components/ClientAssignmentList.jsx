@@ -1,18 +1,27 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
 import { Badge } from "./ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Users, UserCheck, UserX } from "lucide-react";
+import { Button } from "./ui/button";
+import { useState, useEffect } from "react";
 
 /**
  * Simple component to display client-support worker assignments
  * Shows which clients are assigned to which support workers
  */
-export function ClientAssignmentList({ orgId }) {
+export function ClientAssignmentList({ orgId, dbUserRec }) {
   const { user } = useUser();
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [selectedWorker, setSelectedWorker] = useState({});
+  const bulkAssignClients = useMutation(api.clients.bulkAssignClients);
+  const assignToSupportWorker = useMutation(api.clients.assignToSupportWorker);
+
+  // Only team leaders and admins can assign
+  const isTeamLeader = dbUserRec?.roleId === "team_leader" || dbUserRec?.roleId === "admin" || dbUserRec?.roleId === "superadmin";
 
   // Fetch client assignments with worker details
   const clientAssignments = useQuery(
@@ -26,8 +35,61 @@ export function ClientAssignmentList({ orgId }) {
     user?.id && orgId ? { clerkId: user.id, orgId } : "skip"
   );
 
-  const assignedClients = clientAssignments?.filter(c => c.assignedUserId) || [];
-  const unassignedClients = clientAssignments?.filter(c => !c.assignedUserId) || [];
+  const assignedClients = clientAssignments?.filter(c => c.assignedUserId && c.assignedUserId.trim() !== "") || [];
+  const unassignedClients = clientAssignments?.filter(c => !c.assignedUserId || c.assignedUserId.trim() === "") || [];
+
+  const handleBulkAssign = async () => {
+    if (!user?.id || !orgId) return;
+    
+    console.log("Bulk assign - starting with:", { 
+      userId: user.id, 
+      orgId,
+      unassignedCount: unassignedClients.length,
+      unassignedClients: unassignedClients.map(c => ({ 
+        id: c._id, 
+        name: `${c.firstName} ${c.lastName}`,
+        assignedUserId: c.assignedUserId 
+      }))
+    });
+    
+    setIsAssigning(true);
+    try {
+      const result = await bulkAssignClients({
+        clerkId: user.id,
+        orgId,
+      });
+      console.log("Bulk assign result:", result);
+      // The UI will auto-refresh via Convex subscriptions
+    } catch (error) {
+      console.error("Error assigning clients:", error);
+      alert("Error assigning clients: " + error.message);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleManualAssign = async (clientId, workerClerkId) => {
+    if (!user?.id || !workerClerkId) {
+      console.log("Manual assign - missing data:", { userId: user?.id, clientId, workerClerkId });
+      return;
+    }
+    
+    console.log("Manual assign - calling mutation:", { userId: user.id, clientId, workerClerkId });
+    
+    try {
+      const result = await assignToSupportWorker({
+        clerkId: user.id,
+        clientId,
+        supportWorkerId: workerClerkId,
+      });
+      console.log("Manual assign - success:", result);
+      // Clear selection
+      setSelectedWorker(prev => ({ ...prev, [clientId]: "" }));
+    } catch (error) {
+      console.error("Error assigning client:", error);
+      alert("Error assigning client: " + error.message);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -117,8 +179,8 @@ export function ClientAssignmentList({ orgId }) {
         </Card>
       )}
 
-      {/* Unassigned Clients Warning */}
-      {unassignedClients.length > 0 && (
+      {/* Unassigned Clients Warning - Only show to team leaders */}
+      {unassignedClients.length > 0 && isTeamLeader && (
         <Card className="border-orange-200 bg-orange-50">
           <CardHeader>
             <CardTitle className="text-orange-800 flex items-center gap-2">
@@ -130,12 +192,48 @@ export function ClientAssignmentList({ orgId }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-4">
               {unassignedClients.map((client) => (
-                <Badge key={client._id} variant="outline" className="border-orange-300">
-                  {client.firstName} {client.lastName}
-                </Badge>
+                <div key={client._id} className="flex items-center justify-between gap-3 p-3 bg-white rounded border border-orange-200">
+                  <div className="flex-1">
+                    <p className="font-medium">{client.firstName} {client.lastName}</p>
+                    <p className="text-sm text-muted-foreground">{client.email}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {/* Manual assignment dropdown */}
+                    <select
+                      value={selectedWorker[client._id] || ""}
+                      onChange={(e) => setSelectedWorker(prev => ({ ...prev, [client._id]: e.target.value }))}
+                      className="px-3 py-2 border border-gray-300 rounded text-sm"
+                    >
+                      <option value="">Select Worker</option>
+                      {workerLoads?.map((worker) => (
+                        <option key={worker.clerkId} value={worker.clerkId}>
+                          {worker.firstName} {worker.lastName} ({worker.clientCount})
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      onClick={() => handleManualAssign(client._id, selectedWorker[client._id])}
+                      disabled={!selectedWorker[client._id]}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Assign
+                    </Button>
+                  </div>
+                </div>
               ))}
+              
+              {/* Bulk assign button */}
+              <Button 
+                onClick={handleBulkAssign}
+                disabled={isAssigning}
+                className="w-full mt-4"
+                variant="secondary"
+              >
+                {isAssigning ? "Assigning..." : "Auto-Assign All to Least-Loaded Workers"}
+              </Button>
             </div>
           </CardContent>
         </Card>

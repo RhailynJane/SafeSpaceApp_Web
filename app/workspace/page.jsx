@@ -243,43 +243,57 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
     console.log("📊 Number of clients:", convexClients.length);
     
     // Map clients into legacy shape used in this view and modals - INCLUDING ALL FIELDS
-    const mappedClients = convexClients.map((c) => ({
-      id: String(c._id),
-      org_id: c.orgId || "",
-      orgId: c.orgId || "",
-      client_first_name: c.firstName || "",
-      client_last_name: c.lastName || "",
-      email: c.email || "",
-      phone: c.phone || "",
-      address: c.address || "",
-      status: (c.status || "active").replace(/^[a-z]/, (m) => m.toUpperCase()),
-      risk_level: (c.riskLevel || "low").replace(/^[a-z]/, (m) => m.toUpperCase()),
-      last_session_date: c.lastSessionDate
-        ? new Date(c.lastSessionDate).toISOString()
-        : c.createdAt
-          ? new Date(c.createdAt).toISOString()
-          : c._creationTime
-            ? new Date(c._creationTime).toISOString()
-            : "",
-      // Additional personal information
-      age: c.age || "",
-      date_of_birth: c.dateOfBirth || "",
-      gender: c.gender || "",
-      pronouns: c.pronouns || "",
-      primary_language: c.primaryLanguage || "",
-      // Clinical information
-      mental_health_concerns: c.mentalHealthConcerns || "",
-      support_needed: c.supportNeeded || "",
-      ethnocultural_background: c.ethnoculturalBackground || "",
-      // Emergency contact information
-      emergency_contact_name: c.emergencyContactName || "",
-      emergency_contact_phone: c.emergencyContactPhone || "",
-      emergency_contact_relationship: c.emergencyContactRelationship || "",
-      // Referral information (if any)
-      referral_source: c.referralSource || "",
-      reason_for_referral: c.reasonForReferral || "",
-      additional_notes: c.additionalNotes || "",
-    }));
+    const mappedClients = convexClients.map((c) => {
+      // Resolve assigned worker name
+      let assignedWorkerName = "";
+      if (c.assignedUserId && assignableUsers) {
+        const worker = assignableUsers.find(u => u.clerkId === c.assignedUserId);
+        if (worker) {
+          assignedWorkerName = `${worker.first_name || ""} ${worker.last_name || ""}`.trim();
+        }
+      }
+      
+      return {
+        id: String(c._id),
+        org_id: c.orgId || "",
+        orgId: c.orgId || "",
+        client_first_name: c.firstName || "",
+        client_last_name: c.lastName || "",
+        email: c.email || "",
+        phone: c.phone || "",
+        address: c.address || "",
+        status: (c.status || "active").replace(/^[a-z]/, (m) => m.toUpperCase()),
+        risk_level: (c.riskLevel || "low").replace(/^[a-z]/, (m) => m.toUpperCase()),
+        last_session_date: c.lastSessionDate
+          ? new Date(c.lastSessionDate).toISOString()
+          : c.createdAt
+            ? new Date(c.createdAt).toISOString()
+            : c._creationTime
+              ? new Date(c._creationTime).toISOString()
+              : "",
+        // Additional personal information
+        age: c.age || "",
+        date_of_birth: c.dateOfBirth || "",
+        gender: c.gender || "",
+        pronouns: c.pronouns || "",
+        primary_language: c.primaryLanguage || "",
+        // Clinical information
+        mental_health_concerns: c.mentalHealthConcerns || "",
+        support_needed: c.supportNeeded || "",
+        ethnocultural_background: c.ethnoculturalBackground || "",
+        // Emergency contact information
+        emergency_contact_name: c.emergencyContactName || "",
+        emergency_contact_phone: c.emergencyContactPhone || "",
+        emergency_contact_relationship: c.emergencyContactRelationship || "",
+        // Referral information (if any)
+        referral_source: c.referralSource || "",
+        reason_for_referral: c.reasonForReferral || "",
+        additional_notes: c.additionalNotes || "",
+        // Support worker assignment
+        assignedUserId: c.assignedUserId || "",
+        assignedWorkerName,
+      };
+    });
     
     console.log("📋 Mapped clients with all fields:", mappedClients);
     
@@ -1339,7 +1353,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
         {defaultTab === "Clients" && (
           <div className="space-y-6">
           {/* Client Assignments Section */}
-          <ClientAssignmentList orgId={dbUserRec?.orgId} />
+          <ClientAssignmentList orgId={dbUserRec?.orgId} dbUserRec={dbUserRec} />
 
           <Card className="border-border bg-card">
             <CardHeader>
@@ -1394,7 +1408,7 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                   .map((client) => (
                     <div key={client.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-semibold">{client.client_first_name} {client.client_last_name}</h3>
                           <p className="text-sm text-gray-600">Last session: {new Date(client.last_session_date).toLocaleDateString()}</p>
                         </div>
@@ -1411,6 +1425,15 @@ function InteractiveDashboardContent({ user, userRole = "support-worker", userNa
                           </Badge>
                         </div>
                       </div>
+                      
+                      {/* Show assigned support worker */}
+                      {client.assignedWorkerName && (
+                        <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-sm font-semibold text-blue-900">Assigned Support Worker:</p>
+                          <p className="text-sm text-blue-700 font-medium">{client.assignedWorkerName}</p>
+                        </div>
+                      )}
+                      
                       <div className="mt-4">
                         <ClientActionButtons 
                           client={client} 

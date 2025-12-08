@@ -202,3 +202,78 @@ export const deleteNotification = mutation({
     return { success: true };
   },
 });
+
+/**
+ * Send email notification to support worker when client shares content
+ */
+export const sendShareNotificationEmail = mutation({
+  args: {
+    supportWorkerEmail: v.string(),
+    supportWorkerName: v.string(),
+    clientName: v.string(),
+    contentType: v.union(v.literal("mood"), v.literal("journal"), v.literal("post")),
+    contentTitle: v.optional(v.string()),
+    contentSummary: v.optional(v.string()),
+    clientDashboardUrl: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    {
+      supportWorkerEmail,
+      supportWorkerName,
+      clientName,
+      contentType,
+      contentTitle,
+      contentSummary,
+      clientDashboardUrl,
+    }
+  ) => {
+    // Create in-app notification
+    const notification = await ctx.db.insert("notifications", {
+      userId: supportWorkerEmail.split("@")[0], // This is a fallback, ideally use clerkId
+      type: `${contentType}_shared`,
+      title: `${clientName} Shared ${contentType === "mood" ? "Mood Entry" : contentType === "journal" ? "Journal Entry" : "Community Post"}`,
+      message: `${clientName} shared their ${contentType} entry${contentTitle ? ": " + contentTitle : ""} with you`,
+      isRead: false,
+      relatedId: `shared_${contentType}_${Date.now()}`,
+      createdAt: Date.now(),
+    });
+
+    // Send email via internal action
+    // Note: You need to call this via an action or schedule it separately
+    // For now, we'll prepare the email data
+    const emailSubject = `${clientName} shared a ${contentType} entry with you`;
+    const emailBody = `
+Hi ${supportWorkerName},
+
+${clientName} has shared a ${contentType} entry with you.
+
+${contentTitle ? `Title: ${contentTitle}` : ""}
+${contentSummary ? `Content: ${contentSummary}` : ""}
+
+${clientDashboardUrl ? `View in dashboard: ${clientDashboardUrl}` : ""}
+
+Best regards,
+SafeSpace Team
+    `.trim();
+
+    // Log for email service integration
+    console.log("📧 [sendShareNotificationEmail] Email prepared:", {
+      to: supportWorkerEmail,
+      subject: emailSubject,
+      clientName,
+      contentType,
+      contentTitle,
+    });
+
+    return {
+      success: true,
+      notificationId: notification,
+      emailData: {
+        to: supportWorkerEmail,
+        subject: emailSubject,
+        body: emailBody,
+      },
+    };
+  },
+});
