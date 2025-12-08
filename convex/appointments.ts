@@ -28,6 +28,8 @@ export const create = mutation({
     clientDbId: v.optional(v.string()), // Can be either a client ID or user ID since clients list includes user records
     clientId: v.optional(v.string()), // keep legacy string id reference if used
     supportWorkerId: v.optional(v.string()), // Clerk ID; if omitted for CMHA, we auto-assign
+    supportWorkerName: v.optional(v.string()), // Support worker name for mobile display
+    supportWorkerAvatar: v.optional(v.string()), // Support worker avatar for mobile display
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.clerkId, PERMISSIONS.MANAGE_APPOINTMENTS);
@@ -93,22 +95,52 @@ export const create = mutation({
       }
     }
 
+    // Validate support worker availability and fetch their details
+    let supportWorkerName = args.supportWorkerName ?? null;
+    let supportWorkerAvatar = args.supportWorkerAvatar ?? null;
+    if (assignedWorkerClerkId) {
+      const worker = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", assignedWorkerClerkId))
+        .first();
+      if (worker) {
+        supportWorkerName = supportWorkerName ?? (worker.firstName + (worker.lastName ? " " + worker.lastName : ""));
+        supportWorkerAvatar = supportWorkerAvatar ?? worker.profileImageUrl;
+
+        // Check worker availability for the scheduled time
+        if (worker.availability && appointmentTime && appointmentDate) {
+          const appointmentDateObj = new Date(appointmentDate);
+          const dayOfWeek = appointmentDateObj.toLocaleDateString('en-US', { weekday: 'lowercase' });
+          const daySlot = worker.availability.find((slot: any) => slot.day?.toLowerCase() === dayOfWeek);
+          if (daySlot && !daySlot.enabled) {
+            console.warn(`Worker ${assignedWorkerClerkId} is not available on ${dayOfWeek}`);
+          }
+        }
+      }
+    }
+
     const now = Date.now();
 
     const appointmentId = await ctx.db.insert("appointments", {
-      // mobile-compatible fields (now using web field names)
+      // Store in both web and mobile field formats for cross-platform compatibility
       appointmentDate,
       appointmentTime,
+      date: appointmentDate,
+      time: appointmentTime,
       duration: args.duration,
       type: args.type,
       status: args.status ?? "scheduled",
       notes: args.notes,
       meetingLink: args.meetingLink,
-      // Persist the selected client from web form
-      // Prefer the database id when provided; fall back to legacy string id
+      // Client linking - store both formats
       clientId: (args.clientDbId as any) ?? args.clientId,
-      scheduledByUserId: args.clerkId,
+      userId: (args.clientDbId as any) ?? args.clientId, // Mobile compatibility
+      // Support worker info for mobile sync
       supportWorkerId: assignedWorkerClerkId ?? undefined,
+      supportWorker: supportWorkerName ?? undefined,
+      avatarUrl: supportWorkerAvatar ?? undefined,
+      // Audit info
+      scheduledByUserId: args.clerkId,
       orgId: orgId ?? undefined,
       createdAt: now,
       updatedAt: now,

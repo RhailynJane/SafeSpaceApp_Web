@@ -117,6 +117,7 @@ export const list = query({
 export const create = mutation({
   args: {
     clerkId: v.string(),
+    clientClerkId: v.optional(v.string()),
     firstName: v.string(),
     lastName: v.string(),
     email: v.optional(v.string()),
@@ -130,7 +131,7 @@ export const create = mutation({
     orgId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { clerkId, orgId, ...data } = args;
+    const { clerkId, clientClerkId, orgId, ...data } = args;
     await requirePermission(ctx, clerkId, PERMISSIONS.MANAGE_CLIENTS);
 
     // Determine org: non-superadmin defaults to their org
@@ -218,6 +219,7 @@ export const create = mutation({
       emergencyContactPhone: ePhone,
       status: "active",
       riskLevel: "low",
+      clerkId: clientClerkId,
       assignedUserId: assignedUserId || undefined,
       orgId: finalOrg,
       createdAt: now,

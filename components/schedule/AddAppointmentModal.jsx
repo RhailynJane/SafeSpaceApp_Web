@@ -415,7 +415,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleOpenChange(false)}
+              onClick={() => setOpen(false)}
             >
               Cancel
             </Button>

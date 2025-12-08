@@ -165,8 +165,71 @@ export async function PATCH(req, { params }) {
 
         console.log("Assigned user:", assignedUser);
 
+        // Ensure the client exists in Clerk so mobile forgot-password works
+        const secret = process.env.CLERK_SECRET_KEY;
+        if (!secret) throw new Error("CLERK_SECRET_KEY not configured");
+
+        // Lookup by email
+        const lookupRes = await fetch(`https://api.clerk.com/v1/users?email_address=${encodeURIComponent(updated.email)}`,
+          { headers: { Authorization: `Bearer ${secret}` } });
+        let clientClerkId;
+        if (lookupRes.ok) {
+          const existing = await lookupRes.json();
+          if (Array.isArray(existing) && existing.length > 0) {
+            clientClerkId = existing[0].id;
+            console.log("Existing Clerk client found:", clientClerkId);
+          }
+        }
+
+        // Create if missing
+        if (!clientClerkId) {
+          const generatePassword = () => {
+            const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const lower = "abcdefghijkmnopqrstuvwxyz";
+            const digits = "23456789";
+            const symbols = "!@#$%^&*()_+[]{}";
+            const pick = (set) => set[Math.floor(Math.random() * set.length)];
+            let pwd = pick(upper) + pick(lower) + pick(digits) + pick(symbols);
+            const all = upper + lower + digits + symbols;
+            while (pwd.length < 16) pwd += pick(all);
+            return pwd;
+          };
+
+          const tempPassword = generatePassword();
+          const createBody = {
+            email_address: [updated.email],
+            password: tempPassword,
+            first_name: updated.clientFirstName || undefined,
+            last_name: updated.clientLastName || undefined,
+            public_metadata: {
+              role: "client",
+              orgId: adminUser.orgId,
+              invitedBy: user.id,
+              source: "referral",
+              mustChangePassword: true,
+            },
+          };
+
+          const createRes = await fetch("https://api.clerk.com/v1/users", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+            body: JSON.stringify(createBody),
+          });
+          const createData = await createRes.json();
+          if (!createRes.ok) {
+            console.error("Clerk client creation failed:", createRes.status, createData);
+            return NextResponse.json({
+              error: createData?.errors?.[0]?.message || "Failed to create client in Clerk",
+              detail: JSON.stringify(createData),
+            }, { status: createRes.status || 500 });
+          }
+          clientClerkId = createData.id;
+          console.log("New Clerk client created:", clientClerkId);
+        }
+
         const clientData = {
-          clerkId: user.id,
+          clerkId: user.id, // actor performing the creation
+          clientClerkId,
           firstName: updated.clientFirstName,
           lastName: updated.clientLastName,
           email: updated.email,
