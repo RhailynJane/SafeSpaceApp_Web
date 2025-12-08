@@ -36,6 +36,10 @@ export default function SchedulePage() {
     setSelectedAppointment(appointment);
   };
 
+  const handleDetailsClose = () => {
+    setSelectedAppointment(null);
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case "confirmed":
@@ -107,7 +111,7 @@ export default function SchedulePage() {
           )}
         </CardContent>
       </Card>
-      {selectedAppointment && <ViewDetailsModal appointment={selectedAppointment} />}
+      {selectedAppointment && <ViewDetailsModal appointment={selectedAppointment} onClose={handleDetailsClose} />}
     </div>
   );
 }
