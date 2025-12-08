@@ -434,6 +434,20 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                         <Phone className="h-3 w-3" />
                         Crisis
                       </Button>
+
+                      {/* Activity Log Button */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setDetailedLogsClient(client);
+                          setShowDetailedLogs(true);
+                        }}
+                        className="gap-1"
+                      >
+                        <Activity className="h-3 w-3" />
+                        Activity
+                      </Button>
                       
                       {/* Assigned Worker */}
                       <div className="text-right min-w-[150px]">
@@ -510,18 +524,6 @@ export function ClientAssignmentList({ orgId, dbUserRec }) {
                       </div>
                     )}
                   </div>
-                  
-                  <Button
-                    size="sm"
-                    className="bg-slate-800 hover:bg-slate-900"
-                    onClick={() => {
-                      setDetailedLogsClient(analyticsClient);
-                      setShowDetailedLogs(true);
-                    }}
-                  >
-                    <Activity className="h-4 w-4 mr-2" />
-                    Activity Log
-                  </Button>
                 </div>
               )}
 
