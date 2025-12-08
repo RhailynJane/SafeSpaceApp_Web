@@ -13,6 +13,37 @@ import { api } from "@/convex/_generated/api";
  */
 export async function POST(request) {
   try {
+    // Parse request body BEFORE calling auth() to avoid Clerk validation issues
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseErr) {
+      console.error("JSON parse error:", parseErr);
+      const contentType = request.headers.get("content-type");
+      console.error("Content-Type:", contentType);
+      console.error("Request URL:", request.url);
+      console.error("Request method:", request.method);
+      return NextResponse.json({ 
+        error: "Request body invalid - failed to parse JSON",
+        detail: parseErr?.message 
+      }, { status: 400 });
+    }
+
+    if (!body || typeof body !== 'object') {
+      console.error("Invalid body type:", typeof body);
+      return NextResponse.json({ 
+        error: "Request body invalid - body must be a JSON object",
+      }, { status: 400 });
+    }
+
+    const email = String(body?.email || "").trim().toLowerCase();
+    const orgId = String(body?.orgId || body?.org_id || "").trim();
+    const firstName = String(body?.firstName || body?.client_first_name || "").trim();
+    const lastName = String(body?.lastName || body?.client_last_name || "").trim();
+    
+    console.log("Invite request body parsed:", { email, orgId, firstName, lastName });
+
+    // NOW check authentication after body is parsed
     const { userId, sessionClaims } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -20,14 +51,6 @@ export async function POST(request) {
     if (!["superadmin", "admin", "team_leader", "support_worker"].includes(role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-
-    const body = await request.json();
-    const email = String(body?.email || "").trim().toLowerCase();
-    const orgId = String(body?.orgId || body?.org_id || "").trim();
-    const firstName = String(body?.firstName || body?.client_first_name || "").trim();
-    const lastName = String(body?.lastName || body?.client_last_name || "").trim();
-    
-    console.log("Invite request body:", { email, orgId, firstName, lastName });
     
     if (!email) return NextResponse.json({ error: "Email is required" }, { status: 400 });
 

@@ -29,14 +29,32 @@ export default function ClientActionButtons({ client, schedule, onClientUpdated 
 
       const requestBody = { email, orgId, firstName, lastName };
       console.log("Sending invite request:", requestBody);
+      console.log("Request body JSON string:", JSON.stringify(requestBody));
 
       const res = await fetch("/api/clients/invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(requestBody),
       });
-      const data = await res.json();
-      console.log("Invite response status:", res.status, "data:", data);
+      
+      console.log("Invite response status:", res.status);
+      console.log("Invite response status text:", res.statusText);
+      console.log("Invite response headers:", Object.fromEntries(res.headers.entries()));
+      
+      const responseText = await res.text();
+      console.log("Invite response raw text:", responseText);
+      
+      let data = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error("Failed to parse response as JSON:", parseErr);
+        data = { error: responseText || "Unknown error" };
+      }
+      console.log("Invite response data:", data);
+      
       if (!res.ok) throw new Error(data?.error || data?.detail || `Invite failed (${res.status})`);
       toast.success(`Invitation sent to ${email}`);
     } catch (e) {
