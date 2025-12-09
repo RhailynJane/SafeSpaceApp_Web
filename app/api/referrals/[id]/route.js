@@ -49,7 +49,7 @@ function mapReferralToSnakeCase(referral) {
  * =====================
  * Fetch a specific referral record by its unique ID.
  */
-export async function GET(req, { params }) {
+export async function GET(req, context) {
   try {
     // Authentication and role check
     const user = await currentUser();
@@ -68,7 +68,7 @@ export async function GET(req, { params }) {
       );
     }
 
-    const { id } = await params; // Extracts referral ID from the route parameters
+    const { id } = await context.params; // Extracts referral ID from the route parameters
     
     const convex = await getConvexClient();
     const referral = await convex.query(api.referrals.list, {})
@@ -92,9 +92,9 @@ export async function GET(req, { params }) {
  * Update a referral record by ID.
  * Only the admin and team leader is authorized to perform this action.
  */
-export async function PATCH(req, { params }) {
+export async function PATCH(req, context) {
   try {
-    const { id } = await params;              // Extracts the referral ID from route parameters
+    const { id } = await context.params;              // Extracts the referral ID from route parameters
     const { userId } = await auth();          // Get the authenticated user's ID from Clerk
     const user = await currentUser();         // Fetch the full user details from Clerk
     
@@ -273,9 +273,9 @@ export async function PATCH(req, { params }) {
  * Delete a referral record by ID.
  * Only the referral creator or an admin is allowed to delete it.
  */
-export async function DELETE(req, { params }) {
+export async function DELETE(req, context) {
   try {
-    const { id } = await params;              // Extract the referral ID from route parameters
+    const { id } = await context.params;              // Extract the referral ID from route parameters
     const { userId } = await auth();          // Verify if the user is authenticated
     const user = await currentUser();         // Fetch full user info from Clerk
     

@@ -5,14 +5,14 @@ import { getConvexClient } from "@/lib/convex-server.js";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id: referralId } = await params;
+    const { id: referralId } = await context.params;
     if (!referralId) {
       return NextResponse.json({ error: "Referral ID is required" }, { status: 400 });
     }

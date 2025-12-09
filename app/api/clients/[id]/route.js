@@ -41,7 +41,7 @@ function mapClientToSnakeCase(client) {
  * PATCH /api/clients/[id]
  * Update a client's profile
  */
-export async function PATCH(request, { params }) {
+export async function PATCH(request, context) {
   try {
     const { userId } = await auth();
     
@@ -49,7 +49,7 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
     const body = await request.json();
 
     console.log("Updating client with ID:", id);

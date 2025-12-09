@@ -16,10 +16,10 @@ import { NextResponse } from "next/server";                // Next.js utility fo
  * Updates the status and adds a timeline entry for a referral record by its ID.
  * Only users with "admin" or "team_leader" roles are authorized.
  */
-export async function PATCH(req, { params }) {
+export async function PATCH(req, context) {
   try {
     // Extract the referral ID from the dynamic route parameter
-    const { id } = await params;
+    const { id } = await context.params;
     
     // Parse incoming JSON body from the request (contains status + optional note)
     const body = await req.json();
