@@ -164,7 +164,13 @@ export default function AuditLogsPage() {
                           View Details
                         </summary>
                         <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-w-md">
-                          {JSON.stringify(JSON.parse(log.details), null, 2)}
+                          {(() => {
+                            try {
+                              return JSON.stringify(JSON.parse(log.details), null, 2);
+                            } catch (e) {
+                              return typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2);
+                            }
+                          })()}
                         </pre>
                       </details>
                     ) : (
