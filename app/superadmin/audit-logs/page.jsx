@@ -15,14 +15,12 @@ export default function AuditLogsPage() {
 
   const auditLogs = useQuery(api.auditLogs.list, filter);
   const stats = useQuery(api.auditLogs.getStats);
+  const allActions = useQuery(api.auditLogs.getUniqueActions);
 
   const entityTypes = ["all", "system", "user", "organization", "client", "referral", "appointment"];
   
-  // Extract unique action types from logs
-  const uniqueActions = new Set(
-    auditLogs?.map(log => log.action) || []
-  );
-  const actionTypes = ["all", ...Array.from(uniqueActions).sort()];
+  // Use all available actions from database, not just filtered ones
+  const actionTypes = ["all", ...(allActions || [])];
 
   return (
     <div className="space-y-6">

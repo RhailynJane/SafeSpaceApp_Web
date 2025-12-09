@@ -242,6 +242,18 @@ export const getStats = query({
 });
 
 /**
+ * Get all unique action types across all audit logs
+ */
+export const getUniqueActions = query({
+  args: {},
+  handler: async (ctx) => {
+    const logs = await ctx.db.query("auditLogs").collect();
+    const uniqueActions = new Set(logs.map((log) => log.action));
+    return Array.from(uniqueActions).sort();
+  },
+});
+
+/**
  * Create an audit log entry
  * This mutation is used throughout the app to track user actions
  */

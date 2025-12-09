@@ -414,8 +414,8 @@ export default function ReportsAnalyticsPage() {
                             <Card>
                                 <CardHeader><CardTitle>Users (sample)</CardTitle></CardHeader>
                                 <CardContent>
-                                    <div className="text-xs text-gray-600 dark:text-gray-300">{(data.data?.users || []).slice(0,8).map(u => (
-                                        <div key={u._id} className="py-1 flex justify-between border-b border-gray-100 dark:border-gray-700">
+                                    <div className="text-xs text-gray-600 dark:text-gray-300">{(data.data?.users || []).slice(0,8).map((u, idx) => (
+                                        <div key={u._id || u.email || idx} className="py-1 flex justify-between border-b border-gray-100 dark:border-gray-700">
                                             <span className="truncate mr-2">{u.firstName} {u.lastName}</span>
                                             <span className="text-gray-500 dark:text-gray-400">{u.roleId}</span>
                                         </div>
@@ -456,8 +456,8 @@ export default function ReportsAnalyticsPage() {
                                 <CardHeader><CardTitle>Top Users (by actions)</CardTitle></CardHeader>
                                 <CardContent>
                                     <div className="text-xs text-gray-700 dark:text-gray-300 space-y-1">
-                                        {(data.data?.users || []).sort((a,b)=> (b.totalActions||0)-(a.totalActions||0)).slice(0,8).map(u => (
-                                            <div key={(u.userId||u.userEmail||u.userName)} className="flex justify-between border-b border-gray-100 dark:border-gray-700 py-1">
+                                        {(data.data?.users || []).sort((a,b)=> (b.totalActions||0)-(a.totalActions||0)).slice(0,8).map((u, idx) => (
+                                            <div key={u.userId || u.userEmail || u.userName || idx} className="flex justify-between border-b border-gray-100 dark:border-gray-700 py-1">
                                                 <span className="truncate mr-2">{u.userName || u.userEmail || 'Unknown'}</span>
                                                 <span className="text-gray-500 dark:text-gray-400">{u.totalActions}</span>
                                             </div>
@@ -549,8 +549,8 @@ export default function ReportsAnalyticsPage() {
                                             <div>
                                                 <h4 className="font-semibold text-gray-800 mb-3">Notes per Client</h4>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                    {worker.clients.map(client => (
-                                                        <div key={client.id} className="flex justify-between items-center p-3 bg-white border rounded-lg">
+                                                    {worker.clients.map((client, cidx) => (
+                                                        <div key={client.id || client.name || cidx} className="flex justify-between items-center p-3 bg-white border rounded-lg">
                                                             <span className="text-sm text-gray-700">{client.name}</span>
                                                             <span className="text-sm font-semibold text-teal-600">{client.noteCount} notes</span>
                                                         </div>
