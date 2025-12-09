@@ -17,7 +17,12 @@ export default function AuditLogsPage() {
   const stats = useQuery(api.auditLogs.getStats);
 
   const entityTypes = ["all", "system", "user", "organization", "client", "referral", "appointment"];
-  const actionTypes = ["all", "create", "update", "delete", "login", "logout"];
+  
+  // Extract unique action types from logs
+  const uniqueActions = new Set(
+    auditLogs?.map(log => log.action) || []
+  );
+  const actionTypes = ["all", ...Array.from(uniqueActions).sort()];
 
   return (
     <div className="space-y-6">
