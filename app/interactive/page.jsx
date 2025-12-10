@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import dynamic from "next/dynamic";
 import useDraggable from "../../hooks/useDraggable";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
@@ -31,7 +32,6 @@ import ViewAvailabilityModal from "@/components/schedule/ViewAvailabilityModal";
 import ViewCalendarModal from "@/components/schedule/ViewCalendarModal";
 import ViewDetailsModal from "@/components/schedule/ViewDetailsModal";
 import ViewReportModal from "@/components/reports/ViewReportModal";
-import SendbirdChat from "@/components/SendbirdChat";
 
 import jsPDF from "jspdf";
 import AuditLogTab from "../auditlogtab/page";
@@ -39,7 +39,9 @@ import AuditLogTab from "../auditlogtab/page";
 import { format } from "date-fns";
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
 import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal"; // Import the new modal
-import VideoCallModal from "@/components/schedule/VideoCallModal";
+// Load heavy/SSR-unsafe modules only on the client to avoid `window` access during prerender
+const VideoCallModal = dynamic(() => import("@/components/schedule/VideoCallModal"), { ssr: false });
+const SendbirdChat = dynamic(() => import("@/components/SendbirdChat"), { ssr: false });
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
