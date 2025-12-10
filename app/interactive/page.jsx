@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense, useRef } from "react";
-import dynamic from "next/dynamic";
-import useDraggable from "../../hooks/useDraggable";
-import { useAuth, useUser } from "@clerk/nextjs";
-
 // Disable static prerendering to avoid `window`/`document` access during build
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
+import dynamicImport from "next/dynamic";
+import useDraggable from "../../hooks/useDraggable";
+import { useAuth, useUser } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
 import { useSWRConfig } from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,8 +44,8 @@ import { format } from "date-fns";
 import VoiceCallModal from "@/components/crisis/VoiceCallModal";
 import UpdateRiskStatusModal from "@/components/crisis/UpdateRiskStatusModal"; // Import the new modal
 // Load heavy/SSR-unsafe modules only on the client to avoid `window` access during prerender
-const VideoCallModal = dynamic(() => import("@/components/schedule/VideoCallModal"), { ssr: false });
-const SendbirdChat = dynamic(() => import("@/components/SendbirdChat"), { ssr: false });
+const VideoCallModal = dynamicImport(() => import("@/components/schedule/VideoCallModal"), { ssr: false });
+const SendbirdChat = dynamicImport(() => import("@/components/SendbirdChat"), { ssr: false });
 
 function InteractiveDashboardContent({ user, userRole = "support-worker", userName = "User", getToken, defaultTab }) {
   const { mutate } = useSWRConfig();
