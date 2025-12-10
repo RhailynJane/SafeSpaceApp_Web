@@ -8,15 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { Video, Calendar, Clock, User, FileText, AlertCircle } from 'lucide-react'
 import { useMutation } from 'convex/react'
 import { api } from '@/convex/_generated/api'
-import VideoCallModal from './VideoCallModal'
 
 export default function ViewDetailsModal({ appointment, onClose }) {
   const [open, setOpen] = useState(false)
-  const [isCallModalOpen, setIsCallModalOpen] = useState(false)
+  const [isDevModalOpen, setIsDevModalOpen] = useState(false)
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false)
   const [newDate, setNewDate] = useState(appointment?.appointmentDate || appointment?.date || '')
   const [newTime, setNewTime] = useState(appointment?.appointmentTime || appointment?.time || '')
@@ -56,7 +56,7 @@ export default function ViewDetailsModal({ appointment, onClose }) {
   } catch {}
 
   const handleJoinCall = () => {
-    setIsCallModalOpen(true)
+    setIsDevModalOpen(true)
   }
 
   const handleCancel = async () => {
@@ -241,13 +241,19 @@ export default function ViewDetailsModal({ appointment, onClose }) {
           </div>
         </DialogContent>
       </Dialog>
-      {isCallModalOpen && (
-        <VideoCallModal
-          appointment={appointment}
-          open={isCallModalOpen}
-          onOpenChange={setIsCallModalOpen}
-        />
-      )}
+      <Dialog open={isDevModalOpen} onOpenChange={setIsDevModalOpen}>
+        <DialogContent className="sm:max-w-md dark:bg-gray-900 dark:border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">Video consultation</DialogTitle>
+            <DialogDescription>
+              This feature is currently in development and will be available soon.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end">
+            <Button onClick={() => setIsDevModalOpen(false)}>Got it</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
