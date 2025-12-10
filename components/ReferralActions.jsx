@@ -192,7 +192,8 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
         throw new Error(message);
       }
 
-      const updatedReferral = await res.json();
+      const responseData = await res.json();
+      const updatedReferral = responseData.referral || responseData;
       onStatusUpdate?.(referral._id, updatedReferral);
 
       setShowAssignDialog(false);
@@ -228,7 +229,8 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
         throw new Error(message);
       }
 
-      const updatedReferral = await res.json();
+      const responseData = await res.json();
+      const updatedReferral = responseData.referral || responseData;
       onStatusUpdate?.(referral._id, updatedReferral);
 
       setShowConfirmDialog(false);
@@ -260,7 +262,8 @@ const ReferralActions = ({ referral, onStatusUpdate, userRole = "team-leader", a
       throw new Error(errorData.message || "Failed to update referral status");
     }
 
-    const updatedReferral = await res.json();
+    const responseData = await res.json();
+    const updatedReferral = responseData.referral || responseData;
     onStatusUpdate?.(referral._id, updatedReferral);
 
     // Then open email composer

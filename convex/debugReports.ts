@@ -57,7 +57,7 @@ export const checkSpecificOrg = query({
     
     const orgReports = await ctx.db
       .query("reports")
-      .withIndex("by_org", q => q.eq("orgId", args.orgId))
+      .withIndex("by_orgId", q => q.eq("orgId", args.orgId))
       .collect();
       
     console.log("[DEBUG REPORTS] Reports for org", args.orgId, ":", orgReports.length);

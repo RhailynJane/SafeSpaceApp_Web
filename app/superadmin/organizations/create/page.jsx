@@ -26,7 +26,28 @@ export default function CreateOrganizationPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    let newValue = value;
+
+    // Real-time phone formatting
+    if (name === "contactPhone") {
+      // Remove all non-digit characters
+      const digits = value.replace(/\D/g, "");
+      // Limit to 10 digits
+      const limitedDigits = digits.slice(0, 10);
+      
+      // Format as (XXX) XXX-XXXX
+      if (limitedDigits.length === 0) {
+        newValue = "";
+      } else if (limitedDigits.length <= 3) {
+        newValue = `(${limitedDigits}`;
+      } else if (limitedDigits.length <= 6) {
+        newValue = `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`;
+      } else {
+        newValue = `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: newValue }));
 
     // Auto-generate slug from name
     if (name === "name" && !formData.slug) {
@@ -46,18 +67,55 @@ export default function CreateOrganizationPage() {
   const validate = () => {
     const newErrors = {};
 
+    // Name validation
     if (!formData.name.trim()) {
       newErrors.name = "Organization name is required";
+    } else if (formData.name.trim().length < 2) {
+      newErrors.name = "Name must be at least 2 characters";
+    } else if (formData.name.trim().length > 100) {
+      newErrors.name = "Name must be less than 100 characters";
     }
 
+    // Slug validation
     if (!formData.slug.trim()) {
       newErrors.slug = "Slug is required";
     } else if (!/^[a-z0-9-]+$/.test(formData.slug)) {
       newErrors.slug = "Slug can only contain lowercase letters, numbers, and hyphens";
     }
 
-    if (formData.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.contactEmail)) {
-      newErrors.contactEmail = "Invalid email format";
+    // Email validation
+    if (formData.contactEmail?.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.contactEmail.trim())) {
+        newErrors.contactEmail = "Invalid email format";
+      }
+    }
+
+    // Phone validation
+    if (formData.contactPhone?.trim()) {
+      const digitsOnly = formData.contactPhone.replace(/\D/g, "");
+      if (digitsOnly.length > 0 && digitsOnly.length !== 10) {
+        newErrors.contactPhone = "Phone number must be exactly 10 digits";
+      }
+    }
+
+    // Website validation
+    if (formData.website?.trim()) {
+      try {
+        new URL(formData.website.trim());
+      } catch {
+        newErrors.website = "Invalid website URL (must include http:// or https://)";
+      }
+    }
+
+    // Description validation
+    if (formData.description && formData.description.length > 500) {
+      newErrors.description = "Description must be less than 500 characters";
+    }
+
+    // Address validation
+    if (formData.address && formData.address.length > 200) {
+      newErrors.address = "Address must be less than 200 characters";
     }
 
     setErrors(newErrors);
@@ -159,9 +217,14 @@ export default function CreateOrganizationPage() {
                 value={formData.description}
                 onChange={handleChange}
                 rows={3}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className={`w-full px-3 py-2 bg-background border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                  errors.description ? "border-red-300 dark:border-red-800" : "border-border"
+                }`}
                 placeholder="Brief description of the organization"
               />
+              {errors.description && (
+                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.description}</p>
+              )}
             </div>
           </div>
         </div>
@@ -200,9 +263,14 @@ export default function CreateOrganizationPage() {
                 name="contactPhone"
                 value={formData.contactPhone}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                placeholder="+1 (403) 123-4567"
+                className={`w-full px-3 py-2 bg-background border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                  errors.contactPhone ? "border-red-300 dark:border-red-800" : "border-border"
+                }`}
+                placeholder="(403) 123-4567"
               />
+              {errors.contactPhone && (
+                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.contactPhone}</p>
+              )}
             </div>
 
             <div>
@@ -215,9 +283,14 @@ export default function CreateOrganizationPage() {
                 name="website"
                 value={formData.website}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className={`w-full px-3 py-2 bg-background border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                  errors.website ? "border-red-300 dark:border-red-800" : "border-border"
+                }`}
                 placeholder="https://www.organization.com"
               />
+              {errors.website && (
+                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.website}</p>
+              )}
             </div>
 
             <div>
@@ -230,9 +303,14 @@ export default function CreateOrganizationPage() {
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className={`w-full px-3 py-2 bg-background border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 ${
+                  errors.address ? "border-red-300 dark:border-red-800" : "border-border"
+                }`}
                 placeholder="123 Main St, City, Province"
               />
+              {errors.address && (
+                <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.address}</p>
+              )}
             </div>
           </div>
         </div>

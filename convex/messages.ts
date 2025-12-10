@@ -15,18 +15,20 @@ export const list = query({
     // Verify user is a participant in this conversation
     const participant = await ctx.db
       .query("conversationParticipants")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", args.conversationId))
       .filter((q) => q.eq(q.field("userId"), identity.subject))
       .first();
 
+    // If user is not a participant (conversation was deleted or they were removed), return null
+    // Frontend should handle this gracefully by clearing selection
     if (!participant) {
-      throw new Error("Not authorized to view this conversation");
+      return null;
     }
 
     // Get messages - limit to last 50 for now
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", args.conversationId))
       .order("desc")
       .take(50);
 
@@ -75,7 +77,7 @@ export const send = mutation({
     // Verify user is a participant in this conversation
     const participant = await ctx.db
       .query("conversationParticipants")
-      .withIndex("by_conversation", (q) => q.eq("conversationId", args.conversationId))
+      .withIndex("by_conversationId", (q) => q.eq("conversationId", args.conversationId))
       .filter((q) => q.eq(q.field("userId"), identity.subject))
       .first();
 

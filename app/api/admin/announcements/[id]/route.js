@@ -26,14 +26,14 @@ async function compressImage(file) {
  * PUT /api/admin/announcements/[id]
  * Update an existing announcement
  */
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
     
     // Check if this is a simple JSON update (for toggle active) or multipart (for full edit)
     const contentType = request.headers.get('content-type');
@@ -105,14 +105,14 @@ export async function PUT(request, { params }) {
  * DELETE /api/admin/announcements/[id]
  * Delete an announcement
  */
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
 
     const result = await fetchMutation(api.announcementActions.deleteAnnouncement, {
       announcementId: id

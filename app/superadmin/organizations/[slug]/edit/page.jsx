@@ -28,11 +28,13 @@ export default function OrganizationEditPage() {
     website: "",
     logoUrl: "",
     status: "active",
+    features: [],
   });
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   if (slug === "safespace") {
     if (typeof window !== "undefined") router.replace("/superadmin/organizations");
@@ -44,6 +46,7 @@ export default function OrganizationEditPage() {
   const removeOrg = useMutation(api.organizations.remove);
 
   useEffect(() => {
+    console.log('🚀 Organization Edit Page Mounted - Code Version: 2024-12-06-v2');
     if (org) {
       setForm({
         name: org.name || "",
@@ -54,21 +57,151 @@ export default function OrganizationEditPage() {
         website: org.website || "",
         logoUrl: org.logoUrl || "",
         status: org.status || "active",
+        features: org.settings?.features || [],
       });
+      console.log('📋 Loaded org features:', org.settings?.features);
     }
   }, [org]);
 
-  const onChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const onChange = (e) => {
+    const { name, value } = e.target;
+    let newValue = value;
+
+    // Real-time phone formatting
+    if (name === "contactPhone") {
+      // Remove all non-digit characters
+      const digits = value.replace(/\D/g, "");
+      // Limit to 10 digits
+      const limitedDigits = digits.slice(0, 10);
+      
+      // Format as (XXX) XXX-XXXX
+      if (limitedDigits.length === 0) {
+        newValue = "";
+      } else if (limitedDigits.length <= 3) {
+        newValue = `(${limitedDigits}`;
+      } else if (limitedDigits.length <= 6) {
+        newValue = `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3)}`;
+      } else {
+        newValue = `(${limitedDigits.slice(0, 3)}) ${limitedDigits.slice(3, 6)}-${limitedDigits.slice(6)}`;
+      }
+    }
+
+    setForm((f) => ({ ...f, [name]: newValue }));
+    
+    // Clear field error when user starts typing
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const toggleFeature = (featureName) => {
+    setForm((f) => {
+      const features = f.features || [];
+      const hasFeature = features.includes(featureName);
+      return {
+        ...f,
+        features: hasFeature
+          ? features.filter((f) => f !== featureName)
+          : [...features, featureName],
+      };
+    });
+  };
+
+  const validateForm = () => {
+    const errors = {};
+
+    // Name validation
+    if (!form.name?.trim()) {
+      errors.name = "Organization name is required";
+    } else if (form.name.trim().length < 2) {
+      errors.name = "Name must be at least 2 characters";
+    } else if (form.name.trim().length > 100) {
+      errors.name = "Name must be less than 100 characters";
+    }
+
+    // Contact Email validation
+    if (form.contactEmail?.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(form.contactEmail.trim())) {
+        errors.contactEmail = "Invalid email format";
+      }
+    }
+
+    // Contact Phone validation
+    if (form.contactPhone?.trim()) {
+      const phoneRegex = /^[\d\s\-\+\(\)]+$/;
+      const digitsOnly = form.contactPhone.replace(/\D/g, "");
+      if (!phoneRegex.test(form.contactPhone.trim())) {
+        errors.contactPhone = "Phone number can only contain digits, spaces, and +-()";
+      } else if (digitsOnly.length !== 10) {
+        errors.contactPhone = "Phone number must be exactly 10 digits";
+      }
+    }
+
+    // Website validation
+    if (form.website?.trim()) {
+      try {
+        new URL(form.website.trim());
+      } catch {
+        errors.website = "Invalid website URL (must include http:// or https://)";
+      }
+    }
+
+    // Logo URL validation
+    if (form.logoUrl?.trim()) {
+      try {
+        const url = new URL(form.logoUrl.trim());
+        if (!url.protocol.startsWith('http')) {
+          errors.logoUrl = "Logo URL must be a valid HTTP(S) URL";
+        }
+      } catch {
+        errors.logoUrl = "Invalid logo URL";
+      }
+    }
+
+    // Description validation
+    if (form.description && form.description.length > 500) {
+      errors.description = "Description must be less than 500 characters";
+    }
+
+    // Address validation
+    if (form.address && form.address.length > 200) {
+      errors.address = "Address must be less than 200 characters";
+    }
+
+    return errors;
+  };
 
   const onSave = async () => {
+    console.log('🔵 onSave called!', { clerkId, orgId: org?._id, features: form.features });
     if (!clerkId || !org?._id) return;
+
+    // Validate form
+    const errors = validateForm();
+    console.log('🔍 Validation errors:', errors);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setErrorMsg("Please fix validation errors before saving");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setSaving(true);
+    setErrorMsg("");
+    setFieldErrors({});
+
     try {
-      await updateOrg({
+      const { features, ...rest } = form;
+      const payload = {
         clerkId,
         id: org._id,
-        ...form,
-      });
+        ...rest,
+        settings: {
+          features: features || [],
+        },
+      };
+      console.log('💾 Saving organization with features:', { features, payload });
+      await updateOrg(payload);
       setShowSuccess(true);
     } catch (e) {
       console.error("Failed to update org", e);
@@ -80,13 +213,18 @@ export default function OrganizationEditPage() {
 
   const onDelete = async () => {
     if (!clerkId || !org?._id) return;
+    
+    setConfirmOpen(false); // Close confirm dialog immediately
+    
     try {
       await removeOrg({ clerkId, id: org._id });
       router.push("/superadmin/organizations");
     } catch (e) {
-      setErrorMsg(e?.message || "Failed to delete organization");
-    } finally {
-      setConfirmOpen(false);
+      console.error("Failed to delete organization:", e);
+      const errorMessage = e?.message || "Failed to delete organization";
+      setErrorMsg(errorMessage);
+      // Scroll to top to show error
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -107,37 +245,109 @@ export default function OrganizationEditPage() {
           <CardTitle>Organization Info</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {errorMsg && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {errorMsg}
+            </div>
+          )}
           <div>
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" name="name" value={form.name} onChange={onChange} />
+            <Label htmlFor="name">Name <span className="text-red-500">*</span></Label>
+            <Input 
+              id="name" 
+              name="name" 
+              value={form.name} 
+              onChange={onChange}
+              className={fieldErrors.name ? "border-red-500" : ""}
+            />
+            {fieldErrors.name && (
+              <p className="text-red-500 text-sm mt-1">{fieldErrors.name}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="description">Description</Label>
-            <Input id="description" name="description" value={form.description} onChange={onChange} />
+            <Input 
+              id="description" 
+              name="description" 
+              value={form.description} 
+              onChange={onChange}
+              className={fieldErrors.description ? "border-red-500" : ""}
+            />
+            {fieldErrors.description && (
+              <p className="text-red-500 text-sm mt-1">{fieldErrors.description}</p>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="contactEmail">Contact Email</Label>
-              <Input id="contactEmail" name="contactEmail" value={form.contactEmail} onChange={onChange} />
+              <Input 
+                id="contactEmail" 
+                name="contactEmail" 
+                value={form.contactEmail} 
+                onChange={onChange}
+                type="email"
+                className={fieldErrors.contactEmail ? "border-red-500" : ""}
+              />
+              {fieldErrors.contactEmail && (
+                <p className="text-red-500 text-sm mt-1">{fieldErrors.contactEmail}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="contactPhone">Contact Phone</Label>
-              <Input id="contactPhone" name="contactPhone" value={form.contactPhone} onChange={onChange} />
+              <Input 
+                id="contactPhone" 
+                name="contactPhone" 
+                value={form.contactPhone} 
+                onChange={onChange}
+                type="tel"
+                className={fieldErrors.contactPhone ? "border-red-500" : ""}
+              />
+              {fieldErrors.contactPhone && (
+                <p className="text-red-500 text-sm mt-1">{fieldErrors.contactPhone}</p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="address">Address</Label>
-              <Input id="address" name="address" value={form.address} onChange={onChange} />
+              <Input 
+                id="address" 
+                name="address" 
+                value={form.address} 
+                onChange={onChange}
+                className={fieldErrors.address ? "border-red-500" : ""}
+              />
+              {fieldErrors.address && (
+                <p className="text-red-500 text-sm mt-1">{fieldErrors.address}</p>
+              )}
             </div>
             <div>
               <Label htmlFor="website">Website</Label>
-              <Input id="website" name="website" value={form.website} onChange={onChange} />
+              <Input 
+                id="website" 
+                name="website" 
+                value={form.website} 
+                onChange={onChange}
+                placeholder="https://example.com"
+                className={fieldErrors.website ? "border-red-500" : ""}
+              />
+              {fieldErrors.website && (
+                <p className="text-red-500 text-sm mt-1">{fieldErrors.website}</p>
+              )}
             </div>
           </div>
           <div>
             <Label htmlFor="logoUrl">Logo URL</Label>
-            <Input id="logoUrl" name="logoUrl" value={form.logoUrl} onChange={onChange} />
+            <Input 
+              id="logoUrl" 
+              name="logoUrl" 
+              value={form.logoUrl} 
+              onChange={onChange}
+              placeholder="https://example.com/logo.png"
+              className={fieldErrors.logoUrl ? "border-red-500" : ""}
+            />
+            {fieldErrors.logoUrl && (
+              <p className="text-red-500 text-sm mt-1">{fieldErrors.logoUrl}</p>
+            )}
           </div>
           <div>
             <Label htmlFor="status">Status</Label>
@@ -149,6 +359,7 @@ export default function OrganizationEditPage() {
               </SelectContent>
             </Select>
           </div>
+
           <div className="flex justify-end gap-2">
             <Button variant="outline" asChild>
               <Link href={`/superadmin/organizations/${slug}`}>Cancel</Link>

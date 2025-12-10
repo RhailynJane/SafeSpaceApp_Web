@@ -122,7 +122,6 @@ export default function AccountsPage() {
                   {role.name}
                 </option>
               ))}
-              <option value="client">Client</option>
             </select>
           </div>
 
@@ -180,6 +179,8 @@ export default function AccountsPage() {
                 const role = roles?.find((r) => r.slug === u.roleId);
                 const effectiveStatus = statusOverride[u.clerkId] ?? u.status;
                 const isClient = u.roleId === "client";
+                // Determine if this is from clients table (no clerkId) vs users table with role=client
+                const isFromClientsTable = isClient && !u.clerkId;
 
                 return (
                   <tr key={u._id} className="hover:bg-muted/30">
@@ -220,38 +221,38 @@ export default function AccountsPage() {
                       {u.lastLogin
                         ? new Date(u.lastLogin).toLocaleDateString()
                         : "Never"}
+                      {/* Debug: {u.lastLogin ? `(${u.lastLogin})` : '(undefined)'} */}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {!isClient && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              aria-label="Actions"
-                              className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted text-foreground"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/superadmin/accounts/${u.clerkId}`}>View</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/superadmin/accounts/${u.clerkId}/edit`}>Edit</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleToggleSuspend(u.clerkId, effectiveStatus)}
-                            >
-                              {effectiveStatus === "suspended" ? "Unsuspend" : "Suspend"}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                      {isClient && (
-                        <span className="text-xs text-muted-foreground">Client Record</span>
-                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            aria-label="Actions"
+                            className="inline-flex items-center justify-center rounded-md p-2 hover:bg-muted text-foreground"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/superadmin/accounts/${isFromClientsTable ? u._id : u.clerkId}`}>View</Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/superadmin/accounts/${isFromClientsTable ? u._id : u.clerkId}/edit`}>Edit</Link>
+                          </DropdownMenuItem>
+                          {!isFromClientsTable && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleToggleSuspend(u.clerkId, effectiveStatus)}
+                              >
+                                {effectiveStatus === "suspended" ? "Unsuspend" : "Suspend"}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </td>
                   </tr>
                 );

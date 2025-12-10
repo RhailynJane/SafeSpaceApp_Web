@@ -49,7 +49,7 @@ function mapReferralToSnakeCase(referral) {
  * =====================
  * Fetch a specific referral record by its unique ID.
  */
-export async function GET(req, { params }) {
+export async function GET(req, context) {
   try {
     // Authentication and role check
     const user = await currentUser();
@@ -68,7 +68,7 @@ export async function GET(req, { params }) {
       );
     }
 
-    const { id } = await params; // Extracts referral ID from the route parameters
+    const { id } = await context.params; // Extracts referral ID from the route parameters
     
     const convex = await getConvexClient();
     const referral = await convex.query(api.referrals.list, {})
@@ -92,9 +92,9 @@ export async function GET(req, { params }) {
  * Update a referral record by ID.
  * Only the admin and team leader is authorized to perform this action.
  */
-export async function PATCH(req, { params }) {
+export async function PATCH(req, context) {
   try {
-    const { id } = await params;              // Extracts the referral ID from route parameters
+    const { id } = await context.params;              // Extracts the referral ID from route parameters
     const { userId } = await auth();          // Get the authenticated user's ID from Clerk
     const user = await currentUser();         // Fetch the full user details from Clerk
     
@@ -142,7 +142,7 @@ export async function PATCH(req, { params }) {
         
         // Get the admin/team leader who accepted the referral to determine orgId
         const adminUser = await convex.query(api.users.getByClerkId, {
-          clerkId: userId,
+          clerkId: user.id,
         });
 
         console.log("Admin user:", adminUser);
@@ -157,16 +157,79 @@ export async function PATCH(req, { params }) {
           throw new Error("Admin user has no organization");
         }
 
-        // Get the assigned user's clerk ID
+        // Get the assigned user by their clerk ID
         const assignedUser = await convex.query(api.users.getByClerkId, {
-          clerkId: userId,
+          clerkId: user.id,
           targetClerkId: body.processed_by_user_id,
         });
 
         console.log("Assigned user:", assignedUser);
 
+        // Ensure the client exists in Clerk so mobile forgot-password works
+        const secret = process.env.CLERK_SECRET_KEY;
+        if (!secret) throw new Error("CLERK_SECRET_KEY not configured");
+
+        // Lookup by email
+        const lookupRes = await fetch(`https://api.clerk.com/v1/users?email_address=${encodeURIComponent(updated.email)}`,
+          { headers: { Authorization: `Bearer ${secret}` } });
+        let clientClerkId;
+        if (lookupRes.ok) {
+          const existing = await lookupRes.json();
+          if (Array.isArray(existing) && existing.length > 0) {
+            clientClerkId = existing[0].id;
+            console.log("Existing Clerk client found:", clientClerkId);
+          }
+        }
+
+        // Create if missing
+        if (!clientClerkId) {
+          const generatePassword = () => {
+            const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const lower = "abcdefghijkmnopqrstuvwxyz";
+            const digits = "23456789";
+            const symbols = "!@#$%^&*()_+[]{}";
+            const pick = (set) => set[Math.floor(Math.random() * set.length)];
+            let pwd = pick(upper) + pick(lower) + pick(digits) + pick(symbols);
+            const all = upper + lower + digits + symbols;
+            while (pwd.length < 16) pwd += pick(all);
+            return pwd;
+          };
+
+          const tempPassword = generatePassword();
+          const createBody = {
+            email_address: [updated.email],
+            password: tempPassword,
+            first_name: updated.clientFirstName || undefined,
+            last_name: updated.clientLastName || undefined,
+            public_metadata: {
+              role: "client",
+              orgId: adminUser.orgId,
+              invitedBy: user.id,
+              source: "referral",
+              mustChangePassword: true,
+            },
+          };
+
+          const createRes = await fetch("https://api.clerk.com/v1/users", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
+            body: JSON.stringify(createBody),
+          });
+          const createData = await createRes.json();
+          if (!createRes.ok) {
+            console.error("Clerk client creation failed:", createRes.status, createData);
+            return NextResponse.json({
+              error: createData?.errors?.[0]?.message || "Failed to create client in Clerk",
+              detail: JSON.stringify(createData),
+            }, { status: createRes.status || 500 });
+          }
+          clientClerkId = createData.id;
+          console.log("New Clerk client created:", clientClerkId);
+        }
+
         const clientData = {
-          clerkId: userId,
+          clerkId: user.id, // actor performing the creation
+          clientClerkId,
           firstName: updated.clientFirstName,
           lastName: updated.clientLastName,
           email: updated.email,
@@ -210,9 +273,9 @@ export async function PATCH(req, { params }) {
  * Delete a referral record by ID.
  * Only the referral creator or an admin is allowed to delete it.
  */
-export async function DELETE(req, { params }) {
+export async function DELETE(req, context) {
   try {
-    const { id } = await params;              // Extract the referral ID from route parameters
+    const { id } = await context.params;              // Extract the referral ID from route parameters
     const { userId } = await auth();          // Verify if the user is authenticated
     const user = await currentUser();         // Fetch full user info from Clerk
     

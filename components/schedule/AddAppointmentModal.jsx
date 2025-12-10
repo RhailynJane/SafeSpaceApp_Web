@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import TimePickerDialog from './TimePickerDialog';
 
 // Import Dialog components from a UI library (likely Shadcn UI based on component names)
 import {
@@ -50,9 +51,16 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
     isLoaded && user?.id ? { clerkId: user.id } : 'skip'
   ) || [];
   const clientOptions = clientsProp && Array.isArray(clientsProp) ? clientsProp : clients;
+  
+  // State for appointment date, initialized to today's date in "YYYY-MM-DD" format
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const [appointment_date, setAppointmentDate] = useState(defaultDate || todayStr);
+  
+  // Fetch appointments for the SELECTED date to check for conflicts
   const listForDate = useQuery(
     api.appointments.listByDate,
-    isLoaded && user?.id ? { clerkId: user.id, date: new Date().toISOString().split('T')[0] } : 'skip'
+    isLoaded && user?.id && appointment_date ? { clerkId: user.id, date: appointment_date } : 'skip'
   );
   
   // Fetch user's availability settings
@@ -66,11 +74,8 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
 
   // State to control the visibility of the modal (open/closed)
   const [open, setOpen] = useState(false);
-
-  // State for appointment date, initialized to today's date in "YYYY-MM-DD" format
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const [appointment_date, setAppointmentDate] = useState(defaultDate || todayStr);
+  // State for time picker dialog visibility
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
   // State for appointment time
   const [appointment_time, setAppointmentTime] = useState("");
   // State for the selected client's ID
@@ -225,6 +230,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
 
       // 5. API Call: Send a POST request to the appointments API endpoint
       // Create via Convex
+      const selectedClient = clientOptions.find((c) => String(c._id || c.id) === String(client_id));
       const createdId = await createAppt({
         clerkId: user.id,
         appointmentDate: appointment_date,
@@ -233,6 +239,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
         duration: durationInMinutes,
         notes: details,
         clientDbId: client_id ? client_id : undefined,
+        clientClerkId: selectedClient?.clerkId, // Pass clerk ID for proper userId resolution
       });
 
       // 8. Execute the 'onAdd' callback with enriched client name for optimistic UI
@@ -337,14 +344,14 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 Time
               </Label>
-              <Input
-                id="time"
-                type="time"
-                value={appointment_time}
-                onChange={(e) => setAppointmentTime(e.target.value)}
-                required
-                className="h-11"
-              />
+              <Button
+                type="button"
+                onClick={() => setTimePickerOpen(true)}
+                variant="outline"
+                className="w-full h-11 justify-start text-left font-normal"
+              >
+                {appointment_time || 'Select time'}
+              </Button>
             </div>
           </div>
 
@@ -415,7 +422,7 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleOpenChange(false)}
+              onClick={() => setOpen(false)}
             >
               Cancel
             </Button>
@@ -436,6 +443,14 @@ export default function AddAppointmentModal({ onAdd, defaultDate, clients: clien
           </div>
         </form>
       </DialogContent>
+
+      {/* Time Picker Dialog */}
+      <TimePickerDialog
+        open={timePickerOpen}
+        onOpenChange={setTimePickerOpen}
+        value={appointment_time}
+        onSelect={setAppointmentTime}
+      />
     </Dialog>
   );
 }

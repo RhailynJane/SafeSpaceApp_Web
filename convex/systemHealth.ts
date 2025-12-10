@@ -51,7 +51,6 @@ export const getDatabaseStats = query({
 
     // Count records in each table
     const [
-      usersCount,
       organizationsCount,
       rolesCount,
       clientsCount,
@@ -61,7 +60,6 @@ export const getDatabaseStats = query({
       auditLogsCount,
       crisisEventsCount,
     ] = await Promise.all([
-      ctx.db.query("users").collect().then((r) => r.length),
       ctx.db.query("organizations").collect().then((r) => r.length),
       ctx.db.query("roles").collect().then((r) => r.length),
       ctx.db.query("clients").collect().then((r) => r.length),
@@ -72,11 +70,38 @@ export const getDatabaseStats = query({
       ctx.db.query("crisisEvents").collect().then((r) => r.length),
     ]);
 
+    // Count users by role
+    const allUsers = await ctx.db.query("users").collect();
+    const allClients = await ctx.db.query("clients").collect();
+    const allRoles = await ctx.db.query("roles").collect();
+    
+    // Create a map of role slug to display name
+    const roleMap = new Map(allRoles.map(role => [role.slug, role.name]));
+    
+    // Count users by role slug (users table uses role slugs like 'superadmin', 'client', etc.)
+    const usersByRole: Record<string, number> = {};
+    
+    // Count users from users table
+    allUsers.forEach(user => {
+      if (user.roleId) {
+        const roleName = roleMap.get(user.roleId) || user.roleId;
+        usersByRole[roleName] = (usersByRole[roleName] || 0) + 1;
+      }
+    });
+    
+    // Count clients from clients table (they all have "Client" role)
+    const activeClients = allClients.filter(c => c.status !== "deleted");
+    if (activeClients.length > 0) {
+      const clientRoleName = roleMap.get("client") || "Client";
+      usersByRole[clientRoleName] = (usersByRole[clientRoleName] || 0) + activeClients.length;
+    }
+
     const queryTime = Date.now() - startTime;
+
+    console.log("[getDatabaseStats] usersByRole:", usersByRole);
 
     return {
       tables: {
-        users: usersCount,
         organizations: organizationsCount,
         roles: rolesCount,
         clients: clientsCount,
@@ -86,8 +111,8 @@ export const getDatabaseStats = query({
         auditLogs: auditLogsCount,
         crisisEvents: crisisEventsCount,
       },
+      usersByRole: usersByRole || {},
       totalRecords:
-        usersCount +
         organizationsCount +
         rolesCount +
         clientsCount +
@@ -195,12 +220,18 @@ export const getOrganizationMetrics = query({
   handler: async (ctx) => {
     const organizations = await ctx.db.query("organizations").collect();
     const users = await ctx.db.query("users").collect();
+    const clients = await ctx.db.query("clients").collect();
 
     // Count users per organization
     const orgMetrics = await Promise.all(
       organizations.map(async (org) => {
-        const orgUsers = users.filter((u) => u.orgId === org._id);
-        const activeUsers = orgUsers.filter((u) => u.status === "active");
+        // Users table is the source of truth for active/total users
+        const orgUsers = users.filter((u) => u.orgId === org.slug && u.status !== "deleted");
+        const activeOrgUsers = orgUsers.filter((u) => u.status === "active");
+
+        // Total/active users exclude clients to avoid double counting
+        const totalUsers = orgUsers.length;
+        const activeUsers = activeOrgUsers.length;
 
         // Get recent audit logs for this org
         const recentActivity = await ctx.db
@@ -212,8 +243,8 @@ export const getOrganizationMetrics = query({
         return {
           orgId: org._id,
           orgName: org.name,
-          totalUsers: orgUsers.length,
-          activeUsers: activeUsers.length,
+          totalUsers,
+          activeUsers,
           recentActivityCount: recentActivity.length,
           status: org.status,
         };

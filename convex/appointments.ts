@@ -25,9 +25,12 @@ export const create = mutation({
     status: v.optional(v.string()),
     duration: v.optional(v.number()),
     orgId: v.optional(v.string()),
-    clientDbId: v.optional(v.id("clients")),
+    clientDbId: v.optional(v.string()), // Can be either a client ID or user ID since clients list includes user records
     clientId: v.optional(v.string()), // keep legacy string id reference if used
+    clientClerkId: v.optional(v.string()), // Client's Clerk ID for proper userId resolution
     supportWorkerId: v.optional(v.string()), // Clerk ID; if omitted for CMHA, we auto-assign
+    supportWorkerName: v.optional(v.string()), // Support worker name for mobile display
+    supportWorkerAvatar: v.optional(v.string()), // Support worker avatar for mobile display
   },
   handler: async (ctx, args) => {
     await requirePermission(ctx, args.clerkId, PERMISSIONS.MANAGE_APPOINTMENTS);
@@ -40,13 +43,39 @@ export const create = mutation({
       throw new Error("appointmentDate/time (or date/time) is required");
     }
 
-    // Determine organization
+    // Determine organization and get client info
     let orgId = args.orgId ?? null as string | null;
     let client = null as any;
+    let clientIdToUse = args.clientDbId ?? args.clientId ?? null;
+    let clientClerkId = args.clientClerkId ?? null; // Use passed clientClerkId if available
 
-    if (!orgId && args.clientDbId) {
-      client = await ctx.db.get(args.clientDbId);
+    if (clientIdToUse) {
+      // Try to get the client from either clients or users table
+      client = await ctx.db.get(clientIdToUse as any);
       if (client?.orgId) orgId = client.orgId;
+      
+      // Only try to resolve clientClerkId if not already provided
+      if (!clientClerkId) {
+        // If it's a clients table record, we need to find the clerkId (if user exists)
+        if (client?.status !== undefined && !client?.clerkId) {
+          // This is a clients record; try to find the user with matching email
+          if (client.email) {
+            const userMatch = await ctx.db
+              .query("users")
+              .withIndex("by_email", (q) => q.eq("email", client.email))
+              .first();
+            if (userMatch) {
+              clientClerkId = userMatch.clerkId;
+            }
+          }
+        } else if (client?.clerkId) {
+          // It's already a user record with clerkId
+          clientClerkId = client.clerkId;
+        } else if (typeof clientIdToUse === 'string' && clientIdToUse.startsWith('user_')) {
+          // It's already a Clerk ID
+          clientClerkId = clientIdToUse;
+        }
+      }
     }
 
     // Auto-assign support worker for CMHA if not provided
@@ -80,32 +109,88 @@ export const create = mutation({
         return loads[w.clerkId] < loads[best] ? w.clerkId : best;
       }, workers[0].clerkId as string);
 
-      // Auto-assign client if provided and currently unassigned
-      if (!client && args.clientDbId) client = await ctx.db.get(args.clientDbId);
-      if (client && !client.assignedUserId) {
-        await ctx.db.patch(args.clientDbId!, { assignedUserId: assignedWorkerClerkId, updatedAt: Date.now() });
+      // Auto-assign client if provided and currently unassigned (only if it's a legacy client doc)
+      if (clientIdToUse && client?.status !== undefined && !client?.assignedUserId) {
+        try {
+          await ctx.db.patch(clientIdToUse as any, { assignedUserId: assignedWorkerClerkId, updatedAt: Date.now() });
+        } catch (e) {
+          // Might fail if it's a user record, which is fine
+          console.log("Could not patch client, likely a user record:", e);
+        }
+      }
+    }
+
+    // Validate support worker availability and fetch their details
+    let supportWorkerName = args.supportWorkerName ?? null;
+    let supportWorkerAvatar = args.supportWorkerAvatar ?? null;
+    if (assignedWorkerClerkId) {
+      const worker = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", assignedWorkerClerkId))
+        .first();
+      if (worker) {
+        supportWorkerName = supportWorkerName ?? (worker.firstName + (worker.lastName ? " " + worker.lastName : ""));
+        supportWorkerAvatar = supportWorkerAvatar ?? worker.profileImageUrl;
+
+        // Check worker availability for the scheduled time
+        if (worker.availability && appointmentTime && appointmentDate) {
+          const appointmentDateObj = new Date(appointmentDate);
+          const dayOfWeek = appointmentDateObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          const daySlot = worker.availability.find((slot: any) => slot.day?.toLowerCase() === dayOfWeek);
+          if (daySlot && !daySlot.enabled) {
+            console.warn(`Worker ${assignedWorkerClerkId} is not available on ${dayOfWeek}`);
+          }
+        }
+      }
+    }
+
+    // Prevent duplicate bookings for the same client at the same date/time
+    const userIdForDupCheck = clientClerkId
+      ?? (typeof args.clientDbId === "string" ? args.clientDbId : null)
+      ?? (typeof args.clientId === "string" ? args.clientId : null);
+
+    if (userIdForDupCheck && appointmentDate && appointmentTime) {
+      const sameDay = await ctx.db
+        .query("appointments")
+        .withIndex("by_user_and_date", iq => iq.eq("userId", userIdForDupCheck).eq("appointmentDate", appointmentDate))
+        .collect();
+
+      const conflict = sameDay.find(a =>
+        (a.appointmentTime || a.time) === appointmentTime &&
+        a.status !== "cancelled" &&
+        a.status !== "completed"
+      );
+
+      if (conflict) {
+        // Keep message generic for clients
+        throw new Error("This time slot is unavailable. Please choose another.");
       }
     }
 
     const now = Date.now();
 
     const appointmentId = await ctx.db.insert("appointments", {
-      // mobile-compatible fields
-      date: appointmentDate,
-      time: appointmentTime,
-      // web fields
+      // Store in both web and mobile field formats for cross-platform compatibility
       appointmentDate,
       appointmentTime,
+      date: appointmentDate,
+      time: appointmentTime,
       duration: args.duration,
       type: args.type,
       status: args.status ?? "scheduled",
       notes: args.notes,
       meetingLink: args.meetingLink,
-      // Persist the selected client from web form
-      // Prefer the database id when provided; fall back to legacy string id
+      // Client linking - store both formats
+      // clientId is the database record ID (clients or users table)
       clientId: (args.clientDbId as any) ?? args.clientId,
-      scheduledByUserId: args.clerkId,
+      // userId is the Clerk ID for mobile app sync
+      userId: clientClerkId || ((args.clientDbId as any) ?? args.clientId),
+      // Support worker info for mobile sync
       supportWorkerId: assignedWorkerClerkId ?? undefined,
+      supportWorker: supportWorkerName ?? undefined,
+      avatarUrl: supportWorkerAvatar ?? undefined,
+      // Audit info
+      scheduledByUserId: args.clerkId,
       orgId: orgId ?? undefined,
       createdAt: now,
       updatedAt: now,
@@ -121,7 +206,163 @@ export const create = mutation({
       timestamp: now,
     });
 
+    // Record appointment_created activity for the client
+    if (clientClerkId) {
+      try {
+        await ctx.db.insert("activities", {
+          userId: clientClerkId,
+          activityType: "appointment_created",
+          metadata: {
+            appointmentId,
+            appointmentDate,
+            appointmentTime,
+            type: args.type,
+            supportWorkerId: assignedWorkerClerkId,
+            timestamp: now,
+          },
+          createdAt: now,
+        });
+      } catch (e) {
+        console.error("Failed to record appointment_created activity:", e);
+      }
+    }
+
     return appointmentId;
+  },
+});
+
+/**
+ * Create an appointment from mobile app (alternate signature)
+ * Mobile apps use this endpoint with different field names/conventions
+ */
+export const createAppointment = mutation({
+  args: {
+    userId: v.string(), // Client's Clerk ID
+    supportWorker: v.string(), // Support worker name
+    supportWorkerId: v.optional(v.string()), // Support worker Clerk ID (optional, looked up by name)
+    date: v.string(), // YYYY-MM-DD
+    time: v.string(), // HH:mm
+    duration: v.optional(v.number()), // Duration in minutes
+    type: v.string(), // 'video' | 'phone' | 'in_person'
+    notes: v.optional(v.string()),
+    meetingLink: v.optional(v.string()),
+    specialization: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    orgId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    // Resolve support worker Clerk ID if not provided
+    let supportWorkerClerkId = args.supportWorkerId;
+    let supportWorkerAvatar = args.avatarUrl;
+    
+    if (!supportWorkerClerkId) {
+      // Look up support worker by Clerk ID or name
+      const workers = await ctx.db
+        .query("users")
+        .withIndex("by_clerkId", (q: any) => q.eq("clerkId", args.supportWorker))
+        .collect();
+      if (workers.length > 0) {
+        supportWorkerClerkId = workers[0].clerkId;
+        supportWorkerAvatar = supportWorkerAvatar || workers[0].profileImageUrl;
+      } else {
+        // If not found by Clerk ID, try by email as fallback
+        const workersByEmail = await ctx.db
+          .query("users")
+          .withIndex("by_email", (q: any) => q.eq("email", args.supportWorker))
+          .collect();
+        if (workersByEmail.length > 0) {
+          supportWorkerClerkId = workersByEmail[0].clerkId;
+          supportWorkerAvatar = supportWorkerAvatar || workersByEmail[0].profileImageUrl;
+        }
+      }
+    }
+
+    // Check support worker availability if we have their record
+    if (supportWorkerClerkId) {
+      try {
+        const worker = await ctx.db
+          .query("users")
+          .withIndex("by_clerkId", (q: any) => q.eq("clerkId", supportWorkerClerkId))
+          .first();
+        
+        if (worker && worker.availability) {
+          const appointmentDate = new Date(args.date);
+          const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' });
+          const daySlot = worker.availability.find((slot: any) => slot.day === dayOfWeek);
+          
+          if (!daySlot?.enabled) {
+            console.warn(`Support worker ${supportWorkerClerkId} is not available on ${dayOfWeek}`);
+          }
+        }
+      } catch (e) {
+        console.log("Could not check worker availability:", e);
+      }
+    }
+
+    // Prevent duplicate bookings for the same client at the same date/time
+    const sameDay = await ctx.db
+      .query("appointments")
+      .withIndex("by_user_and_date", (q) => q.eq("userId", args.userId).eq("appointmentDate", args.date))
+      .collect();
+
+    const conflict = sameDay.find((a) =>
+      (a.appointmentTime || a.time) === args.time &&
+      a.status !== "cancelled" &&
+      a.status !== "completed"
+    );
+
+    if (conflict) {
+      // Keep message generic for clients
+      throw new Error("This time slot is unavailable. Please choose another.");
+    }
+    
+    const appointmentId = await ctx.db.insert("appointments", {
+      // Client linking - store both userId and clientId for compatibility
+      userId: args.userId,
+      clientId: args.userId,
+      // Support worker linking
+      supportWorker: args.supportWorker,
+      supportWorkerId: supportWorkerClerkId,
+      avatarUrl: supportWorkerAvatar,
+      // Date/time in both formats for cross-platform compatibility
+      date: args.date,
+      time: args.time,
+      appointmentDate: args.date,
+      appointmentTime: args.time,
+      // Other details
+      duration: args.duration || 60,
+      type: args.type,
+      status: "scheduled",
+      notes: args.notes,
+      meetingLink: args.meetingLink,
+      specialization: args.specialization,
+      orgId: args.orgId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Record appointment_created activity for the client
+    try {
+      await ctx.db.insert("activities", {
+        userId: args.userId,
+        activityType: "appointment_created",
+        metadata: {
+          appointmentId,
+          appointmentDate: args.date,
+          appointmentTime: args.time,
+          type: args.type,
+          supportWorkerId: supportWorkerClerkId,
+          timestamp: now,
+        },
+        createdAt: now,
+      });
+    } catch (e) {
+      console.error("Failed to record appointment_created activity:", e);
+    }
+
+    return { id: appointmentId };
   },
 });
 
@@ -145,41 +386,78 @@ export const listByDate = query({
     if (userId) {
       q = ctx.db
         .query("appointments")
-        .withIndex("by_user_and_date", iq => iq.eq("userId", userId).eq("date", date));
+        .withIndex("by_user_and_date", iq => iq.eq("userId", userId).eq("appointmentDate", date));
     } else {
       q = ctx.db
         .query("appointments")
         .withIndex("by_appointmentDate", iq => iq.eq("appointmentDate", date));
     }
 
-    const items = await q.collect();
+    let items = await q.collect();
+    
+    // Filter out cancelled appointments
+    items = items.filter(a => a.status !== "cancelled");
 
-    // Enrich with client names if available
     const withNames = await Promise.all(
       items.map(async (a) => {
         let clientName: string | undefined = undefined;
-        if (a.clientId) {
-          const client = await ctx.db
-            .query("clients")
-            .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
-            .collect();
-          const found = client.find((c) => c._id === (a as any).clientId);
-          if (found) clientName = `${found.firstName || ""} ${found.lastName || ""}`.trim();
+        const idToLookup = a.clientId || (a as any).userId;
+
+        // Primary: users by Clerk ID (mobile users)
+        if (typeof idToLookup === "string" && idToLookup.startsWith("user_")) {
+          const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (iq) => iq.eq("clerkId", idToLookup))
+            .first();
+          if (user) {
+            const name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+            clientName = name || undefined;
+          }
+
+          // Fallback: clients in same org by clerkId/email
+          if (!clientName) {
+            const clients = await ctx.db
+              .query("clients")
+              .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
+              .collect();
+            const byClerk = clients.find((c) => c.clerkId === idToLookup);
+            if (byClerk) {
+              const name = `${byClerk.firstName || ""} ${byClerk.lastName || ""}`.trim();
+              clientName = name || undefined;
+            } else if (user?.email) {
+              const byEmail = clients.find((c) => c.email === user.email);
+              if (byEmail) {
+                const name = `${byEmail.firstName || ""} ${byEmail.lastName || ""}`.trim();
+                clientName = name || undefined;
+              }
+            }
+          }
         }
+
+        // Secondary: direct clients doc by ID when not a Clerk ID
+        if (!clientName && typeof idToLookup === "string" && !idToLookup.startsWith("user_")) {
+          try {
+            const doc = await ctx.db.get(idToLookup as any);
+            if (doc && "firstName" in doc) {
+              const d: any = doc;
+              const name = `${d.firstName || ""} ${d.lastName || ""}`.trim();
+              clientName = name || undefined;
+            }
+          } catch (_e) {
+            // ignore
+          }
+        }
+
         return { ...a, clientName };
       })
     );
 
-    if (orgId) {
-      return withNames.filter(a => a.orgId === orgId);
-    }
     return withNames;
   },
 });
 
 /**
  * Query to list all appointments for an organization (no date filter)
- * Useful for modals that need to show complete appointment history
  */
 export const list = query({
   args: {
@@ -187,32 +465,346 @@ export const list = query({
     orgId: v.optional(v.string()),
   },
   handler: async (ctx, { clerkId, orgId }) => {
-    // Viewing appointments is permitted broadly among staff
     await requirePermission(ctx, clerkId, PERMISSIONS.VIEW_APPOINTMENTS);
 
     let items = await ctx.db.query("appointments").collect();
-
-    // Filter by org if provided
     if (orgId) {
       items = items.filter(a => a.orgId === orgId);
     }
 
-    // Enrich with client names if available
+    // Exclude cancelled appointments
+    items = items.filter(a => a.status !== "cancelled");
+
     const withNames = await Promise.all(
       items.map(async (a) => {
         let clientName: string | undefined = undefined;
-        if (a.clientId) {
-          const client = await ctx.db
-            .query("clients")
-            .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
-            .collect();
-          const found = client.find((c) => c._id === (a as any).clientId);
-          if (found) clientName = `${found.firstName || ""} ${found.lastName || ""}`.trim();
+        const idToLookup = a.clientId || (a as any).userId;
+
+        if (typeof idToLookup === "string" && idToLookup.startsWith("user_")) {
+          const user = await ctx.db
+            .query("users")
+            .withIndex("by_clerkId", (iq) => iq.eq("clerkId", idToLookup))
+            .first();
+          if (user) {
+            const name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+            clientName = name || undefined;
+          }
+
+          if (!clientName) {
+            const clients = await ctx.db
+              .query("clients")
+              .withIndex("by_orgId", (iq) => iq.eq("orgId", a.orgId || ""))
+              .collect();
+            const byClerk = clients.find((c) => c.clerkId === idToLookup);
+            if (byClerk) {
+              const name = `${byClerk.firstName || ""} ${byClerk.lastName || ""}`.trim();
+              clientName = name || undefined;
+            } else if (user?.email) {
+              const byEmail = clients.find((c) => c.email === user.email);
+              if (byEmail) {
+                const name = `${byEmail.firstName || ""} ${byEmail.lastName || ""}`.trim();
+                clientName = name || undefined;
+              }
+            }
+          }
         }
+
+        if (!clientName && typeof idToLookup === "string" && !idToLookup.startsWith("user_")) {
+          try {
+            const doc = await ctx.db.get(idToLookup as any);
+            if (doc && "firstName" in doc) {
+              const d: any = doc;
+              const name = `${d.firstName || ""} ${d.lastName || ""}`.trim();
+              clientName = name || undefined;
+            }
+          } catch (_e) {
+            // ignore
+          }
+        }
+
         return { ...a, clientName };
       })
     );
 
     return withNames;
+  },
+});
+
+/**
+ * Get all appointments for a user (mobile app)
+ * Supports filtering by status and limiting results
+ */
+export const getUserAppointments = query({
+  args: { 
+    userId: v.string(),
+    includeStatus: v.optional(v.array(v.string())),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { userId, includeStatus, limit }) => {
+    let appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .take(limit ?? 100);
+
+    // Filter by status if provided
+    if (includeStatus && includeStatus.length > 0) {
+      appointments = appointments.filter(apt => includeStatus.includes(apt.status));
+    }
+
+    // Sort by appointmentDate then appointmentTime
+    const sorted = appointments.sort((a, b) => {
+      const dateA = a.appointmentDate || a.date || "";
+      const dateB = b.appointmentDate || b.date || "";
+      const dateCompare = dateA.localeCompare(dateB);
+      if (dateCompare !== 0) return dateCompare;
+      const timeA = a.appointmentTime || a.time || "";
+      const timeB = b.appointmentTime || b.time || "";
+      return timeA.localeCompare(timeB);
+    });
+
+    return sorted;
+  },
+});
+
+/**
+ * Get upcoming appointments for a user (mobile app)
+ * Returns appointments with status 'scheduled' or 'confirmed' and date >= today
+ */
+export const getUpcomingAppointments = query({
+  args: { 
+    userId: v.string(),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, { userId, limit = 50 }) => {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get appointments with upcoming statuses (today or future dates)
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_user_and_date", (q) => 
+        q.eq("userId", userId).gte("appointmentDate", today)
+      )
+      .filter((q) => 
+        q.or(
+          q.eq(q.field("status"), "scheduled"),
+          q.eq(q.field("status"), "confirmed")
+        )
+      )
+      .collect();
+
+    // Sort by date then time (ascending)
+    const sorted = appointments.sort((a, b) => {
+      const dateCompare = a.appointmentDate.localeCompare(b.appointmentDate);
+      if (dateCompare !== 0) return dateCompare;
+      return (a.appointmentTime || "").localeCompare(b.appointmentTime || "");
+    });
+
+    return sorted.slice(0, limit);
+  },
+});
+
+/**
+ * Get past appointments for a user (mobile app)
+ * Returns appointments with date < today or status completed/cancelled/no_show
+ */
+export const getPastAppointments = query({
+  args: { 
+    userId: v.string(),
+    limit: v.optional(v.number())
+  },
+  handler: async (ctx, { userId, limit = 50 }) => {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Past dates
+    const pastDates = await ctx.db
+      .query("appointments")
+      .withIndex("by_user_and_date", (q) => q.eq("userId", userId).lt("appointmentDate", today))
+      .collect();
+
+    // Completed/cancelled/no_show regardless of date
+    const completedStatuses = await ctx.db
+      .query("appointments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("status"), "completed"),
+          q.eq(q.field("status"), "cancelled"),
+          q.eq(q.field("status"), "no_show"),
+        )
+      )
+      .collect();
+
+    const combined = [...pastDates, ...completedStatuses];
+    const uniqueMap = new Map(combined.map(apt => [apt._id, apt]));
+    const unique = Array.from(uniqueMap.values());
+
+    const sorted = unique
+      .sort((a, b) => {
+        const dateCompare = (b.appointmentDate || b.date || '').localeCompare(a.appointmentDate || a.date || '');
+        if (dateCompare !== 0) return dateCompare;
+        return (b.appointmentTime || b.time || '').localeCompare(a.appointmentTime || a.time || '');
+      })
+      .slice(0, limit);
+
+    return sorted;
+  },
+});
+
+/**
+ * Get appointment statistics
+ */
+export const getAppointmentStats = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    const appointments = await ctx.db
+      .query("appointments")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+
+    const today = new Date().toISOString().split('T')[0]!;
+
+    const upcoming = appointments.filter(apt =>
+      (apt.status === "scheduled" || apt.status === "confirmed") &&
+      (apt.appointmentDate || apt.date || '') >= today
+    );
+    const completed = appointments.filter(apt => apt.status === "completed");
+    const cancelled = appointments.filter(apt => apt.status === "cancelled");
+
+    const sortedUpcoming = upcoming.sort((a, b) => {
+      const dateCompare = (a.appointmentDate || a.date || '').localeCompare(b.appointmentDate || b.date || '');
+      if (dateCompare !== 0) return dateCompare;
+      return (a.appointmentTime || a.time || '').localeCompare(b.appointmentTime || b.time || '');
+    });
+
+    return {
+      upcomingCount: upcoming.length,
+      completedCount: completed.length,
+      cancelledCount: cancelled.length,
+      nextAppointment: sortedUpcoming[0] || null,
+    };
+  },
+});
+
+/**
+ * Get single appointment by ID (mobile app)
+ */
+export const getAppointment = query({
+  args: { appointmentId: v.optional(v.string()) },
+  handler: async (ctx, { appointmentId }) => {
+    if (!appointmentId || appointmentId === "undefined") return null;
+    try {
+      // Try to treat it as a Convex ID first
+      const appointment = await ctx.db.get(appointmentId as any);
+      return appointment || null;
+    } catch (e) {
+      // If it fails, try to find by string ID in database
+      console.log("Could not fetch appointment by ID:", appointmentId, e);
+      return null;
+    }
+  },
+});
+
+/**
+ * Reschedule appointment (mobile app)
+ */
+export const rescheduleAppointment = mutation({
+  args: {
+    appointmentId: v.string(),
+    newDate: v.string(),
+    newTime: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, { appointmentId, newDate, newTime, reason }) => {
+    try {
+      const appointment = await ctx.db.get(appointmentId as any);
+      if (!appointment) {
+        throw new Error("Appointment not found");
+      }
+      
+      const existingNotes = (appointment as any).notes || '';
+      const noteUpdate = reason 
+        ? `${existingNotes}\n\nRescheduled: ${reason}`.trim()
+        : existingNotes;
+      
+      await ctx.db.patch(appointmentId as any, {
+        appointmentDate: newDate,
+        appointmentTime: newTime,
+        date: newDate,
+        time: newTime,
+        notes: noteUpdate,
+        updatedAt: Date.now(),
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('[rescheduleAppointment] Error:', err);
+      throw err;
+    }
+  },
+});
+
+/**
+ * Cancel appointment (mobile app & web)
+ */
+export const cancelAppointment = mutation({
+  args: {
+    appointmentId: v.string(),
+    cancellationReason: v.optional(v.string()),
+  },
+  handler: async (ctx, { appointmentId, cancellationReason }) => {
+    try {
+      const appointment = await ctx.db.get(appointmentId as any);
+      if (!appointment) {
+        throw new Error("Appointment not found");
+      }
+      
+      await ctx.db.patch(appointmentId as any, {
+        status: "cancelled",
+        cancellationReason,
+        updatedAt: Date.now(),
+      });
+
+      return { success: true };
+    } catch (err) {
+      console.error('[cancelAppointment] Error:', err);
+      throw err;
+    }
+  },
+});
+
+/**
+ * Update appointment status (mobile app)
+ */
+export const updateAppointmentStatus = mutation({
+  args: {
+    appointmentId: v.id("appointments"),
+    status: v.string(),
+  },
+  handler: async (ctx, { appointmentId, status }) => {
+    await ctx.db.patch(appointmentId, {
+      status,
+      updatedAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Delete an appointment (mobile app)
+ */
+export const deleteAppointment = mutation({
+  args: {
+    appointmentId: v.id("appointments"),
+  },
+  handler: async (ctx, { appointmentId }) => {
+    await ctx.db.patch(appointmentId, {
+      status: "cancelled",
+      cancellationReason: "Deleted by user",
+      updatedAt: Date.now(),
+    });
+    
+    return { success: true };
   },
 });

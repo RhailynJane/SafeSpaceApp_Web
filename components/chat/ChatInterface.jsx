@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,6 +14,69 @@ import { formatDistanceToNow } from 'date-fns';
 import NewConversationModal from './NewConversationModal';
 import FileAttachment from './FileAttachment';
 
+// Request notification permission on component mount
+const requestNotificationPermission = async () => {
+  if (!('Notification' in window)) {
+    console.log('[Notifications] Browser does not support notifications');
+    return false;
+  }
+
+  console.log('[Notifications] Current permission:', Notification.permission);
+
+  if (Notification.permission === 'granted') {
+    console.log('[Notifications] Permission already granted');
+    return true;
+  }
+
+  if (Notification.permission !== 'denied') {
+    try {
+      console.log('[Notifications] Requesting permission...');
+      const permission = await Notification.requestPermission();
+      console.log('[Notifications] Permission result:', permission);
+      if (permission === 'granted') {
+        console.log('[Notifications] Permission granted successfully');
+        return true;
+      }
+    } catch (error) {
+      console.error('[Notifications] Failed to request permission:', error);
+    }
+  } else {
+    console.log('[Notifications] Permission denied by user');
+  }
+  
+  return false;
+};
+
+const sendNotification = (title, options = {}) => {
+  console.log('[Notifications] Attempting to send notification:', { title, options });
+  
+  if (!('Notification' in window)) {
+    console.log('[Notifications] Notification API not available');
+    return;
+  }
+
+  if (Notification.permission !== 'granted') {
+    console.log('[Notifications] Permission not granted, permission:', Notification.permission);
+    return;
+  }
+
+  try {
+    const notification = new Notification(title, {
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      ...options,
+    });
+    console.log('[Notifications] Notification sent successfully');
+    
+    // Auto-close notification after 5 seconds if it's not an interactive one
+    if (!options.requireInteraction) {
+      setTimeout(() => notification.close(), 5000);
+    }
+  } catch (error) {
+    console.error('[Notifications] Failed to send notification:', error);
+  }
+};
+
 const ChatInterface = () => {
   const { user } = useUser();
   const [selectedConversation, setSelectedConversation] = useState(null);
@@ -21,7 +84,11 @@ const ChatInterface = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState(Notification?.permission || 'default');
   const messagesEndRef = useRef(null);
+  const lastMarkedConversationRef = useRef(null);
+  const handledUrlParamRef = useRef(false);
+  const previousMessageCountRef = useRef(0);
 
   // Convex queries and mutations
   const conversations = useQuery(api.conversations.list);
@@ -35,90 +102,114 @@ const ChatInterface = () => {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const getOrCreateConversation = useMutation(api.conversations.getOrCreate);
 
+  // Request notification permission on component mount and register service worker
+  useEffect(() => {
+    const initNotifications = async () => {
+      // Register service worker
+      if ('serviceWorker' in navigator) {
+        try {
+          console.log('[Service Worker] Registering service worker...');
+          const registration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/',
+          });
+          console.log('[Service Worker] Registered successfully:', registration);
+        } catch (error) {
+          console.error('[Service Worker] Registration failed:', error);
+        }
+      }
+
+      // Request notification permission
+      const result = await requestNotificationPermission();
+      if (typeof Notification !== 'undefined') {
+        setNotificationPermission(Notification.permission);
+      }
+    };
+
+    initNotifications();
+  }, []);
+
+  // Handle when messages query returns null (conversation deleted or user removed)
+  useEffect(() => {
+    if (selectedConversation && messages === null) {
+      // Conversation is no longer accessible - clear selection and show toast
+      setSelectedConversation(null);
+      console.log('Conversation is no longer accessible');
+    }
+  }, [messages, selectedConversation]);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages?.page]);
 
-  // Mark conversation as read when selected
+  // Send notification when new messages arrive from other users
   useEffect(() => {
-    if (selectedConversation) {
-      markAsRead({ conversationId: selectedConversation._id });
-    }
-  }, [selectedConversation, markAsRead]);
+    if (!messages?.page || !selectedConversation || !user) return;
 
-  // Auto-open conversation when client user ID is in URL
-  useEffect(() => {
-    const checkForClientChat = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const clientUserId = urlParams.get('clientUserId');
-      const clientName = urlParams.get('clientName');
-      
-      if (clientUserId && user && conversations) {
-        try {
-          // Find existing conversation with this client user
-          const existingConversation = conversations.find(conv => 
-            conv.participants.some(p => p.userId === clientUserId)
-          );
+    const currentMessageList = messages.page;
+    const currentMessageCount = currentMessageList.length;
+    const previousCount = previousMessageCountRef.current;
 
-          if (existingConversation) {
-            setSelectedConversation(existingConversation);
-            // Clear URL parameters after opening chat
-            const url = new URL(window.location);
-            url.searchParams.delete('clientUserId');
-            url.searchParams.delete('clientName');
-            window.history.replaceState({}, '', url.toString());
-          } else if (!selectedConversation) {
-            // Store client user ID for later selection
-            sessionStorage.setItem('pendingClientChat', clientUserId);
-            
-            // Create new conversation with this client user
-            const conversationId = await getOrCreateConversation({
-              participantIds: [clientUserId],
-              title: `Chat with ${clientName || 'Client'}`
-            });
-            
-            // Clear URL parameters immediately after creating
-            const url = new URL(window.location);
-            url.searchParams.delete('clientUserId');
-            url.searchParams.delete('clientName');
-            window.history.replaceState({}, '', url.toString());
-          }
-        } catch (error) {
-          console.error('Error opening client chat:', error);
-          // Clear URL parameters even on error
-          const url = new URL(window.location);
-          url.searchParams.delete('clientUserId');
-          url.searchParams.delete('clientName');
-          window.history.replaceState({}, '', url.toString());
-        }
-      }
-    };
+    console.log('[Notification Debug]', {
+      currentCount: currentMessageCount,
+      previousCount,
+      hasNewMessages: currentMessageCount > previousCount,
+      selectedConv: selectedConversation?.title,
+      userPermission: typeof Notification !== 'undefined' ? Notification.permission : 'not available'
+    });
 
-    checkForClientChat();
-  }, [user, conversations, selectedConversation, getOrCreateConversation]);
+    if (currentMessageCount > previousCount) {
+      // Get the last message
+      const lastMessage = currentMessageList[currentMessageList.length - 1];
 
-  // Select the newly created conversation
-  useEffect(() => {
-    if (conversations && !selectedConversation) {
-      // Check if we just created a conversation (after URL params were cleared)
-      const urlParams = new URLSearchParams(window.location.search);
-      const hadClientUserId = sessionStorage.getItem('pendingClientChat');
-      
-      if (hadClientUserId) {
-        const targetConversation = conversations.find(conv => 
-          conv.participants.some(p => p.userId === hadClientUserId)
-        );
-        
-        if (targetConversation) {
-          setSelectedConversation(targetConversation);
-          sessionStorage.removeItem('pendingClientChat');
-        }
+      console.log('[Last Message]', {
+        senderId: lastMessage?.senderId,
+        currentUserId: user.id,
+        isFromOtherUser: lastMessage && lastMessage.senderId !== user.id
+      });
+
+      // Only notify if it's from another user and we're viewing the conversation
+      if (lastMessage && lastMessage.senderId !== user.id) {
+        const senderName = lastMessage.sender?.firstName && lastMessage.sender?.lastName
+          ? `${lastMessage.sender.firstName} ${lastMessage.sender.lastName}`
+          : lastMessage.senderId || 'Someone';
+
+        const messagePreview = lastMessage.body.substring(0, 50) + 
+          (lastMessage.body.length > 50 ? '...' : '');
+
+        console.log('[Sending Notification]', { senderName, messagePreview });
+
+        sendNotification(`New message from ${senderName}`, {
+          body: messagePreview,
+          tag: `chat-${selectedConversation._id}`,
+          requireInteraction: false,
+        });
       }
     }
-  }, [conversations, selectedConversation]);
+
+    previousMessageCountRef.current = currentMessageCount;
+  }, [messages?.page, selectedConversation, user]);
+
+  // Mark conversation as read when selected (disabled to prevent render loops)
+  // useEffect(() => {
+  //   const currentId = selectedConversation?._id;
+  //   if (currentId && lastMarkedConversationRef.current !== currentId) {
+  //     lastMarkedConversationRef.current = currentId;
+  //     markAsRead({ conversationId: currentId });
+  //   }
+  // }, [selectedConversation?._id]);
+
+  // Auto-open conversation when client user ID is in URL - DISABLED to prevent render loop
+  // useEffect(() => {
+  //   // ... removed - was causing infinite setState due to conversations dependency
+  // }, []);
+
+  // Select the newly created conversation - DISABLED to prevent render loop
+  // useEffect(() => {
+  //   // ... removed - was causing infinite setState due to conversations dependency
+  // }, []);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -132,10 +223,15 @@ const ChatInterface = () => {
       setMessageInput('');
     } catch (error) {
       console.error('Failed to send message:', error);
+      // If conversation was deleted or user removed, clear selection
+      if (error.message?.includes('Not authorized')) {
+        setSelectedConversation(null);
+        alert('This conversation is no longer accessible.');
+      }
     }
   };
 
-  const getConversationTitle = (conversation) => {
+  const getConversationTitle = useCallback((conversation) => {
     if (conversation.title) return conversation.title;
     
     const otherParticipants = conversation.participants?.filter(
@@ -147,9 +243,9 @@ const ChatInterface = () => {
     }
     
     return 'New Conversation';
-  };
+  }, [user?.id]);
 
-  const getConversationAvatar = (conversation) => {
+  const getConversationAvatar = useCallback((conversation) => {
     const otherParticipants = conversation.participants?.filter(
       p => p.userId !== user?.id
     );
@@ -159,24 +255,27 @@ const ChatInterface = () => {
     }
     
     return null;
-  };
+  }, [user?.id]);
 
-  const getInitials = (conversation) => {
+  const getInitials = useCallback((conversation) => {
     const title = getConversationTitle(conversation);
     return title.split(' ').map(word => word[0]).join('').toUpperCase().slice(0, 2);
-  };
+  }, [getConversationTitle]);
 
-  const filteredConversations = conversations?.filter(conv => 
-    getConversationTitle(conv).toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredConversations = useMemo(() => 
+    conversations?.filter(conv => 
+      getConversationTitle(conv).toLowerCase().includes(searchTerm.toLowerCase())
+    ) || [],
+    [conversations, searchTerm, getConversationTitle]
+  );
 
-  const handleConversationCreated = async (conversationId) => {
+  const handleConversationCreated = useCallback((conversationId) => {
     // Find the newly created conversation and select it
     const conversation = conversations?.find(c => c._id === conversationId);
-    if (conversation) {
+    if (conversation && selectedConversation?._id !== conversation._id) {
       setSelectedConversation(conversation);
     }
-  };
+  }, [conversations, selectedConversation?._id]);
 
   const handleDeleteConversation = async () => {
     if (!selectedConversation) return;

@@ -15,9 +15,12 @@ export default function AuditLogsPage() {
 
   const auditLogs = useQuery(api.auditLogs.list, filter);
   const stats = useQuery(api.auditLogs.getStats);
+  const allActions = useQuery(api.auditLogs.getUniqueActions);
 
   const entityTypes = ["all", "system", "user", "organization", "client", "referral", "appointment"];
-  const actionTypes = ["all", "create", "update", "delete", "login", "logout"];
+  
+  // Use all available actions from database, not just filtered ones
+  const actionTypes = ["all", ...(allActions || [])];
 
   return (
     <div className="space-y-6">
@@ -164,7 +167,13 @@ export default function AuditLogsPage() {
                           View Details
                         </summary>
                         <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-w-md">
-                          {JSON.stringify(JSON.parse(log.details), null, 2)}
+                          {(() => {
+                            try {
+                              return JSON.stringify(JSON.parse(log.details), null, 2);
+                            } catch (e) {
+                              return typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2);
+                            }
+                          })()}
                         </pre>
                       </details>
                     ) : (

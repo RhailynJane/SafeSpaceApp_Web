@@ -3,7 +3,7 @@
  * Provides role-based access control and permission checking
  */
 
-import { query } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -169,6 +169,97 @@ export const getUserByClerkId = query({
 });
 
 /**
+ * Get current user (whoami) - for mobile app
+ */
+export const whoami = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    
+    const clerkId = identity.subject;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+    
+    return user;
+  },
+});
+
+/**
+ * Sync/upsert user from mobile app (Clerk authentication)
+ */
+export const syncUser = mutation({
+  args: {
+    email: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+
+    const clerkId = identity.subject;
+    const now = Date.now();
+
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    const doc: any = {
+      clerkId,
+      email: args.email ?? identity.email ?? undefined,
+      firstName: args.firstName ?? identity.givenName ?? undefined,
+      lastName: args.lastName ?? identity.familyName ?? undefined,
+      imageUrl: args.imageUrl ?? identity.pictureUrl ?? undefined,
+      updatedAt: now,
+    };
+
+    if (existing) {
+      // If user already exists and has no orgId, check if there's a matching client record
+      if (!existing.orgId) {
+        // Try to find matching client record to get orgId
+        const client = await ctx.db
+          .query("clients")
+          .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+          .first();
+        
+        if (client && client.orgId) {
+          doc.orgId = client.orgId;
+          console.log(`[syncUser] Found matching client record with orgId: ${client.orgId}`);
+        }
+      }
+      
+      await ctx.db.patch(existing._id, doc);
+      return { updated: true };
+    }
+    
+    // For new users, check if there's a matching client record to get orgId
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+    
+    if (client && client.orgId) {
+      doc.orgId = client.orgId;
+      console.log(`[syncUser] Creating user with orgId from client record: ${client.orgId}`);
+    }
+    
+    await ctx.db.insert("users", {
+      ...doc,
+      roleId: "client", // Default role for mobile users
+      status: "active",
+      createdAt: now,
+    });
+    return { created: true };
+  },
+});
+
+/**
  * Get role by slug
  */
 export const getRoleBySlug = query({
@@ -195,16 +286,24 @@ export async function hasPermission(
     .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
     .first();
 
-    if (!user || !user.roleId) return false;
+  if (!user || !user.roleId) {
+    console.log('[hasPermission] User not found or no roleId:', { clerkId, user: user ? 'exists' : 'null' });
+    return false;
+  }
 
-  const role = await ctx.db
-    .query("roles")
-    .withIndex("by_slug", (q) => q.eq("slug", user.roleId))
-    .first();
+  // Get permissions from ROLE_PERMISSIONS map
+  const rolePermissions = ROLE_PERMISSIONS[user.roleId as keyof typeof ROLE_PERMISSIONS] as readonly string[] | undefined;
+  console.log('[hasPermission] Checking permission:', { 
+    clerkId, 
+    roleId: user.roleId, 
+    permission, 
+    hasRole: !!rolePermissions,
+    hasPermission: rolePermissions ? (rolePermissions as string[]).includes(permission) : false
+  });
+  
+  if (!rolePermissions) return false;
 
-  if (!role) return false;
-
-  return role.permissions.includes(permission);
+  return (rolePermissions as string[]).includes(permission);
 }
 
 /**
@@ -293,3 +392,157 @@ export async function requireSuperAdmin(ctx: any, clerkId: string) {
     throw new Error("Unauthorized: SuperAdmin access required");
   }
 }
+
+/**
+ * DEBUG: Check user orgId status (temporary helper)
+ */
+export const checkUserOrgId = query({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, { clerkId }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      return { found: false };
+    }
+
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    return {
+      found: true,
+      user: {
+        _id: user._id,
+        clerkId: user.clerkId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        orgId: user.orgId || null,
+      },
+      client: client ? {
+        _id: client._id,
+        firstName: client.firstName,
+        lastName: client.lastName,
+        orgId: client.orgId || null,
+      } : null,
+    };
+  },
+});
+
+/**
+ * DEBUG: Set a user's orgId directly (no client lookup needed)
+ */
+export const setUserOrgId = mutation({
+  args: {
+    clerkId: v.string(),
+    orgId: v.string(),
+  },
+  handler: async (ctx, { clerkId, orgId }) => {
+    // Verify org exists
+    const org = await ctx.db
+      .query("organizations")
+      .withIndex("by_slug", (q) => q.eq("slug", orgId))
+      .first();
+
+    if (!org) {
+      throw new Error(`Organization not found: ${orgId}`);
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, { orgId });
+    console.log(`[setUserOrgId] Set user ${user.firstName} ${user.lastName} orgId to ${orgId}`);
+
+    return {
+      success: true,
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        orgId,
+      },
+    };
+  },
+});
+
+/**
+ * DEBUG: Repair a specific user's orgId
+ */
+export const fixUserOrgId = mutation({
+  args: {
+    clerkId: v.string(),
+  },
+  handler: async (ctx, { clerkId }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (!client || !client.orgId) {
+      throw new Error("No matching client record with orgId found");
+    }
+
+    await ctx.db.patch(user._id, { orgId: client.orgId });
+    console.log(`[fixUserOrgId] Fixed user ${user.firstName} ${user.lastName} - set orgId to ${client.orgId}`);
+
+    return {
+      success: true,
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        orgId: client.orgId,
+      },
+    };
+  },
+});
+
+/**
+ * DEBUG: Repair user records by populating orgId from client records
+ * This is a temporary helper to fix existing user records that don't have orgId
+ */
+export const repairUserOrgIds = mutation({
+  handler: async (ctx) => {
+    // Get all users without orgId
+    const usersWithoutOrg = await ctx.db.query("users").collect();
+    const usersToRepair = usersWithoutOrg.filter((u: any) => !u.orgId);
+
+    console.log(`[repairUserOrgIds] Found ${usersToRepair.length} users without orgId`);
+
+    let repaired = 0;
+    for (const user of usersToRepair) {
+      // Try to find matching client record
+      const client = await ctx.db
+        .query("clients")
+        .withIndex("by_clerkId", (q) => q.eq("clerkId", user.clerkId))
+        .first();
+
+      if (client && client.orgId) {
+        await ctx.db.patch(user._id, { orgId: client.orgId });
+        console.log(`[repairUserOrgIds] Patched user ${user.firstName} ${user.lastName} with orgId: ${client.orgId}`);
+        repaired++;
+      }
+    }
+
+    return { repaired, total: usersToRepair.length };
+  },
+});

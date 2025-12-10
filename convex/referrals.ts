@@ -240,7 +240,7 @@ export const getTimeline = query({
     // Fetch timeline events
     const timelineEvents = await ctx.db
       .query("referralTimeline")
-      .withIndex("by_referral", (q) => q.eq("referralId", referralId))
+      .withIndex("by_referralId", (q) => q.eq("referralId", referralId))
       .collect();
 
     // Sort by createdAt ascending (oldest first)

@@ -86,14 +86,31 @@ export default function SystemHealthPage() {
       <div className="bg-card border rounded-lg p-6">
         <h3 className="text-lg font-semibold mb-4">Database Statistics</h3>
         {dbStats ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {Object.entries(dbStats.tables).map(([table, count]) => (
-              <div key={table} className="bg-muted/50 rounded-lg p-4">
-                <div className="text-xs text-muted-foreground capitalize mb-1">{table}</div>
-                <div className="text-xl font-bold">{count.toLocaleString()}</div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {Object.entries(dbStats.tables).map(([table, count]) => (
+                <div key={table} className="bg-muted/50 rounded-lg p-4">
+                  <div className="text-xs text-muted-foreground capitalize mb-1">{table}</div>
+                  <div className="text-xl font-bold">{count.toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Users by Role Section */}
+            {dbStats.usersByRole && Object.keys(dbStats.usersByRole).length > 0 && (
+              <div className="mt-6">
+                <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Users by Role</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {Object.entries(dbStats.usersByRole).map(([role, count]) => (
+                    <div key={role} className="bg-primary/10 rounded-lg p-4 border border-primary/20">
+                      <div className="text-xs text-primary font-medium mb-1">{role}</div>
+                      <div className="text-xl font-bold text-primary">{count.toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         ) : (
           <div className="h-24 animate-pulse bg-muted rounded" />
         )}

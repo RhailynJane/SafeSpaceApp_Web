@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { isSuperAdmin, hasOrgAccess } from "./auth";
 
 // Record a heartbeat for the current authenticated user
+
 export const heartbeat = mutation({
   args: { status: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -30,6 +31,20 @@ export const heartbeat = mutation({
       await ctx.db.insert("presence", { userId, status, lastSeen: now });
     }
     return { ok: true, lastSeen: now };
+  },
+});
+
+// List users considered "online" within the last N ms (default 6 minutes)
+// Used by mobile app
+export const onlineUsers = query({
+  args: { sinceMs: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const cutoff = Date.now() - (args.sinceMs ?? 6 * 60 * 1000);
+    const rows = await ctx.db
+      .query("presence")
+      .withIndex("by_lastSeen", (q) => q.gte("lastSeen", cutoff))
+      .collect();
+    return rows;
   },
 });
 

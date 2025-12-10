@@ -2,14 +2,14 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
     const crisisEvent = await prisma.crisisEvent.findUnique({
       where: { id: Number(id) },
     });
@@ -23,19 +23,19 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(crisisEvent);
   } catch (error) {
-    console.error(`Error fetching crisis event ${params.id}:`, error);
+    console.error(`Error fetching crisis event:`, error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
     const data = await request.json();
 
     const updatedCrisisEvent = await prisma.crisisEvent.update({
@@ -56,26 +56,26 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json(updatedCrisisEvent);
   } catch (error) {
-    console.error(`Error updating crisis event ${params.id}:`, error);
+    console.error(`Error updating crisis event:`, error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
-export async function DELETE(request, { params }) {
+export async function DELETE(request, context) {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params;
+    const { id } = await context.params;
     await prisma.crisisEvent.delete({
       where: { id: Number(id) },
     });
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    console.error(`Error deleting crisis event ${params.id}:`, error);
+    console.error(`Error deleting crisis event:`, error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

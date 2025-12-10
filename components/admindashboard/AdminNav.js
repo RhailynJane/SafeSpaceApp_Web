@@ -15,6 +15,7 @@ export default function AdminNav() {
     const navLinks = [
         { name: 'Overview', href: '/admin/overview' },
         { name: 'Users', href: '/admin/users' },
+        { name: 'Messages', href: '/admin/messages' },
         { name: 'Referral Intake', href: '/admin/referral-intake' },
         { name: 'Referral Tracking', href: '/admin/referral-tracking' },
         { name: 'Announcements', href: '/admin/announcements' },

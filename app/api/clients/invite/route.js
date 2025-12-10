@@ -13,6 +13,37 @@ import { api } from "@/convex/_generated/api";
  */
 export async function POST(request) {
   try {
+    // Parse request body BEFORE calling auth() to avoid Clerk validation issues
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseErr) {
+      console.error("JSON parse error:", parseErr);
+      const contentType = request.headers.get("content-type");
+      console.error("Content-Type:", contentType);
+      console.error("Request URL:", request.url);
+      console.error("Request method:", request.method);
+      return NextResponse.json({ 
+        error: "Request body invalid - failed to parse JSON",
+        detail: parseErr?.message 
+      }, { status: 400 });
+    }
+
+    if (!body || typeof body !== 'object') {
+      console.error("Invalid body type:", typeof body);
+      return NextResponse.json({ 
+        error: "Request body invalid - body must be a JSON object",
+      }, { status: 400 });
+    }
+
+    const email = String(body?.email || "").trim().toLowerCase();
+    const orgId = String(body?.orgId || body?.org_id || "").trim();
+    const firstName = String(body?.firstName || body?.client_first_name || "").trim();
+    const lastName = String(body?.lastName || body?.client_last_name || "").trim();
+    
+    console.log("Invite request body parsed:", { email, orgId, firstName, lastName });
+
+    // NOW check authentication after body is parsed
     const { userId, sessionClaims } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -20,12 +51,7 @@ export async function POST(request) {
     if (!["superadmin", "admin", "team_leader", "support_worker"].includes(role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-
-    const body = await request.json();
-    const email = String(body?.email || "").trim().toLowerCase();
-    const orgId = String(body?.orgId || body?.org_id || "").trim();
-    const firstName = String(body?.firstName || body?.client_first_name || "").trim();
-    const lastName = String(body?.lastName || body?.client_last_name || "").trim();
+    
     if (!email) return NextResponse.json({ error: "Email is required" }, { status: 400 });
 
     const publicMetadata = {
@@ -148,35 +174,51 @@ export async function POST(request) {
         console.warn("Error sending email:", emailErr);
       }
     } else {
-      // New user - create them first, then send invitation
-      console.log(`Creating new user for ${email}`);
+      // New user - create Clerk user with a random strong password so "Forgot password" works immediately.
+      console.log(`Creating new Clerk user for ${email}`);
+
+      const generatePassword = () => {
+        const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const lower = "abcdefghijkmnopqrstuvwxyz";
+        const digits = "23456789";
+        const symbols = "!@#$%^&*()_+[]{}";
+        const pick = (set) => set[Math.floor(Math.random() * set.length)];
+        let pwd = pick(upper) + pick(lower) + pick(digits) + pick(symbols);
+        const all = upper + lower + digits + symbols;
+        while (pwd.length < 16) pwd += pick(all);
+        return pwd;
+      };
+
+      const tempPassword = generatePassword();
+
+      const createBody = {
+        email_address: [email],
+        password: tempPassword,
+        first_name: firstName || undefined,
+        last_name: lastName || undefined,
+        public_metadata: publicMetadata,
+      };
+
+      console.log("Clerk user creation body (sanitized):", { ...createBody, password: "<hidden>" });
+
       const createRes = await fetch("https://api.clerk.com/v1/users", {
         method: "POST",
         headers: { Authorization: `Bearer ${secret}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email_address: [email],
-          first_name: firstName || undefined,
-          last_name: lastName || undefined,
-          public_metadata: publicMetadata,
-          skip_password_checks: true,
-          skip_password_requirement: true,
-        }),
+        body: JSON.stringify(createBody),
       });
       const createData = await createRes.json();
       if (!createRes.ok) {
-        console.error("Clerk user creation error:", createData);
-        return NextResponse.json({ 
+        console.error("Clerk user creation error:", createRes.status, createData);
+        return NextResponse.json({
           error: createData?.errors?.[0]?.message || "User creation failed",
-          detail: JSON.stringify(createData)
+          detail: JSON.stringify(createData),
         }, { status: createRes.status || 500 });
       }
       user = createData;
       console.log("New user created:", user.id);
 
-      // No need to generate magic links - users will use forgot password flow
+      // Send Brevo backup email with instructions to use "Forgot Password"
       magicLinkUrl = undefined;
-
-      // Send welcome email via Brevo
       try {
         const brevoKey = process.env.AUTH_BREVO_KEY;
         if (brevoKey) {
@@ -207,7 +249,7 @@ export async function POST(request) {
               `,
             }),
           });
-          
+
           if (emailRes.ok) {
             console.log("Welcome email sent via Brevo");
           } else {

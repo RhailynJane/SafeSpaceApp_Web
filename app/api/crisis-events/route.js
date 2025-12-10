@@ -1,7 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+import { getConvexClient } from "@/lib/convex-server.js";
 
-// Crisis events not yet migrated to Convex - returning empty for now
 export async function GET(request) {
   try {
     const { userId } = await auth();
@@ -10,9 +12,22 @@ export async function GET(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Migrate crisis events to Convex
-    // For now, return empty array to prevent errors
-    return NextResponse.json([], { status: 200 });
+    const convex = await getConvexClient();
+    
+    // Get crisis stats and event logs
+    const [crisisStats, eventLog, safetyStats, highRiskClients] = await Promise.all([
+      convex.query(api.crisis.getCrisisStats, { daysBack: 30 }),
+      convex.query(api.crisis.getCristsEventLog, { limit: 50, daysBack: 30 }),
+      convex.query(api.safetyIndicators.getSafetyStats, { daysBack: 30 }),
+      convex.query(api.safetyIndicators.getHighRiskClients, { daysBack: 30 }),
+    ]);
+
+    return NextResponse.json({
+      crisisStats,
+      eventLog,
+      safetyStats,
+      highRiskClients,
+    });
   } catch (error) {
     console.error("Error fetching crisis events:", error);
     return NextResponse.json(
@@ -30,10 +45,35 @@ export async function POST(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Migrate crisis events to Convex
+    const body = await request.json();
+    const convex = await getConvexClient();
+
+    // Log a crisis resource access
+    if (body.type === "trackResourceAccess") {
+      await convex.mutation(api.crisis.trackAction, {
+        resourceId: body.resourceId,
+        action: body.action, // 'call' | 'view' | 'visit'
+        userId: userId,
+      });
+
+      // Also log as a safety indicator if it's a crisis access
+      if (body.action === "call") {
+        await convex.mutation(api.safetyIndicators.logIndicator, {
+          clientId: userId,
+          source: "crisis_access",
+          indicatorType: "crisis_resource_accessed",
+          severity: "medium",
+          description: `Client accessed crisis resource: ${body.resourceTitle || "Unknown"}`,
+          relatedData: JSON.stringify({ resourceId: body.resourceId, action: body.action }),
+        });
+      }
+
+      return NextResponse.json({ ok: true });
+    }
+
     return NextResponse.json(
-      { message: "Crisis events not yet implemented in Convex" },
-      { status: 501 }
+      { message: "Invalid request type" },
+      { status: 400 }
     );
   } catch (error) {
     console.error("Error creating crisis event:", error);
@@ -43,3 +83,4 @@ export async function POST(request) {
     );
   }
 }
+

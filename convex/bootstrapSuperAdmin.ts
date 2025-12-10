@@ -102,3 +102,59 @@ export const createSuperAdmin = mutation({
     };
   },
 });
+
+/**
+ * Quick bootstrap for the specific superadmin account
+ * No arguments needed - hardcoded for initial setup
+ */
+export const bootstrapDefaultSuperAdmin = mutation({
+  handler: async (ctx) => {
+    const clerkId = "user_36UDKKVRjPuAQlr5vwrqXu31Pyc";
+    const email = "safespace.dev.app@gmail.com";
+    
+    // Check if user already exists
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", clerkId))
+      .first();
+
+    if (existing) {
+      return {
+        success: false,
+        message: `User already exists`,
+        userId: existing._id,
+        user: existing,
+      };
+    }
+
+    // Create SuperAdmin user
+    const userId = await ctx.db.insert("users", {
+      clerkId,
+      email: email.toLowerCase().trim(),
+      firstName: "SafeSpace",
+      lastName: "SuperAdmin",
+      roleId: "superadmin",
+      orgId: "safespace",
+      status: "active",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Log audit event
+    await ctx.db.insert("auditLogs", {
+      userId: clerkId,
+      action: "superadmin_bootstrapped",
+      entityType: "user",
+      entityId: userId,
+      details: JSON.stringify({ email }),
+      timestamp: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: `SuperAdmin user created successfully!`,
+      userId,
+    };
+  },
+});
+

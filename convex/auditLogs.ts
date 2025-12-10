@@ -126,7 +126,7 @@ export const getByUser = query({
   handler: async (ctx, args) => {
     const logs = await ctx.db
       .query("auditLogs")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .order("desc")
       .take(args.limit || 50);
 
@@ -238,6 +238,18 @@ export const getStats = query({
       byEntityType,
       byOrg,
     };
+  },
+});
+
+/**
+ * Get all unique action types across all audit logs
+ */
+export const getUniqueActions = query({
+  args: {},
+  handler: async (ctx) => {
+    const logs = await ctx.db.query("auditLogs").collect();
+    const uniqueActions = new Set(logs.map((log) => log.action));
+    return Array.from(uniqueActions).sort();
   },
 });
 

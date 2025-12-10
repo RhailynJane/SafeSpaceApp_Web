@@ -70,17 +70,42 @@ const AuditLogTab = ({ auditLogs = [], currentUser = null }) => {
         const logDate = new Date(log.created_at);
         
         // Get date in YYYY-MM-DD format in local timezone
-        const logDateStr = new Date(logDate.getTime() - (logDate.getTimezoneOffset() * 60000))
-          .toISOString().split('T')[0];
+        const logDateStr = (() => {
+          const d = new Date(logDate);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })();
         
         if (dateFilter === 'today') {
-          const todayStr = new Date().toISOString().split('T')[0];
+          const todayStr = (() => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })();
           matchesDate = logDateStr === todayStr;
         } else if (dateFilter === 'week') {
-          const weekAgoStr = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const weekAgoStr = (() => {
+            const d = new Date();
+            d.setDate(d.getDate() - 7);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })();
           matchesDate = logDateStr >= weekAgoStr;
         } else if (dateFilter === 'month') {
-          const monthAgoStr = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          const monthAgoStr = (() => {
+            const d = new Date();
+            d.setDate(d.getDate() - 30);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })();
           matchesDate = logDateStr >= monthAgoStr;
         } else if (dateFilter === 'custom') {
           if (customDateFrom && customDateTo) {
