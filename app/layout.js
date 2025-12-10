@@ -20,8 +20,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Safe Space App",
+  title: "SafeSpace",
   description: "Web app for admin, team leader, and support worker",
+  icons: {
+    icon: '/images/logo.png',
+  },
 };
 
 export default function RootLayout({ children }) {
