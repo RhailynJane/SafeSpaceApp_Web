@@ -23,7 +23,11 @@ export const metadata = {
   title: "SafeSpace",
   description: "Web app for admin, team leader, and support worker",
   icons: {
-    icon: '/images/logo.png',
+    icon: [
+      { url: '/images/logo.png', sizes: 'any' },
+      { url: '/images/logo.png', type: 'image/png' },
+    ],
+    apple: '/images/logo.png',
   },
 };
 
