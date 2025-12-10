@@ -8,7 +8,6 @@ const __dirname = path.dirname(__filename);
 
 const nextConfig = {
   output: 'standalone',
-  outputFileTracingRoot: path.join(__dirname, '../'),
   
   async rewrites() {
     return [
