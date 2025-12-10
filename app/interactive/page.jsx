@@ -1,13 +1,13 @@
 "use client";
 
-// Disable static prerendering to avoid `window`/`document` access during build
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import dynamic from "next/dynamic";
 import useDraggable from "../../hooks/useDraggable";
 import { useAuth, useUser } from "@clerk/nextjs";
+
+// Disable static prerendering to avoid `window`/`document` access during build
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 import { useSearchParams } from "next/navigation";
 import { useSWRConfig } from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
