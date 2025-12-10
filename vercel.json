@@ -1,14 +1,7 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "framework": "nextjs",
-  "installCommand": "npm install",
   "regions": ["iad1"],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "functions": {
-    "api/**/*.js": {
+    "app/api/**/*.{js,ts}": {
       "maxDuration": 30
     }
   }
